@@ -218,6 +218,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .wbtn,.wbar select{height:36px;min-width:36px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,17,14,.6);color:#f3ead9;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;font-size:.88rem}
 .wbar select{appearance:none;-webkit-appearance:none;padding-right:12px}
 .wbtn{white-space:nowrap}
+
 @media (max-width:420px){.wbar{gap:6px;padding-left:8px;padding-right:8px}.wbtn,.wbar select{padding:0 9px}}
 .wbtn.on{background:rgba(201,162,74,.28);border-color:rgba(233,196,110,.6)}
 .wbar .wcount{color:#bfb4a2;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -279,6 +280,20 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .ccgrid button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px;text-align:left}
 .ccgrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--mat)}
 .ccgrid span{font-size:.72rem;color:var(--muted);line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* Phone on its side: picture on the left, placard on the right, using the full height. */
+@media (orientation:landscape) and (max-height:560px){
+  .wbar{padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:6px;padding-left:calc(10px + env(safe-area-inset-left));padding-right:calc(10px + env(safe-area-inset-right))}
+  .wbtn,.wbar select{height:32px}
+  .bay{flex-basis:100%;flex-direction:row;gap:clamp(18px,4vw,40px);padding:46px calc(64px + env(safe-area-inset-right)) calc(8vh + 6px) calc(64px + env(safe-area-inset-left));
+    background:radial-gradient(ellipse 40% 75% at 42% 40%,rgba(255,226,170,.17),rgba(255,226,170,.05) 55%,transparent 75%)}
+  .wall .floor{height:8vh}
+  .pframe{padding:clamp(8px,1.4vw,14px)}
+  .pmat{padding:clamp(10px,2vw,22px)}
+  .pmat img{max-height:calc(100svh - 46px - 8vh - 14px - 2*clamp(8px,1.4vw,14px) - 2*clamp(10px,2vw,22px));max-width:calc(100vw - 128px - 220px - 4vw)}
+  .pmat img:not([src]){height:calc(100svh - 46px - 8vh - 80px);width:calc((100svh - 140px) * .8)}
+  .placard{flex:0 0 auto;width:clamp(150px,24vw,240px)}
+  .wnav{width:40px;height:40px}
+}
 </style>
 </head>
 <body>
@@ -292,7 +307,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.29";
+const APP_VERSION = "2026.11.03.30";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
