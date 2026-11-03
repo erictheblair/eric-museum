@@ -269,16 +269,18 @@ class DropboxStore {
   static redirectUri(){ return location.origin + location.pathname; }
   static b64url(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
   static standalone(){ return navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches); }
-  static async beginAuth(appKey, manual){
+  // Prepared ahead of the tap: iPhone home-screen apps ignore navigation that happens after an await.
+  static async prepare(){
     const verifier = DropboxStore.b64url(crypto.getRandomValues(new Uint8Array(48)));
     const challenge = DropboxStore.b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
-    const state = uid();
-    LS.set("cm.pkce", {verifier, state, appKey, manual:!!manual});
-    const q = new URLSearchParams({client_id:appKey, response_type:"code", code_challenge:challenge, code_challenge_method:"S256", token_access_type:"offline"});
-    if(manual){ window.open("https://www.dropbox.com/oauth2/authorize?" + q, "_blank"); return; }
-    q.set("redirect_uri", DropboxStore.redirectUri()); q.set("state", state);
-    location.href = "https://www.dropbox.com/oauth2/authorize?" + q;
+    return {verifier, challenge, state:uid()};
   }
+  static authUrl(appKey, pre, manual){
+    const q = new URLSearchParams({client_id:appKey, response_type:"code", code_challenge:pre.challenge, code_challenge_method:"S256", token_access_type:"offline"});
+    if(!manual){ q.set("redirect_uri", DropboxStore.redirectUri()); q.set("state", pre.state); }
+    return "https://www.dropbox.com/oauth2/authorize?" + q;
+  }
+  static remember(appKey, pre, manual){ LS.set("cm.pkce", {verifier:pre.verifier, state:pre.state, appKey, manual:!!manual}); }
   static async exchange(code, saved, withRedirect){
     const body = {code, grant_type:"authorization_code", code_verifier:saved.verifier, client_id:saved.appKey};
     if(withRedirect) body.redirect_uri = DropboxStore.redirectUri();
@@ -988,6 +990,7 @@ function viewSettings(){
          <div class="fgrid" style="margin-top:8px"><div class="f"><label for="ak">Dropbox App key</label><input id="ak" value="${esc(key)}" placeholder="e.g. a1b2c3d4e5f6g7h"></div></div>
          ${cat.items.length ? `<label class="check" style="margin-top:10px"><input type="checkbox" id="carry" checked> Copy the ${cat.items.length} piece${cat.items.length===1?"":"s"} on this device into Dropbox</label>` : ""}
          <div class="actions"><button class="iconbtn primary" id="conn">Connect Dropbox</button></div>
+         <p style="font-size:.82rem;margin-top:10px">Trouble connecting? <a href="#" id="manualLink" target="_blank" rel="noopener">Get a sign-in code instead</a>.</p>
          <div id="manualBox" style="display:${LS.get("cm.pkce",null)&&LS.get("cm.pkce",{}).manual?"block":"none"};margin-top:12px">
            <p><b>Almost done:</b> after you tap <b>Allow</b>, Dropbox shows a code. Copy it, come back here, and paste it below.</p>
            <div class="actions" style="margin-top:4px"><input id="mcode" placeholder="Paste the code from Dropbox" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn primary" id="mfinish">Finish</button></div></div>
@@ -1014,14 +1017,28 @@ function viewSettings(){
   ${store.kind==="local" && !cat.items.length ? `<div class="panel"><h2>Try it out</h2><p>Load a few sample pieces to see how the museum looks. You can delete them anytime.</p><div class="actions"><button class="iconbtn" id="demo">Load samples</button></div></div>` : ""}`;
 
   const $ = id => document.getElementById(id);
-  if($("conn")) $("conn").onclick = async () => {
+  let pre = null;
+  if($("conn")) $("conn").onclick = () => {
     const k = $("ak").value.trim(); if(!k) return toast("Paste your Dropbox App key first.");
     if(/^sl\./.test(k) || k.length > 40) return alert("That looks like an access token, not an App key. Use the short App key from the top of your app's Settings tab in the Dropbox App Console (about 15 characters). Don't share access tokens with anyone.");
+    if(!pre) return toast("One moment… try again.");
     LS.set("cm.appKey", k); LS.set("cm.carry", !!($("carry") && $("carry").checked));
-    const manual = DropboxStore.standalone();
-    await DropboxStore.beginAuth(k, manual);
-    if(manual){ $("manualBox").style.display = "block"; $("mcode").focus(); }
+    DropboxStore.remember(k, pre, false);
+    location.href = DropboxStore.authUrl(k, pre, false);
   };
+  if($("manualLink")){
+    const ml = $("manualLink");
+    const upd = () => { const k = $("ak").value.trim(); if(pre && k) ml.href = DropboxStore.authUrl(k, pre, true); };
+    $("ak").addEventListener("input", upd);
+    ml.onclick = e => {
+      const k = $("ak").value.trim();
+      if(!k || !pre){ e.preventDefault(); return toast("Paste your Dropbox App key first."); }
+      upd(); LS.set("cm.appKey", k); LS.set("cm.carry", !!($("carry") && $("carry").checked));
+      DropboxStore.remember(k, pre, true);
+      $("manualBox").style.display = "block";
+    };
+    DropboxStore.prepare().then(p => { pre = p; upd(); });
+  }
   if($("mfinish")) $("mfinish").onclick = async () => {
     const code = $("mcode").value.trim(); if(!code) return toast("Paste the code from Dropbox first.");
     try{ await DropboxStore.finishManual(code); LS.set("cm.justConnected", true); location.hash = "#/"; location.reload(); }catch(e){ alert(e.message); }
