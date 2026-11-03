@@ -246,6 +246,14 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 @media (hover:none){.wnav{display:none}}
 .wempty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;font-size:1.1rem}
 .wallbtn{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:.88rem;white-space:nowrap}
+.copyrow{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.copyrow:first-of-type{border-top:none}
+.copyrow b{font-family:var(--serif);font-size:.92rem;white-space:nowrap}
+.copyrow input{min-width:0;width:100%;height:38px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--surface)}
+.copyrow input.cn{grid-column:2 / span 2}
+.copylist{list-style:none;margin:8px 0 0;padding:0}
+.copylist li{padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
+.copylist li .cm{color:var(--muted);font-size:.85rem}
 </style>
 </head>
 <body>
@@ -259,7 +267,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.22";
+const APP_VERSION = "2026.11.03.23";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -551,7 +559,7 @@ function plate(it){
 function matches(it, q){
   if(!q) return true;
   const c = coll(it.collectionId);
-  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v),
+  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" ").toLowerCase();
   return q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
 }
@@ -804,6 +812,8 @@ function viewItem(id){
       <div class="by">${esc([it.maker, it.year].filter(Boolean).join(", "))}</div>
       <dl class="facts">${facts.map(([l,v])=>`<dt>${esc(l)}</dt><dd>${v}</dd>`).join("")}</dl>
       ${(it.tags||[]).length ? `<div class="chips" style="margin-top:14px">${it.tags.map(t=>`<a class="chip" href="#/c/${c.id}?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join("")}</div>` : ""}
+      ${it.qty > 1 && (it.copies||[]).some(x => x.condition || x.location || x.note) ? `<h3 style="margin-top:20px;font-size:1.05rem">Your ${it.qty} copies</h3><ul class="copylist">${Array.from({length:it.qty}, (_, i) => { const x = it.copies[i] || {};
+        return `<li><b>Copy ${i+1}</b>${x.condition ? " · " + esc(x.condition) : ""}${x.location ? " · 📍 " + esc(x.location) : ""}${x.note ? `<div class="cm">${esc(x.note)}</div>` : ""}</li>`; }).join("")}</ul>` : ""}
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
       ${docs.length ? `<h3 style="margin-top:20px;font-size:1.05rem">Documents</h3><div class="docs">${docs.map(d=>`<button class="doc" data-path="${esc(d.path)}" data-name="${esc(d.name||"")}"><span class="ic">${/pdf$/i.test(d.name||"")?"📄":"📜"}</span><span class="grow"><b>${esc(d.label||"Document")}</b><br><small style="color:var(--muted)">${esc(d.name||"")}</small></span><span>↗</span></button>`).join("")}</div>` : ""}
       <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${c.id}">▦ Scan</a><a class="fab" href="#/new?c=${c.id}">＋ Add</a></div>
@@ -945,7 +955,7 @@ function askDupe(it, dupes){
       <div class="docs" style="margin:10px 0">${dupes.map((d,n) => { const m = cover(d); return `<div class="doc" style="cursor:default">${m ? `<img alt="" data-path="${esc(m.thumb||m.path)}" style="width:46px;height:46px;object-fit:cover;border-radius:5px;background:var(--mat);flex:0 0 46px">` : `<span class="ic" style="width:46px;text-align:center">${coll(d.collectionId).icon}</span>`}
         <span class="grow" style="white-space:normal"><b>${esc(d.title)}</b>${d.qty > 1 ? ` <span style="color:var(--muted)">×${d.qty}</span>` : ""}<br><small style="color:var(--muted)">${desc(d)}</small></span>
         <button type="button" class="iconbtn primary" data-add="${n}" style="white-space:nowrap">＋${add} to quantity</button></div>`; }).join("")}</div>
-      <p style="font-size:.85rem">Adding to the quantity keeps the one entry and raises its count. Anything new you typed or photographed on this form isn't copied over.</p>
+      <p style="font-size:.85rem">Adding to the quantity keeps the one entry and raises its count. The condition, location and notes you typed here are saved as notes for the new copy. New photos aren't copied over.</p>
       <div class="actions"><button type="button" class="iconbtn" id="dqNew">Add as a separate entry</button><button type="button" class="iconbtn" id="dqX">Cancel</button></div>
     </div></div>`;
     const done = v => { L.innerHTML = ""; resolve(v); };
@@ -1443,6 +1453,9 @@ function viewEdit(id, params){
         <div class="f full"><label for="tags">Tags (comma separated)</label><input id="tags" name="tags" value="${esc((it.tags||[]).join(", "))}" placeholder="e.g. Disney, signed, wishlist upgrade"></div>
         <label class="check full"><input type="checkbox" name="favorite" ${it.favorite?"checked":""}> ★ Highlight this piece on the front page</label>
       </div></fieldset>
+      <fieldset id="copiesBox" style="display:${(it.qty||1) > 1 ? "block" : "none"}"><legend>Each copy</legend>
+        <p style="color:var(--muted);font-size:.85rem;margin:0 0 4px">Notes for each copy you own: its condition, where it's kept, and anything that sets it apart.</p>
+        <div id="copies"></div></fieldset>
       <fieldset><legend>Acquisition &amp; value 🔒</legend><div class="fgrid">
         <div class="f"><label for="acquiredDate">Date acquired</label><input id="acquiredDate" name="acquiredDate" value="${esc(it.acquiredDate||"")}" placeholder="2019-06 or Summer 2019"></div>
         <div class="f"><label for="source">From (store, auction, person)</label><input id="source" name="source" value="${esc(it.source||"")}"></div>
@@ -1479,6 +1492,7 @@ function viewEdit(id, params){
     if(document.getElementById("scanTop")) document.getElementById("scanTop").onclick = startScan;
     document.getElementById("barcode").onchange = e => { const v = e.target.value.trim(); if(v && !existing) { collect(); lookupInto(v); } };
     if(document.getElementById("titleLook")) document.getElementById("titleLook").onclick = lookupTitle;
+    renderCopies(); document.getElementById("qty").oninput = renderCopies;
     document.getElementById("addExtra").onclick = () => { document.getElementById("extras").insertAdjacentHTML("beforeend", extraRow({l:"",v:""})); wireExtras(); document.querySelector("#extras .xrow:last-child [data-xl]").focus(); };
     wireExtras();
     renderFound();
@@ -1532,6 +1546,18 @@ function viewEdit(id, params){
       }
   }
 
+  function readCopies(){ return [...document.querySelectorAll("#copies .copyrow")].map(r => ({condition:r.querySelector(".cc").value.trim(), location:r.querySelector(".cl").value.trim(), note:r.querySelector(".cn").value.trim()})); }
+  function renderCopies(){
+    const box = document.getElementById("copies"); if(!box) return;
+    const n = Math.max(1, Math.min(200, parseInt(document.getElementById("qty").value, 10) || 1));
+    const cur = box.children.length ? readCopies() : (it.copies || []);
+    document.getElementById("copiesBox").style.display = n > 1 ? "block" : "none";
+    box.innerHTML = n > 1 ? Array.from({length:n}, (_, i) => { const x = cur[i] || {}; return `<div class="copyrow"><b>Copy ${i+1}</b>
+      <input class="cc" value="${esc(x.condition||"")}" placeholder="Condition" list="condList" aria-label="Copy ${i+1} condition">
+      <input class="cl" value="${esc(x.location||"")}" placeholder="Where it's kept" aria-label="Copy ${i+1} location"><span></span>
+      <input class="cn" value="${esc(x.note||"")}" placeholder="Notes (signed, sealed, from Mom…)" aria-label="Copy ${i+1} notes"></div>`; }).join("")
+      + `<datalist id="condList">${conditionList().map(v => `<option value="${esc(v)}">`).join("")}</datalist>` : "";
+  }
   function collect(){
     const f = document.getElementById("ef"), d = new FormData(f), c = coll(it.collectionId);
     ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => it[k] = (d.get(k)||"").trim().replace(/^__other$/,""));
@@ -1539,6 +1565,8 @@ function viewEdit(id, params){
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
     const q = parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
+    const cps = readCopies();
+    if(q > 1 && cps.some(x => x.condition || x.location || x.note)) it.copies = cps.slice(0, q); else delete it.copies;
     it.fields = it.fields || {};
     c.fields.forEach(x => { const v = (d.get("x_"+x.k)||"").trim().replace(/^__other$/,""); if(v) it.fields[x.k] = v; else delete it.fields[x.k]; });
     it.extra = [...document.querySelectorAll("#extras .xrow")].map(r => ({l:r.querySelector("[data-xl]").value.trim(), v:r.querySelector("[data-xv]").value.trim()})).filter(x => x.l || x.v);
@@ -1592,9 +1620,13 @@ function viewEdit(id, params){
         if(!ch) return;
         if(ch.add){
           const d = ch.add, add = it.qty || 1, was = d.qty || 1;
+          const prevCopies = d.copies ? d.copies.slice() : null;
+          const cps = (d.copies || []).slice(0, was); while(cps.length < was) cps.push(cps.length ? {} : {condition:d.condition||"", location:d.location||""});
+          for(let k = 0; k < add; k++) cps.push({condition:it.condition||"", location:it.location||"", note:[it.notes, it.acquiredDate || it.source ? "Acquired " + [it.acquiredDate, it.source].filter(Boolean).join(" from ") : ""].filter(Boolean).join(" · ")});
+          d.copies = cps.some(x => x.condition || x.location || x.note) ? cps : undefined; if(!d.copies) delete d.copies;
           d.qty = was + add; d.updated = new Date().toISOString();
           const done = busy("Saving…");
-          try{ await persist(); }catch(e){ if(was > 1) d.qty = was; else delete d.qty; done(); return alert(e.message); }
+          try{ await persist(); }catch(e){ if(was > 1) d.qty = was; else delete d.qty; if(prevCopies) d.copies = prevCopies; else delete d.copies; done(); return alert(e.message); }
           done(); pending.length = 0;
           toast("You now have " + d.qty + " of “" + d.title + "”");
           location.hash = next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + d.id;
