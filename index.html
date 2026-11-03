@@ -206,6 +206,46 @@ table.report th,table.report td{border-bottom:1px solid var(--line);padding:6px 
 table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 .report-wrap{overflow-x:auto}
 @media print{header.top,.fabs,.noprint{display:none!important} body{background:#fff;color:#000} main{padding:0}}
+/* Gallery mode: framed pieces on a dark, spotlit wall */
+body.wallmode{overflow:hidden}
+body.wallmode header.top,body.wallmode .fabs{display:none}
+.wall{position:fixed;inset:0;z-index:30;background:#24201b linear-gradient(180deg,#1b1815 0%,#2b2620 55%,#1f1b17 100%);color:#efe6d6;overflow:hidden;font-family:var(--serif)}
+.wall .floor{position:absolute;left:0;right:0;bottom:0;height:11vh;background:linear-gradient(180deg,#120f0c 0,#120f0c 6px,#3a2a1c 6px,#2a1e14 40%,#1a130d 100%);pointer-events:none}
+.wall .floor::before{content:"";position:absolute;left:0;right:0;top:-3px;height:3px;background:#0c0a08}
+.wbar{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0));font-family:var(--sans);font-size:.9rem;transition:opacity .4s}
+.wall.quiet .wbar,.wall.quiet .wnav{opacity:0;pointer-events:none}
+.wbar .wtitle{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--serif);font-size:1.05rem;letter-spacing:.04em}
+.wbtn,.wbar select{height:36px;min-width:36px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,17,14,.6);color:#f3ead9;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;font-size:.88rem}
+.wbar select{appearance:none;-webkit-appearance:none;padding-right:12px}
+.wbar .wcount{color:#bfb4a2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wtrack{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.wtrack::-webkit-scrollbar{display:none}
+.bay{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(18px,3.5vh,34px);padding:calc(64px + env(safe-area-inset-top)) 18px calc(13vh + env(safe-area-inset-bottom));position:relative;
+  background:radial-gradient(ellipse 42% 58% at 50% 34%,rgba(255,226,170,.17),rgba(255,226,170,.05) 55%,transparent 75%)}
+@media (min-width:900px){.bay{flex-basis:50%}}
+.pframe{display:inline-block;padding:clamp(10px,1.6vw,18px);border:none;cursor:zoom-in;border-radius:2px;line-height:0;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.45),inset 0 0 0 4px rgba(255,255,255,.08),inset 0 0 10px rgba(0,0,0,.55),0 24px 50px rgba(0,0,0,.7),0 6px 14px rgba(0,0,0,.5)}
+.wall.f-gilt .pframe{background:linear-gradient(135deg,#7d5716 0%,#e9c46e 18%,#a87a26 36%,#f6dc93 52%,#9c6f20 70%,#dcb45d 86%,#6f4c12 100%)}
+.wall.f-black .pframe{background:linear-gradient(135deg,#0b0b0b,#2a2a2a 45%,#0e0e0e 55%,#232323)}
+.wall.f-walnut .pframe{background:repeating-linear-gradient(100deg,#4a2f1b 0 3px,#5a3a22 3px 7px,#45291a 7px 9px),#4f321e}
+.wall.f-white .pframe{background:linear-gradient(135deg,#f7f4ee,#e3ddd2 50%,#fbfaf6)}
+.wall.f-none .pframe{padding:0;background:none;box-shadow:0 24px 50px rgba(0,0,0,.7),0 6px 14px rgba(0,0,0,.5)}
+.wall.f-none .pmat{padding:0;box-shadow:none}
+.pmat{display:inline-block;padding:clamp(14px,3.2vw,40px);background:#f2ecdf;box-shadow:inset 0 2px 6px rgba(0,0,0,.28),inset 0 0 0 1px rgba(0,0,0,.12)}
+.pmat img{display:block;max-width:min(78vw,640px);max-height:calc(100svh - 64px - 13vh - 210px);min-width:60px;min-height:60px;object-fit:contain;box-shadow:0 0 0 2px #fbf8f1,0 0 0 3px rgba(0,0,0,.18),1px 2px 5px rgba(0,0,0,.25)}
+@supports not (height:100svh){.pmat img{max-height:calc(100vh - 64px - 13vh - 210px)}}
+@media (min-width:900px){.pmat img{max-width:min(36vw,560px)}}
+.pmat img:not([src]){width:min(52vw,300px);height:min(40vh,360px);background:#ddd4c3}
+.placard{display:block;max-width:min(86vw,340px);background:#f5f0e6;color:#231e18;text-decoration:none;padding:10px 14px 11px;border-radius:2px;box-shadow:0 6px 16px rgba(0,0,0,.55);text-align:left}
+.placard .pt{font-weight:600;font-size:1rem;line-height:1.25}
+.placard .pm{font-style:italic;color:#4a4136;font-size:.88rem;margin-top:2px}
+.placard .pf{font-family:var(--sans);font-size:.74rem;color:#62584b;margin-top:6px;letter-spacing:.01em}
+.placard .pmore{font-family:var(--sans);font-size:.7rem;color:#8a2b1d;margin-top:6px;text-transform:uppercase;letter-spacing:.08em}
+.wnav{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:46px;height:46px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(20,17,14,.55);color:#f3ead9;font-size:1.6rem;line-height:1;cursor:pointer;transition:opacity .4s}
+.wnav.prev{left:12px}.wnav.next{right:12px}
+@media (hover:none){.wnav{display:none}}
+.wempty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;font-size:1.1rem}
+.wallbtn{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:.88rem;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -219,7 +259,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.20";
+const APP_VERSION = "2026.11.03.21";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -594,6 +634,7 @@ function viewHall(id, params){
   const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
     && (!cond || (i.condition||"") === cond) && Object.entries(fsel).every(([k,v]) => ((i.fields||{})[k]||"") === v)), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
+  hallOrder[id] = list.map(i => i.id);
   const state = {q, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
   const link = (o) => { const p = new URLSearchParams({...state, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
   // Filter choices come from what's actually in this gallery.
@@ -616,7 +657,7 @@ function viewHall(id, params){
   const sorts = [["title","Title (A–Z)"],["maker",c.maker||"Maker"],["year","Year (oldest)"],["yeard","Year (newest)"],["recent","Recently added"],["updated","Recently edited"],["condition","Condition"]].concat(priv?[]:[["value","Value (highest)"]]);
   app.innerHTML = `<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><a href="#/gallery/${c.id}">✎ Edit gallery</a></div>
   <section class="hero" style="padding-top:4px;padding-bottom:10px"><h1>${c.icon} ${esc(c.name)}</h1>
-    <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto">${sizer()}</span></div>
+    <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
     <form class="search" id="sf"><input type="search" name="q" placeholder="Search ${esc(c.name.toLowerCase())}…" value="${esc(q)}" aria-label="Search">
       <select name="sort" aria-label="Sort">${sorts.map(([v,l])=>`<option value="${v}" ${v===sort?"selected":""}>Sort: ${esc(l)}</option>`).join("")}</select>
       <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>
@@ -653,6 +694,88 @@ function viewHall(id, params){
   };
   app.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => document.getElementById("grp" + b.dataset.jump).scrollIntoView({behavior:"smooth"}));
   hydrate(app);
+}
+
+/* ---------- Gallery mode: the pieces hung on a dark, spotlit wall ---------- */
+const hallOrder = {};
+const FRAMES = [["gilt","Gilt"],["black","Black"],["walnut","Walnut"],["white","White"],["none","No frame"]];
+function viewWall(id, params){
+  const c = coll(id); if(!c) return notFound();
+  document.title = c.name + " · Gallery mode";
+  document.body.classList.add("wallmode");
+  const byId = new Map(cat.items.map(i => [i.id, i]));
+  let pieces = (hallOrder[id] || []).map(x => byId.get(x)).filter(i => i && i.collectionId === id && cover(i));
+  if(!pieces.length) pieces = sortItems(cat.items.filter(i => i.collectionId === id && cover(i)), LS.get("cm.sort."+id, "title"));
+  const frame = FRAMES.some(f => f[0] === c.frame) ? c.frame : "gilt";
+  const isf = issueField(c);
+  const placard = it => {
+    const iss = isf && (it.fields||{})[isf.k];
+    const t = iss && !/#/.test(it.title||"") ? it.title + " #" + iss : it.title;
+    const facts = c.fields.filter(f => f !== isf && !(priv && f.priv) && (it.fields||{})[f.k]).slice(0,3).map(f => it.fields[f.k]);
+    return `<a class="placard" href="#/i/${it.id}"><div class="pt">${it.favorite?"★ ":""}${esc(t||"Untitled")}</div>
+      ${[it.maker, it.year].filter(Boolean).length ? `<div class="pm">${esc([it.maker, it.year].filter(Boolean).join(", "))}</div>` : ""}
+      ${facts.length ? `<div class="pf">${esc(facts.join(" · "))}</div>` : ""}<div class="pmore">Details ›</div></a>`;
+  };
+  app.innerHTML = `<div class="wall f-${frame}" id="wall">
+    <div class="floor"></div>
+    <div class="wtrack" id="wtrack">${pieces.map((it,n) => `<section class="bay" data-n="${n}" aria-label="${esc(it.title||"")}">
+      <button type="button" class="pframe" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
+      ${placard(it)}</section>`).join("")}</div>
+    ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
+    <div class="wbar"><a class="wbtn" href="#/c/${id}" aria-label="Leave gallery mode" title="Leave gallery mode">✕</a>
+      <div class="wtitle">${c.icon} ${esc(c.name)}</div>
+      ${pieces.length ? `<select id="wframe" aria-label="Frame style">${FRAMES.map(([k,l]) => `<option value="${k}" ${k===frame?"selected":""}>${l}</option>`).join("")}</select>
+      ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
+      <span class="wcount" id="wcount"></span>` : ""}</div>
+    ${pieces.length > 1 ? `<button type="button" class="wnav prev" id="wprev" aria-label="Previous piece">‹</button><button type="button" class="wnav next" id="wnext" aria-label="Next piece">›</button>` : ""}
+  </div>`;
+  if(!pieces.length) return;
+  const wall = document.getElementById("wall"), track = document.getElementById("wtrack"), bays = [...track.children];
+  const perView = () => Math.max(1, Math.round(track.clientWidth / (bays[0].clientWidth || 1)));
+  const current = () => Math.round(track.scrollLeft / (bays[0].clientWidth || 1));
+  const loadNear = n => bays.slice(Math.max(0, n - 1), n + perView() + 2).forEach(b => {
+    const img = b.querySelector("img"); if(img.dataset.q) return; img.dataset.q = "1";
+    const full = () => mediaUrl(img.dataset.wpath).then(u => { if(u) img.src = u; }).catch(()=>{});
+    if(img.dataset.wthumb && img.dataset.wthumb !== img.dataset.wpath) mediaUrl(img.dataset.wthumb).then(u => { if(u && !img.src) img.src = u; }).catch(()=>{}).finally(full); else full();
+  });
+  const show = () => {
+    const n = Math.min(current(), bays.length - 1), pv = perView();
+    document.getElementById("wcount").textContent = (pv > 1 && n + 1 < bays.length ? (n+1) + "–" + Math.min(n+pv, bays.length) : (n+1)) + " / " + bays.length;
+    loadNear(n);
+    history.replaceState(null, "", "#/wall/" + id + (n ? "?i=" + n : ""));
+  };
+  const go = n => { const w = bays[0].clientWidth; n = Math.max(0, Math.min(n, bays.length - 1)); track.scrollTo({left:n * w, behavior:"smooth"}); };
+  let st; track.addEventListener("scroll", () => { clearTimeout(st); st = setTimeout(show, 90); }, {passive:true});
+  const start = Math.min(+params.get("i") || 0, bays.length - 1);
+  requestAnimationFrame(() => { track.scrollLeft = start * bays[0].clientWidth; show(); });
+  window.addEventListener("resize", function rs(){ if(!wall.isConnected) return window.removeEventListener("resize", rs); track.scrollLeft = current() * bays[0].clientWidth; });
+  // Tour: steps to the next piece every few seconds, hides the controls, keeps the screen awake.
+  let tour = null, lock = null;
+  const tourBtn = document.getElementById("wtour");
+  const stopTour = () => { if(!tour) return; clearInterval(tour); tour = null; wall.classList.remove("quiet"); if(tourBtn) tourBtn.textContent = "▶ Tour"; if(lock){ lock.release().catch(()=>{}); lock = null; } };
+  if(tourBtn) tourBtn.onclick = e => {
+    e.stopPropagation(); if(tour) return stopTour();
+    tourBtn.textContent = "⏸ Pause"; wall.classList.add("quiet");
+    tour = setInterval(() => { if(!wall.isConnected) return stopTour(); const n = current() + perView(); go(n >= bays.length ? 0 : n); }, 6000);
+    if(navigator.wakeLock) navigator.wakeLock.request("screen").then(l => lock = l).catch(()=>{});
+  };
+  wall.addEventListener("pointerdown", e => { if(tour && e.target !== tourBtn) stopTour(); });
+  const step = d => go(current() + d * perView());
+  if(document.getElementById("wprev")){ document.getElementById("wprev").onclick = () => step(-1); document.getElementById("wnext").onclick = () => step(1); }
+  document.getElementById("wframe").onchange = e => {
+    const v = e.target.value; FRAMES.forEach(([k]) => wall.classList.remove("f-" + k)); wall.classList.add("f-" + v);
+    c.frame = v; persist().catch(err => toast("Couldn't save the frame choice: " + err.message));
+  };
+  track.addEventListener("click", e => {
+    const b = e.target.closest("[data-open]"); if(!b) return;
+    const it = byId.get(b.dataset.open); stopTour(); mediaUrl(cover(it).path).then(lightbox).catch(()=>{});
+  });
+  document.addEventListener("keydown", function k(e){
+    if(!wall.isConnected) return document.removeEventListener("keydown", k);
+    if(document.getElementById("lb")) return;
+    if(e.key === "ArrowRight"){ stopTour(); step(1); } else if(e.key === "ArrowLeft"){ stopTour(); step(-1); }
+    else if(e.key === "Escape"){ stopTour(); location.hash = "#/c/" + id; }
+  });
 }
 
 function viewItem(id){
@@ -1718,6 +1841,7 @@ function route(){
   const [path, qs] = h.split("?"), params = new URLSearchParams(qs || "");
   const parts = path.split("/").filter(Boolean);
   document.getElementById("layer").innerHTML = "";
+  document.body.classList.remove("wallmode");
   window.scrollTo(0, 0);
   if(!parts.length) return viewHome(params);
   if(parts[0]==="c") return viewHall(parts[1], params);
@@ -1727,6 +1851,7 @@ function route(){
   if(parts[0]==="settings") return viewSettings();
   if(parts[0]==="report") return viewReport();
   if(parts[0]==="gallery") return viewGallery(parts[1]);
+  if(parts[0]==="wall") return viewWall(parts[1], params);
   notFound();
 }
 
