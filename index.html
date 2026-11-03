@@ -246,6 +246,8 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .placard .pf{font-family:var(--sans);font-size:.74rem;color:#62584b;margin-top:6px;letter-spacing:.01em}
 .placard .pmore{font-family:var(--sans);font-size:.7rem;color:#8a2b1d;margin-top:6px;text-transform:uppercase;letter-spacing:.08em}
 .wnav{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:46px;height:46px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(20,17,14,.55);color:#f3ead9;font-size:1.6rem;line-height:1;cursor:pointer;transition:opacity .4s}
+.wbig{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.9);z-index:4;width:84px;height:84px;border-radius:999px;border:none;background:rgba(10,8,6,.62);color:#fff;font-size:1.9rem;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.wall.peek .wbig{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
 .wnav.prev{left:12px}.wnav.next{right:12px}
 @media (hover:none){.wnav{display:none}}
 .wempty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;font-size:1.1rem}
@@ -307,7 +309,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.31";
+const APP_VERSION = "2026.11.03.32";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -783,6 +785,7 @@ function viewWall(id, params){
       ${pieces.length > 1 ? `<select id="wspeed" aria-label="Tour speed" title="How long the Tour stays on each piece">${[3,5,8,12,20,30,60].map(n => `<option value="${n}" ${n===tourSecs()?"selected":""}>⏱ ${n<60 ? n + "s" : "1 min"}</option>`).join("")}</select>` : ""}
       ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
       <span class="wcount" id="wcount"></span>` : ""}</div>
+    ${pieces.length > 1 ? `<button type="button" class="wbig" id="wbig" aria-label="Pause">❚❚</button>` : ""}
     ${pieces.length > 1 ? `<button type="button" class="wnav prev" id="wprev" aria-label="Previous piece">‹</button><button type="button" class="wnav next" id="wnext" aria-label="Next piece">›</button>` : ""}
   </div>`;
   if(!pieces.length) return;
@@ -802,22 +805,35 @@ function viewWall(id, params){
     history.replaceState(null, "", "#/wall/" + id + (q.toString() ? "?" + q : ""));
   };
   const go = n => { const w = bays[0].clientWidth; n = Math.max(0, Math.min(n, bays.length - 1)); track.scrollTo({left:n * w, behavior:"smooth"}); };
-  let st; track.addEventListener("scroll", () => { clearTimeout(st); st = setTimeout(show, 90); }, {passive:true});
+  let st; track.addEventListener("scroll", () => { clearTimeout(st); st = setTimeout(() => { show(); restartTimer(); }, 90); }, {passive:true});
   const start = Math.min(+params.get("i") || 0, bays.length - 1);
   requestAnimationFrame(() => { track.scrollLeft = start * bays[0].clientWidth; show(); });
   window.addEventListener("resize", function rs(){ if(!wall.isConnected) return window.removeEventListener("resize", rs); track.scrollLeft = current() * bays[0].clientWidth; });
   // Tour: steps to the next piece every few seconds, hides the controls, keeps the screen awake.
-  let tour = null, lock = null;
-  const tourBtn = document.getElementById("wtour");
-  const stopTour = () => { if(!tour) return; clearInterval(tour); tour = null; wall.classList.remove("quiet"); if(tourBtn) tourBtn.textContent = "▶ Tour"; if(lock){ lock.release().catch(()=>{}); lock = null; } };
-  if(tourBtn) tourBtn.onclick = e => {
-    e.stopPropagation(); if(tour) return stopTour();
-    tourBtn.textContent = "⏸ Pause"; wall.classList.add("quiet");
-    tour = setInterval(() => { if(!wall.isConnected) return stopTour(); const n = current() + perView(); go(n >= bays.length ? 0 : n); }, tourSecs() * 1000);
-    if(navigator.wakeLock) navigator.wakeLock.request("screen").then(l => lock = l).catch(()=>{});
+  // While it plays, a tap brings the controls back for a few seconds (with a big pause button) instead of stopping it.
+  let tour = null, lock = null, peekT = null;
+  const tourBtn = document.getElementById("wtour"), bigBtn = document.getElementById("wbig");
+  const advance = () => { if(!wall.isConnected) return stopTour(); const n = current() + perView(); go(n >= bays.length ? 0 : n); };
+  const restartTimer = () => { if(!tour) return; clearInterval(tour); tour = setInterval(advance, tourSecs() * 1000); };
+  const hidePeek = () => { clearTimeout(peekT); wall.classList.remove("peek"); if(tour) wall.classList.add("quiet"); };
+  const peek = () => { clearTimeout(peekT); wall.classList.remove("quiet"); wall.classList.add("peek");
+    if(bigBtn){ bigBtn.textContent = tour ? "❚❚" : "▶"; bigBtn.setAttribute("aria-label", tour ? "Pause" : "Play"); }
+    peekT = setTimeout(hidePeek, 3000); };
+  const startTour = () => {
+    if(tour) return; if(tourBtn) tourBtn.textContent = "⏸ Pause";
+    tour = setInterval(advance, tourSecs() * 1000); hidePeek();
+    if(navigator.wakeLock && !lock) navigator.wakeLock.request("screen").then(l => lock = l).catch(()=>{});
   };
-  wall.addEventListener("pointerdown", e => { if(tour && e.target !== tourBtn) stopTour(); });
-  const step = d => go(current() + d * perView());
+  const stopTour = () => { if(!tour) return; clearInterval(tour); tour = null; wall.classList.remove("quiet"); if(tourBtn) tourBtn.textContent = "▶ Tour"; if(lock){ lock.release().catch(()=>{}); lock = null; } };
+  if(tourBtn) tourBtn.onclick = e => { e.stopPropagation(); tour ? (stopTour(), peek()) : startTour(); };
+  if(bigBtn) bigBtn.onclick = e => { e.stopPropagation(); if(tour){ stopTour(); peek(); } else startTour(); };
+  // Taps while the controls are hidden only bring them back.
+  wall.addEventListener("click", e => {
+    if(!wall.classList.contains("quiet")) return;
+    e.preventDefault(); e.stopPropagation(); peek();
+  }, true);
+  wall.addEventListener("pointerdown", () => { if(wall.classList.contains("peek")){ clearTimeout(peekT); peekT = setTimeout(hidePeek, 3000); } });
+  const step = d => { go(current() + d * perView()); restartTimer(); };
   const sp = document.getElementById("wspeed"); if(sp) sp.onchange = () => LS.set("cm.tourSecs", +sp.value);
   const sh = document.getElementById("wshuf");
   const newShuffle = () => { LS.set("cm.wallShuffle", true); location.hash = "#/wall/" + id + "?s=" + (Math.floor(Math.random() * 1e9) + 1); };
@@ -830,12 +846,13 @@ function viewWall(id, params){
   };
   track.addEventListener("click", e => {
     const b = e.target.closest("[data-open]"); if(!b) return;
-    const it = byId.get(b.dataset.open); stopTour(); mediaUrl(cover(it).path).then(lightbox).catch(()=>{});
+    const it = byId.get(b.dataset.open); stopTour(); hidePeek(); mediaUrl(cover(it).path).then(lightbox).catch(()=>{});
   });
   document.addEventListener("keydown", function k(e){
     if(!wall.isConnected) return document.removeEventListener("keydown", k);
     if(document.getElementById("lb")) return;
-    if(e.key === "ArrowRight"){ stopTour(); step(1); } else if(e.key === "ArrowLeft"){ stopTour(); step(-1); }
+    if(e.key === "ArrowRight") step(1); else if(e.key === "ArrowLeft") step(-1);
+    else if(e.key === " "){ e.preventDefault(); tour ? (stopTour(), peek()) : startTour(); }
     else if(e.key === "Escape"){ stopTour(); location.hash = "#/c/" + id; }
   });
 }
