@@ -219,7 +219,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.14";
+const APP_VERSION = "2026.11.03.15";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -797,7 +797,7 @@ async function serviceFetch(service, path){
   }
   let r;
   try{ r = await fetchT(url, {headers}, 25000); }
-  catch(e){ throw new Error(e.timeout ? name + " took too long to answer. Try again in a moment." : px ? "Couldn't reach your lookup helper. Check its address in Settings → Lookups." : name + " blocks direct access from web pages. Set up the free lookup helper in Settings → Lookups to use it."); }
+  catch(e){ throw new Error(e.timeout ? name + " took too long to answer. Try again in a moment." : px ? "Couldn't reach " + name + " through your lookup helper. " + name + " may be down; try again later." : "Couldn't reach " + name + ". It may be down right now, or it may block web pages (the lookup helper in Settings → Lookups fixes that)."); }
   if(r.status === 401 || r.status === 403) throw new Error(name + " didn't accept the login" + (px ? " stored in your lookup helper." : ". Check it in Settings → Lookups."));
   if(r.status === 429) throw new Error(name + " says we're searching too fast. Wait a minute and try again.");
   return r;
