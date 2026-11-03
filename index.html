@@ -285,7 +285,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.26";
+const APP_VERSION = "2026.11.03.27";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1230,14 +1230,41 @@ function metronIssue(d){
 async function searchCandidates(kind, q, maker){
   q = (q||"").trim(); if(!q) return [];
   if(kind === "music"){
+    // Discogs (when a token is set) and MusicBrainz are searched together; Discogs first, vinyl ahead of CDs.
+    const tok = (cat.settings||{}).discogsToken;
+    const [dg, mb] = await Promise.allSettled([tok ? discogsSearch(q, maker, tok) : Promise.resolve([]), musicBrainzSearch(q, maker)]);
+    const vinylFirst = list => list.map((c,n) => [c,n]).sort((a,b) => (/vinyl|lp|12"|7"|10"/i.test(b[0].sub) - /vinyl|lp|12"|7"|10"/i.test(a[0].sub)) || a[1]-b[1]).map(x => x[0]);
+    const all = vinylFirst(dg.value || []).concat(vinylFirst(mb.value || []));
+    if(!all.length && (dg.status === "rejected" || mb.status === "rejected")) throw (dg.reason || mb.reason);
+    return all;
+  }
+  return searchOther(kind, q, maker);
+}
+async function discogsSearch(q, maker, tok){
+  const u = "https://api.discogs.com/database/search?type=release&per_page=25&q=" + encodeURIComponent(q) + (maker ? "&artist=" + encodeURIComponent(maker) : "") + "&token=" + encodeURIComponent(tok);
+  let j = await getJSON(u);
+  if(!(j.results||[]).length && maker) j = await getJSON("https://api.discogs.com/database/search?type=release&per_page=25&q=" + encodeURIComponent(q + " " + maker) + "&token=" + encodeURIComponent(tok));
+  return (j.results||[]).map(r => {
+    const [artist, ...rest] = (r.title||"").split(" - "), fm = formatFrom(r.format||[]), label = (r.label||[])[0] || "", catno = r.catno && r.catno !== "none" ? r.catno : "";
+    const code = (r.barcode||[]).map(b => String(b).replace(/\s/g,"")).find(b => /^\d{8,14}$/.test(b)) || "";
+    const img = r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "";
+    const res = {source:"Discogs", collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "", year:r.year ? String(r.year) : "",
+      cover:img, barcode:code, fields:{label, catno, format:fm.format||"", pressing:r.country||""}, named:{"Label":label, "Catalog #":catno, "Country":r.country, "Discogs":r.uri ? "https://www.discogs.com" + r.uri : ""}};
+    return {...res, thumb:r.thumb || img, sub:["Discogs", (r.format||[]).join(", "), r.country, label, catno].filter(Boolean).join(" · "), get:async()=>res};
+  });
+}
+async function musicBrainzSearch(q, maker){
+  {
     const query = 'release:"' + q.replace(/"/g,"") + '"' + (maker ? ' AND artist:"' + maker.replace(/"/g,"") + '"' : "");
     const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=12&query=" + encodeURIComponent(query));
     return (j.releases||[]).map(r => { const li = (r["label-info"]||[])[0] || {}, fmts = (r.media||[]).map(m=>m.format||""), fm = formatFrom(fmts);
       const res = {source:"MusicBrainz", title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""), year:(r.date||"").slice(0,4),
         cover:"https://coverartarchive.org/release/" + r.id + "/front-500", barcode:r.barcode||"", fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""},
         named:{"Label":(li.label||{}).name, "Catalog #":li["catalog-number"], "Country":r.country}};
-      return {...res, thumb:"https://coverartarchive.org/release/" + r.id + "/front-250", sub:[fmts.join(" + "), r.country, (li.label||{}).name, li["catalog-number"]].filter(Boolean).join(" · "), get:async()=>res}; });
+      return {...res, thumb:"https://coverartarchive.org/release/" + r.id + "/front-250", sub:["MusicBrainz", fmts.join(" + "), r.country, (li.label||{}).name, li["catalog-number"]].filter(Boolean).join(" · "), get:async()=>res}; });
   }
+}
+async function searchOther(kind, q, maker){
   if(kind === "film"){
     let c = await filmCandidates(cleanTitle(q));
     if(!c.length){ const short = cleanTitle(q).split(/\s[-–:|]\s|:\s/)[0].trim(); if(short) c = await filmCandidates(short); }
@@ -1437,6 +1464,7 @@ function pickResult(kind, q, maker, onPick, opts){
   L.innerHTML = `<div class="lightbox" id="pk" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" style="width:100%;max-width:640px;max-height:88vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>${opts.label ? esc(opts.label) : "Find it in " + esc(LOOKUPS[kind].split(": ")[1]||"")}</h2><span style="display:flex;gap:6px">${opts.onSkip ? `<button class="iconbtn" id="pkS">Skip</button>` : ""}<button class="iconbtn" id="pkX" aria-label="Close">✕</button></span></div>
     <form id="pkF" class="search" style="margin:8px 0"><input name="q" value="${esc(q)}" placeholder="${kind==="comic" ? "Series #issue, e.g. Batman #423" : "Title"}" aria-label="Search">${kind==="music"||kind==="book" ? `<input name="m" value="${esc(maker||"")}" placeholder="${kind==="music"?"Artist":"Author"} (optional)" aria-label="Maker" style="flex:1 1 100%">` : ""}<button class="iconbtn primary" type="submit" style="height:42px">Search</button></form>
+    ${kind === "music" && !((cat.settings||{}).discogsToken) ? `<p style="font-size:.82rem;margin:0 0 8px">Searching MusicBrainz only. <a href="#/settings">Add a free Discogs token</a> in Settings → Lookups to search Discogs too.</p>` : ""}
     <div id="pkR" class="docs"></div></div></div>`;
   const close = () => L.innerHTML = "";
   if(opts.onSkip) document.getElementById("pkS").onclick = () => { close(); opts.onSkip(); };
