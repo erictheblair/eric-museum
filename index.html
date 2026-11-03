@@ -76,6 +76,9 @@ main{padding:20px 0 80px}
 .halls.arranging .hall.dragging{opacity:.75;transform:scale(1.04);animation:none;z-index:2;cursor:grabbing}
 @keyframes wob{from{transform:rotate(-.6deg)}to{transform:rotate(.6deg)}}
 @media (prefers-reduced-motion: reduce){.halls.arranging .hall{animation:none}}
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:16;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:10px 0 calc(10px + env(safe-area-inset-bottom))}
+.savebar .wrap{display:flex;gap:8px;align-items:center}
+form.edit{padding-bottom:84px}
 /* compact view */
 .sizer{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
 .sizer button{border:none;background:none;padding:5px 11px;cursor:pointer;font-size:.8rem;color:var(--muted)}
@@ -195,7 +198,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.10";
+const APP_VERSION = "2026.11.03.11";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -582,6 +585,7 @@ function viewItem(id){
       ${(it.tags||[]).length ? `<div class="chips" style="margin-top:14px">${it.tags.map(t=>`<a class="chip" href="#/c/${c.id}?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join("")}</div>` : ""}
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
       ${docs.length ? `<h3 style="margin-top:20px;font-size:1.05rem">Documents</h3><div class="docs">${docs.map(d=>`<button class="doc" data-path="${esc(d.path)}" data-name="${esc(d.name||"")}"><span class="ic">${/pdf$/i.test(d.name||"")?"📄":"📜"}</span><span class="grow"><b>${esc(d.label||"Document")}</b><br><small style="color:var(--muted)">${esc(d.name||"")}</small></span><span>↗</span></button>`).join("")}</div>` : ""}
+      <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${c.id}">▦ Scan</a><a class="fab" href="#/new?c=${c.id}">＋ Add</a></div>
       <div class="actions noprint"><a class="iconbtn primary" href="#/edit/${it.id}">✎ Edit</a><button class="iconbtn" id="dupBtn">Duplicate</button><button class="iconbtn" id="delBtn" style="color:var(--danger)">Delete</button></div>
     </div>
   </article>`;
@@ -1095,14 +1099,19 @@ function viewEdit(id, params){
       </fieldset>
       <fieldset><legend>Notes &amp; story</legend><div class="f full"><textarea name="notes" placeholder="Where you found it, who it came from, why it matters…">${esc(it.notes||"")}</textarea></div></fieldset>
       <datalist id="makers">${[...new Set(cat.items.filter(i=>i.collectionId===it.collectionId).map(i=>i.maker).filter(Boolean))].sort().map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
-      <div class="actions"><button class="iconbtn primary" type="submit" style="height:44px;padding:0 22px">Save</button><a class="iconbtn" href="${existing ? "#/i/"+it.id : "#/"}" style="height:44px">Cancel</a></div>
+      <div class="savebar noprint"><div class="wrap">
+        <a class="iconbtn" href="${existing ? "#/i/"+it.id : "#/"}" style="height:46px">Cancel</a>
+        <span style="flex:1"></span>
+        ${existing ? "" : `<button class="iconbtn" type="submit" data-next="${params.get("scan") ? "scan" : "add"}" style="height:46px;padding:0 14px">${params.get("scan") ? "Save &amp; scan next" : "Save &amp; add next"}</button>`}
+        <button class="iconbtn primary" type="submit" data-next="" style="height:46px;padding:0 22px">Save</button>
+      </div></div>
     </form>`;
     renderMedia();
     const f = document.getElementById("ef");
     f.collectionId.onchange = () => { collect(); it.collectionId = f.collectionId.value; render(); };
     document.getElementById("addPhotos").onchange = e => addFiles(e.target.files, "photo");
     document.getElementById("addDocs").onchange = e => addFiles(e.target.files, "document");
-    f.onsubmit = async e => { e.preventDefault(); collect(); await save(); };
+    f.onsubmit = async e => { e.preventDefault(); collect(); await save((e.submitter && e.submitter.dataset.next) || ""); };
     const startScan = () => { collect(); scanBarcode(code => lookupInto(code)); };
     document.getElementById("scanBtn").onclick = startScan;
     if(document.getElementById("scanTop")) document.getElementById("scanTop").onclick = startScan;
@@ -1225,7 +1234,7 @@ function viewEdit(id, params){
     finally{ done(); if(document.getElementById("media")) renderMedia(); }
   }
 
-  async function save(){
+  async function save(next){
     if(!it.title) return toast("Please add a title.");
     const done = busy(pending.length ? "Uploading " + pending.length + " file" + (pending.length>1?"s":"") + "…" : "Saving…");
     try{
@@ -1237,8 +1246,8 @@ function viewEdit(id, params){
       try{ await persist(); }catch(e){ if(before) cat.items[idx] = before; else cat.items.pop(); throw e; }
       for(const m of removed){ if(m.remote) continue; store.deleteFile(m.path).catch(()=>{}); if(m.thumb) store.deleteFile(m.thumb).catch(()=>{}); }
       pending.length = 0;
-      toast("Saved");
-      location.hash = "#/i/" + it.id;
+      toast(next ? "Saved “" + it.title + "”" : "Saved");
+      location.hash = next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + it.id;
     }catch(e){ alert(e.message); } finally{ done(); }
   }
   render();
