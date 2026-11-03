@@ -217,6 +217,9 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .wbar .wtitle{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--serif);font-size:1.05rem;letter-spacing:.04em}
 .wbtn,.wbar select{height:36px;min-width:36px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,17,14,.6);color:#f3ead9;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;font-size:.88rem}
 .wbar select{appearance:none;-webkit-appearance:none;padding-right:12px}
+.wbtn{white-space:nowrap}
+@media (max-width:420px){.wbar{gap:6px;padding-left:8px;padding-right:8px}.wbtn,.wbar select{padding:0 9px}}
+.wbtn.on{background:rgba(201,162,74,.28);border-color:rgba(233,196,110,.6)}
 .wbar .wcount{color:#bfb4a2;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wtrack{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .wtrack::-webkit-scrollbar{display:none}
@@ -289,7 +292,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.28";
+const APP_VERSION = "2026.11.03.29";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -736,6 +739,11 @@ function viewWall(id, params){
   const byId = new Map(cat.items.map(i => [i.id, i]));
   let pieces = (hallOrder[id] || []).map(x => byId.get(x)).filter(i => i && i.collectionId === id && cover(i));
   if(!pieces.length) pieces = sortItems(cat.items.filter(i => i.collectionId === id && cover(i)), LS.get("cm.sort."+id, "title"));
+  // Shuffle: a seeded order kept in the address, so coming back from a piece keeps the same shuffle.
+  const shuffle = LS.get("cm.wallShuffle", false);
+  let seed = shuffle ? (parseInt(params.get("s"), 10) || Math.floor(Math.random() * 1e9) + 1) : 0;
+  if(seed){ let x = seed; const rnd = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
+    pieces = pieces.slice(); for(let i = pieces.length - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); [pieces[i], pieces[j]] = [pieces[j], pieces[i]]; } }
   const frame = FRAMES.some(f => f[0] === c.frame) ? c.frame : "gilt";
   const isf = issueField(c);
   const placard = it => {
@@ -755,6 +763,7 @@ function viewWall(id, params){
     <div class="wbar"><a class="wbtn" href="#/c/${id}" aria-label="Leave gallery mode" title="Leave gallery mode">✕</a>
       <div class="wtitle">${c.icon} ${esc(c.name)}</div>
       ${pieces.length ? `<select id="wframe" aria-label="Frame style">${FRAMES.map(([k,l]) => `<option value="${k}" ${k===frame?"selected":""}>${l}</option>`).join("")}</select>
+      ${pieces.length > 1 ? `<button type="button" class="wbtn${shuffle ? " on" : ""}" id="wshuf" title="${shuffle ? "Shuffle again" : "Shuffle the order"}">🔀</button>${shuffle ? `<button type="button" class="wbtn" id="worder" title="Back to your gallery's order">In order</button>` : ""}` : ""}
       ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
       <span class="wcount" id="wcount"></span>` : ""}</div>
     ${pieces.length > 1 ? `<button type="button" class="wnav prev" id="wprev" aria-label="Previous piece">‹</button><button type="button" class="wnav next" id="wnext" aria-label="Next piece">›</button>` : ""}
@@ -772,7 +781,8 @@ function viewWall(id, params){
     const n = Math.min(current(), bays.length - 1), pv = perView();
     document.getElementById("wcount").textContent = (pv > 1 && n + 1 < bays.length ? (n+1) + "–" + Math.min(n+pv, bays.length) : (n+1)) + " / " + bays.length;
     loadNear(n);
-    history.replaceState(null, "", "#/wall/" + id + (n ? "?i=" + n : ""));
+    const q = new URLSearchParams(); if(seed) q.set("s", seed); if(n) q.set("i", n);
+    history.replaceState(null, "", "#/wall/" + id + (q.toString() ? "?" + q : ""));
   };
   const go = n => { const w = bays[0].clientWidth; n = Math.max(0, Math.min(n, bays.length - 1)); track.scrollTo({left:n * w, behavior:"smooth"}); };
   let st; track.addEventListener("scroll", () => { clearTimeout(st); st = setTimeout(show, 90); }, {passive:true});
@@ -791,6 +801,10 @@ function viewWall(id, params){
   };
   wall.addEventListener("pointerdown", e => { if(tour && e.target !== tourBtn) stopTour(); });
   const step = d => go(current() + d * perView());
+  const sh = document.getElementById("wshuf");
+  const newShuffle = () => { LS.set("cm.wallShuffle", true); location.hash = "#/wall/" + id + "?s=" + (Math.floor(Math.random() * 1e9) + 1); };
+  if(sh) sh.onclick = newShuffle;
+  if(document.getElementById("worder")) document.getElementById("worder").onclick = () => { LS.set("cm.wallShuffle", false); location.hash = "#/wall/" + id; };
   if(document.getElementById("wprev")){ document.getElementById("wprev").onclick = () => step(-1); document.getElementById("wnext").onclick = () => step(1); }
   document.getElementById("wframe").onchange = e => {
     const v = e.target.value; FRAMES.forEach(([k]) => wall.classList.remove("f-" + k)); wall.classList.add("f-" + v);
