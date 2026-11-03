@@ -219,7 +219,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.19";
+const APP_VERSION = "2026.11.03.20";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -537,11 +537,21 @@ function sortItems(list, how){
    ============================================================ */
 const app = document.getElementById("app");
 
+// The museum's Dropbox app key. It's not a secret: it only names the app; each person still signs in to their own Dropbox.
+const DEFAULT_APP_KEY = "ts8u1n2v86m1jqc";
+const appKey = () => { const d = LS.get("cm.dropbox", null); return (d && d.appKey) || LS.get("cm.appKey", "") || DEFAULT_APP_KEY; };
+let bannerPre = null;
 function modeBanner(){
   if(store.kind === "dropbox") return "";
-  return `<div class="banner noprint"><span>🗄️</span><div class="grow">${cat.items.length ? "This catalog is saved on this device only." : "Welcome! Your catalog is on this device for now."}
-    Connect Dropbox to keep it in your own Dropbox and see it on your phone and computer.</div><a class="iconbtn primary" href="#/settings">Connect Dropbox</a></div>`;
+  DropboxStore.prepare().then(p => { bannerPre = p; });
+  return `<div class="banner noprint"><span>🗄️</span><div class="grow">${cat.items.length ? "This catalog is saved on this device only." : "Not connected to Dropbox on this device yet."}
+    Connect to see your collection here. It's one tap if you're already signed in to Dropbox.</div><button class="iconbtn primary" type="button" id="bannerConnect">Connect Dropbox</button></div>`;
 }
+document.addEventListener("click", e => {
+  if(!e.target.closest || !e.target.closest("#bannerConnect")) return;
+  if(!bannerPre) return toast("One moment… try again.");
+  const k = appKey(); LS.set("cm.carry", true); DropboxStore.remember(k, bannerPre, false); location.href = DropboxStore.authUrl(k, bannerPre, false);
+});
 
 function viewHome(params){
   const q = params.get("q") || "";
@@ -1433,7 +1443,7 @@ function viewEdit(id, params){
 /* ---------- Settings ---------- */
 function viewSettings(){
   document.title = "Settings · " + (cat.title||"The Collection");
-  const dbx = LS.get("cm.dropbox", null), key = (dbx && dbx.appKey) || LS.get("cm.appKey", "");
+  const dbx = LS.get("cm.dropbox", null), key = appKey();
   app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › Settings</div>
   <h1 style="font-size:1.8rem;margin:4px 0 16px">Settings</h1>
   <div class="panel"><h2>Where your catalog lives</h2>
