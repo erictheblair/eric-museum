@@ -433,7 +433,7 @@ function viewHall(id, params){
   const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag))), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
   const link = (o) => { const p = new URLSearchParams({q, sort, tag, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
-  app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › ${esc(c.name)}</div>
+  app.innerHTML = `<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><a href="#/gallery/${c.id}">✎ Edit gallery</a></div>
   <section class="hero" style="padding-top:4px"><h1>${c.icon} ${esc(c.name)}</h1>
     <div class="stats"><span><b>${all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}</div>
     <form class="search" id="sf"><input type="search" name="q" placeholder="Search ${esc(c.name.toLowerCase())}…" value="${esc(q)}" aria-label="Search">
@@ -934,8 +934,8 @@ function viewSettings(){
   </div>
   <div class="panel"><h2>Museum name</h2>
     <div class="actions" style="margin-top:4px"><input id="mname" value="${esc(cat.title||"")}" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn" id="mnameSave">Save</button></div></div>
-  <div class="panel"><h2>Galleries</h2><p>Add your own gallery with custom fields. Add <code>*</code> to a field name to make it private (hidden like values).</p>
-    <div class="chips" style="margin:10px 0">${cat.collections.map(c=>`<span class="chip">${c.icon} ${esc(c.name)} · ${cat.items.filter(i=>i.collectionId===c.id).length}${cat.items.some(i=>i.collectionId===c.id)?"":` <a href="#" data-delc="${c.id}" title="Remove empty gallery" style="text-decoration:none">✕</a>`}</span>`).join("")}</div>
+  <div class="panel"><h2>Galleries</h2><p>Tap a gallery to rename it, change its emoji, or edit its fields. Or add a new one below (add <code>*</code> to a field name to make it private).</p>
+    <div class="chips" style="margin:10px 0">${cat.collections.map(c=>`<a class="chip" href="#/gallery/${c.id}">${c.icon} ${esc(c.name)} · ${cat.items.filter(i=>i.collectionId===c.id).length} ✎</a>`).join("")}</div>
     <div class="fgrid"><div class="f"><label for="nc">New gallery name</label><input id="nc" placeholder="e.g. Comic Books"></div>
       <div class="f"><label for="ni">Icon (emoji)</label><input id="ni" placeholder="📖" maxlength="4"></div>
       <div class="f"><label for="nm">What to call the maker</label><input id="nm" placeholder="Publisher"></div>
@@ -966,8 +966,7 @@ function viewSettings(){
     cat.collections.push({id:"c_"+uid(), name, icon:$("ni").value.trim()||"📦", maker:$("nm").value.trim()||"Maker", fields});
     await persist().catch(e=>alert(e.message)); viewSettings(); toast("Gallery added");
   };
-  app.querySelectorAll("[data-delc]").forEach(a => a.onclick = async e => { e.preventDefault();
-    cat.collections = cat.collections.filter(c => c.id !== a.dataset.delc); await persist().catch(er=>alert(er.message)); viewSettings(); });
+
   $("dtokSave").onclick = async () => { cat.settings = {...(cat.settings||{}), discogsToken:$("dtok").value.trim()}; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); };
   $("csv").onclick = exportCSV;
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
@@ -1010,6 +1009,56 @@ function viewReport(){
     </tbody></table></div>`).join("") || `<div class="empty">Nothing to report yet.</div>`}`;
 }
 
+function viewGallery(id){
+  const orig = cat.collections.find(c => c.id === id); if(!orig) return notFound();
+  const g = JSON.parse(JSON.stringify(orig));
+  const n = cat.items.filter(i => i.collectionId === id).length;
+  const used = k => cat.items.filter(i => i.collectionId === id && i.fields && i.fields[k]).length;
+  document.title = "Edit " + g.name + " · " + (cat.title||"The Collection");
+  const inp = 'style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0;width:100%"';
+  const fieldRow = f => `<div class="frow" data-k="${esc(f.k||"")}" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center">
+    <input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
+    <label class="check" title="Private: hidden when values are hidden"><input type="checkbox" data-fp ${f.priv?"checked":""}> 🔒</label>
+    <button type="button" class="iconbtn" data-frm title="Remove field" style="height:auto">✕</button></div>`;
+  app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › <a href="#/c/${id}">${esc(g.name)}</a> › Edit gallery</div>
+  <form class="edit" id="gf"><h1 style="font-size:1.8rem;margin-bottom:16px">Edit gallery</h1>
+    <fieldset><legend>Name</legend><div class="fgrid">
+      <div class="f"><label for="gname">Gallery name</label><input id="gname" required value="${esc(g.name)}"></div>
+      <div class="f"><label for="gicon">Emoji</label><input id="gicon" value="${esc(g.icon)}" maxlength="8"></div>
+      <div class="f"><label for="gmaker">What to call the maker</label><input id="gmaker" value="${esc(g.maker||"")}" placeholder="Artist, Author, Brand…"></div>
+    </div></fieldset>
+    <fieldset><legend>Fields</legend>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost.</p>
+      <div id="frows" style="display:grid;gap:8px">${g.fields.map(fieldRow).join("")}</div>
+      <div class="actions" style="margin-top:10px"><button type="button" class="iconbtn" id="addF">＋ Add a field</button></div>
+    </fieldset>
+    <div class="actions"><button class="iconbtn primary" type="submit" style="height:44px;padding:0 22px">Save</button><a class="iconbtn" href="#/c/${id}" style="height:44px">Cancel</a>
+      <span style="flex:1"></span>${n ? `<span style="color:var(--muted);font-size:.85rem;align-self:center">Move or delete its ${n} piece${n===1?"":"s"} to delete this gallery</span>` : `<button type="button" class="iconbtn" id="delG" style="height:44px;color:var(--danger)">Delete gallery</button>`}</div>
+  </form>`;
+  const wire = () => app.querySelectorAll("[data-frm]").forEach(b => b.onclick = () => {
+    const row = b.closest(".frow"), k = row.dataset.k, u = k ? used(k) : 0;
+    if(u && !confirm(`${u} piece${u===1?" has":"s have"} this field filled in. Remove it? Those entries will move to “More details”.`)) return;
+    row.remove(); });
+  wire();
+  document.getElementById("addF").onclick = () => { document.getElementById("frows").insertAdjacentHTML("beforeend", fieldRow({l:""})); wire(); document.querySelector("#frows .frow:last-child [data-fl]").focus(); };
+  if(document.getElementById("delG")) document.getElementById("delG").onclick = async () => {
+    if(!confirm(`Delete the empty “${g.name}” gallery?`)) return;
+    cat.collections = cat.collections.filter(c => c.id !== id);
+    try{ await persist(); location.hash = "#/settings"; }catch(e){ cat.collections.push(orig); alert(e.message); }
+  };
+  document.getElementById("gf").onsubmit = async e => {
+    e.preventDefault();
+    const fields = [...app.querySelectorAll("#frows .frow")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked}))
+      .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); return {...(o||{}), ...f, priv:f.priv || undefined}; });
+    const removed = orig.fields.filter(f => !fields.some(x => x.k === f.k));
+    const backup = JSON.stringify({c:orig, items:cat.items.filter(i=>i.collectionId===id)});
+    removed.forEach(f => cat.items.forEach(i => { if(i.collectionId === id && i.fields && i.fields[f.k]){ i.extra = i.extra || []; i.extra.push({l:f.l, v:i.fields[f.k]}); delete i.fields[f.k]; } }));
+    Object.assign(orig, {name:document.getElementById("gname").value.trim() || g.name, icon:document.getElementById("gicon").value.trim() || "📦", maker:document.getElementById("gmaker").value.trim() || "Maker", fields});
+    try{ await persist(); toast("Gallery saved"); location.hash = "#/c/" + id; }
+    catch(er){ const b = JSON.parse(backup); Object.assign(orig, b.c); b.items.forEach(bi => { const ix = cat.items.findIndex(i=>i.id===bi.id); if(ix>=0) cat.items[ix] = bi; }); alert(er.message); }
+  };
+}
+
 function notFound(){ app.innerHTML = `<div class="empty">That piece isn't here. <a href="#/">Back to the museum</a></div>`; }
 function setBrand(){ document.getElementById("brand").firstChild.textContent = cat.title || "The Collection"; }
 
@@ -1044,6 +1093,7 @@ function route(){
   if(parts[0]==="edit") return viewEdit(parts[1], params);
   if(parts[0]==="settings") return viewSettings();
   if(parts[0]==="report") return viewReport();
+  if(parts[0]==="gallery") return viewGallery(parts[1]);
   notFound();
 }
 
@@ -1087,7 +1137,9 @@ async function boot(){
   // Make sure newer preset galleries/fields exist in older catalogs.
   cat.presetsSeen = cat.presetsSeen || ["records","laserdiscs","books","prints","autographs","cels","pennies","memorabilia","instruments","antiques"];
   PRESETS.forEach(p => { if(!cat.presetsSeen.includes(p.id)){ cat.presetsSeen.push(p.id); if(!cat.collections.some(x=>x.id===p.id)) cat.collections.push(JSON.parse(JSON.stringify(p))); } });
-  PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; p.fields.forEach(f => { if(!c.fields.some(x=>x.k===f.k)) c.fields.push(JSON.parse(JSON.stringify(f))); }); });
+  // Add preset fields introduced in newer versions, but never re-add ones the user removed.
+  PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; c.seen = c.seen || c.fields.map(f=>f.k);
+    p.fields.forEach(f => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); if(!c.fields.some(x=>x.k===f.k)) c.fields.push(JSON.parse(JSON.stringify(f))); } }); });
   setBrand();
   window.addEventListener("hashchange", route);
   route();
