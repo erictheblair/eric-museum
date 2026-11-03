@@ -436,6 +436,23 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .wall.r-diner .placard{background:#fbf7ec;color:#1d1d1d;border-radius:2px;box-shadow:inset 0 0 0 4px #fbf7ec,inset 0 0 0 5px #b3242a,0 5px 12px rgba(0,0,0,.3);font-family:var(--sans);padding:12px 16px}
 .wall.r-diner .placard .pt{font-weight:700;letter-spacing:.02em} .wall.r-diner .placard .pmore{color:#b3242a}
 .wall.r-diner .wbar{background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0))}
+/* Pick for me */
+.spin{position:fixed;inset:0;z-index:50;background:rgba(10,8,6,.97);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:20px;color:#f3ead9}
+.spin-h{font-family:var(--serif);font-size:1.3rem;text-align:center}
+.reelwin{position:relative;width:min(100%,760px);height:200px;overflow:hidden;border-radius:14px;background:#1a1612;box-shadow:inset 0 0 40px rgba(0,0,0,.8);
+  -webkit-mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+.reel{display:flex;gap:12px;padding:20px 0;will-change:transform}
+.rtile{flex:0 0 130px;height:160px;display:flex;flex-direction:column;gap:6px;align-items:center}
+.rtile img,.rtile span{width:130px;height:130px;object-fit:cover;border-radius:8px;background:#2b241d;display:flex;align-items:center;justify-content:center;font-size:2.6rem;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.rtile b{font-size:.72rem;font-weight:500;color:#cfc4b2;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rtile.won img,.rtile.won span{outline:3px solid #e9c46e;outline-offset:2px;transform:scale(1.04);transition:transform .3s}
+.reelwin .mk{position:absolute;left:50%;top:0;width:0;height:0;margin-left:-10px;border:10px solid transparent;border-top:14px solid #e9c46e;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
+.spin-out{min-height:72px;text-align:center}
+.spin-out .pt{font-family:var(--serif);font-size:1.5rem;font-weight:600}
+.spin-out .pm{color:#cfc4b2;margin-top:2px}
+.spin-out .pf{color:#a99f8f;font-size:.88rem;margin-top:4px}
+.spin-act{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.spin-act .iconbtn:not(.primary){background:#2a241e;color:#f3ead9;border-color:#4a4036}
 </style>
 </head>
 <body>
@@ -449,7 +466,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.38";
+const APP_VERSION = "2026.11.03.40";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -847,7 +864,7 @@ function viewHall(id, params){
   const sorts = [["title","Title (A–Z)"],["maker",c.maker||"Maker"],["year","Year (oldest)"],["yeard","Year (newest)"],["recent","Recently added"],["updated","Recently edited"],["condition","Condition"]].concat(priv?[]:[["value","Value (highest)"]]);
   app.innerHTML = `<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><a href="#/gallery/${c.id}">✎ Edit gallery</a></div>
   <section class="hero" style="padding-top:4px;padding-bottom:10px"><h1>${c.icon} ${esc(c.name)}</h1>
-    <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
+    <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
     <form class="search" id="sf"><input type="search" name="q" placeholder="Search ${esc(c.name.toLowerCase())}…" value="${esc(q)}" aria-label="Search">
       <select name="sort" aria-label="Sort">${sorts.map(([v,l])=>`<option value="${v}" ${v===sort?"selected":""}>Sort: ${esc(l)}</option>`).join("")}</select>
       <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>
@@ -882,6 +899,7 @@ function viewHall(id, params){
     };
     next();
   };
+  if(document.getElementById("pickBtn")) document.getElementById("pickBtn").onclick = () => spinPick(list, c);
   app.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => document.getElementById("grp" + b.dataset.jump).scrollIntoView({behavior:"smooth"}));
   hydrate(app);
 }
@@ -953,7 +971,14 @@ function viewWall(id, params){
   // While it plays, a tap brings the controls back for a few seconds (with a big pause button) instead of stopping it.
   let tour = null, lock = null, peekT = null;
   const tourBtn = document.getElementById("wtour"), bigBtn = document.getElementById("wbig");
-  const advance = () => { if(!wall.isConnected) return stopTour(); const n = current() + perView(); go(n >= bays.length ? 0 : n); };
+  // At the end of the wall the Tour fades out, jumps back to the first piece and fades in again, forever.
+  const wrap = () => {
+    track.style.transition = "opacity .6s"; track.style.opacity = "0";
+    setTimeout(() => { track.style.scrollSnapType = "none"; track.scrollLeft = 0; track.style.scrollSnapType = "";
+      requestAnimationFrame(() => { track.style.opacity = "1"; show(); }); }, 650);
+  };
+  const advance = () => { if(!wall.isConnected) return stopTour(); const n = current() + perView();
+    if(n >= bays.length || track.scrollLeft + track.clientWidth >= track.scrollWidth - 4) wrap(); else go(n); };
   const restartTimer = () => { if(!tour) return; clearInterval(tour); tour = setInterval(advance, tourSecs() * 1000); };
   const hidePeek = () => { clearTimeout(peekT); wall.classList.remove("peek"); if(tour) wall.classList.add("quiet"); };
   const peek = () => { clearTimeout(peekT); wall.classList.remove("quiet"); wall.classList.add("peek");
@@ -1010,6 +1035,46 @@ function viewWall(id, params){
   });
 }
 
+
+/* ---------- Pick for me: a reel of covers that spins and lands on one ---------- */
+function spinPick(pool, c){
+  if(!pool.length) return;
+  const L = document.getElementById("layer"), key = "cm.recentPicks." + c.id;
+  const recent = LS.get(key, []);
+  // Skip the last few picks when there's enough to choose from, so it doesn't repeat itself.
+  const fresh = pool.filter(i => !recent.includes(i.id));
+  const choices = fresh.length >= Math.min(3, pool.length) ? fresh : pool;
+  const pick = choices[Math.floor(Math.random() * choices.length)];
+  const N = 44, land = 38, reel = Array.from({length:N}, (_, n) => n === land ? pick : pool[Math.floor(Math.random() * pool.length)]);
+  const tile = it => { const m = cover(it); return `<div class="rtile">${m ? `<img alt="" data-path="${esc(m.thumb||m.path)}">` : `<span>${c.icon}</span>`}<b>${esc(it.title||"")}</b></div>`; };
+  L.innerHTML = `<div class="spin" id="spin"><div class="spin-h">${c.icon} Picking from ${pool.length} ${esc(c.name.toLowerCase())}…</div>
+    <div class="reelwin"><div class="reel" id="reel">${reel.map(tile).join("")}</div><i class="mk"></i></div>
+    <div class="spin-out" id="spinOut"></div>
+    <div class="spin-act"><button type="button" class="iconbtn" id="spX">Close</button></div></div>`;
+  hydrate(L);
+  L.querySelectorAll("img[data-path]").forEach(el => { if(imgObserver) imgObserver.unobserve(el); imgQueue.push(el); }); pumpImages();
+  const reelEl = document.getElementById("reel"), win = reelEl.parentNode, close = () => L.innerHTML = "";
+  document.getElementById("spX").onclick = close;
+  document.getElementById("spin").onclick = e => { if(e.target.id === "spin") close(); };
+  requestAnimationFrame(() => {
+    const t = reelEl.children[land], jitter = (Math.random() - .5) * t.offsetWidth * .5;
+    const x = t.offsetLeft + t.offsetWidth / 2 - win.clientWidth / 2 + jitter;
+    reelEl.style.transition = "transform 4.6s cubic-bezier(.12,.75,.12,1)";
+    reelEl.style.transform = `translateX(${-x}px)`;
+    setTimeout(() => {
+      reelEl.style.transition = "transform .35s ease-out";
+      reelEl.style.transform = `translateX(${-(t.offsetLeft + t.offsetWidth / 2 - win.clientWidth / 2)}px)`;
+      t.classList.add("won"); if(navigator.vibrate) navigator.vibrate([30, 40, 60]);
+      LS.set(key, [pick.id, ...recent.filter(x => x !== pick.id)].slice(0, Math.max(0, Math.min(10, Math.floor(pool.length / 2)))));
+      const facts = c.fields.filter(f => !(priv && f.priv) && (pick.fields||{})[f.k]).slice(0, 2).map(f => pick.fields[f.k]);
+      document.querySelector("#spin .spin-h").textContent = "Your pick";
+      document.getElementById("spinOut").innerHTML = `<div class="pt">${esc(pick.title||"Untitled")}</div><div class="pm">${esc([pick.maker, pick.year].filter(Boolean).join(" · "))}</div>${facts.length ? `<div class="pf">${esc(facts.join(" · "))}</div>` : ""}${pick.location ? `<div class="pf">📍 ${esc(pick.location)}</div>` : ""}`;
+      document.querySelector("#spin .spin-act").innerHTML = `<a class="iconbtn primary" href="#/i/${pick.id}">Open it</a><button type="button" class="iconbtn" id="spAgain">🎲 Spin again</button><button type="button" class="iconbtn" id="spX">Close</button>`;
+      document.getElementById("spX").onclick = close;
+      document.getElementById("spAgain").onclick = () => spinPick(pool, c);
+    }, 4700);
+  });
+}
 function viewItem(id){
   const it = item(id); if(!it) return notFound();
   const c = coll(it.collectionId);
