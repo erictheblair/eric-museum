@@ -219,7 +219,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .wbar select{appearance:none;-webkit-appearance:none;padding-right:12px}
 .wbtn{white-space:nowrap}
 
-@media (max-width:420px){.wbar{gap:6px;padding-left:8px;padding-right:8px}.wbtn,.wbar select{padding:0 9px}}
+@media (max-width:420px){.wbar{gap:5px;padding-left:8px;padding-right:8px}.wbtn,.wbar select{padding:0 8px;font-size:.8rem;min-width:32px}.wbar .wcount{font-size:.8rem}}
 .wbtn.on{background:rgba(201,162,74,.28);border-color:rgba(233,196,110,.6)}
 .wbar .wcount{color:#bfb4a2;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wtrack{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -307,7 +307,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.30";
+const APP_VERSION = "2026.11.03.31";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -746,6 +746,7 @@ function viewHall(id, params){
 
 /* ---------- Gallery mode: the pieces hung on a dark, spotlit wall ---------- */
 const hallOrder = {};
+const tourSecs = () => { const v = +LS.get("cm.tourSecs", 8); return [3,5,8,12,20,30,60].includes(v) ? v : 8; };
 const FRAMES = [["gilt","Gilt"],["black","Black"],["walnut","Walnut"],["white","White"],["none","No frame"]];
 function viewWall(id, params){
   const c = coll(id); if(!c) return notFound();
@@ -779,6 +780,7 @@ function viewWall(id, params){
       <div class="wtitle">${c.icon} ${esc(c.name)}</div>
       ${pieces.length ? `<select id="wframe" aria-label="Frame style">${FRAMES.map(([k,l]) => `<option value="${k}" ${k===frame?"selected":""}>${l}</option>`).join("")}</select>
       ${pieces.length > 1 ? `<button type="button" class="wbtn${shuffle ? " on" : ""}" id="wshuf" title="${shuffle ? "Shuffle again" : "Shuffle the order"}">🔀</button>${shuffle ? `<button type="button" class="wbtn" id="worder" title="Back to your gallery's order">In order</button>` : ""}` : ""}
+      ${pieces.length > 1 ? `<select id="wspeed" aria-label="Tour speed" title="How long the Tour stays on each piece">${[3,5,8,12,20,30,60].map(n => `<option value="${n}" ${n===tourSecs()?"selected":""}>⏱ ${n<60 ? n + "s" : "1 min"}</option>`).join("")}</select>` : ""}
       ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
       <span class="wcount" id="wcount"></span>` : ""}</div>
     ${pieces.length > 1 ? `<button type="button" class="wnav prev" id="wprev" aria-label="Previous piece">‹</button><button type="button" class="wnav next" id="wnext" aria-label="Next piece">›</button>` : ""}
@@ -811,11 +813,12 @@ function viewWall(id, params){
   if(tourBtn) tourBtn.onclick = e => {
     e.stopPropagation(); if(tour) return stopTour();
     tourBtn.textContent = "⏸ Pause"; wall.classList.add("quiet");
-    tour = setInterval(() => { if(!wall.isConnected) return stopTour(); const n = current() + perView(); go(n >= bays.length ? 0 : n); }, 6000);
+    tour = setInterval(() => { if(!wall.isConnected) return stopTour(); const n = current() + perView(); go(n >= bays.length ? 0 : n); }, tourSecs() * 1000);
     if(navigator.wakeLock) navigator.wakeLock.request("screen").then(l => lock = l).catch(()=>{});
   };
   wall.addEventListener("pointerdown", e => { if(tour && e.target !== tourBtn) stopTour(); });
   const step = d => go(current() + d * perView());
+  const sp = document.getElementById("wspeed"); if(sp) sp.onchange = () => LS.set("cm.tourSecs", +sp.value);
   const sh = document.getElementById("wshuf");
   const newShuffle = () => { LS.set("cm.wallShuffle", true); location.hash = "#/wall/" + id + "?s=" + (Math.floor(Math.random() * 1e9) + 1); };
   if(sh) sh.onclick = newShuffle;
