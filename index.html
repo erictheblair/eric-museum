@@ -267,7 +267,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.23";
+const APP_VERSION = "2026.11.03.25";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -879,6 +879,18 @@ function loadZXing(){
   if(window.ZXing) return Promise.resolve();
   return zxingLoad = zxingLoad || new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="vendor/zxing.min.js"; s.onload=res; s.onerror=()=>{ zxingLoad=null; rej(new Error("Couldn't load the scanner.")); }; document.head.appendChild(s); });
 }
+/* iPhone home-screen apps ask for the camera every time it is switched on, so between scans the camera is
+   paused rather than released, and reused if the next scan comes within a few minutes. */
+let camStream = null, camTimer = null;
+function releaseCam(){ clearTimeout(camTimer); if(camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+function parkCam(){ if(!camStream) return; camStream.getTracks().forEach(t => t.enabled = false); clearTimeout(camTimer); camTimer = setTimeout(releaseCam, 3 * 60 * 1000); }
+async function getCam(){
+  clearTimeout(camTimer);
+  if(camStream && camStream.getTracks().some(t => t.readyState === "live")){ camStream.getTracks().forEach(t => t.enabled = true); return camStream; }
+  camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720}}});
+  return camStream;
+}
+document.addEventListener("visibilitychange", () => { if(document.hidden && !document.getElementById("sc")) releaseCam(); });
 function scanBarcode(onCode){
   const L = document.getElementById("layer");
   L.innerHTML = `<div class="scanner" id="sc"><video playsinline muted autoplay></video><div class="aim"></div>
@@ -887,7 +899,7 @@ function scanBarcode(onCode){
     <button class="iconbtn" id="scClose" type="button" style="background:#222;color:#fff;border-color:#444">Cancel</button></div></div>`;
   const video = L.querySelector("video"), msg = document.getElementById("scMsg");
   let finished = false;
-  const stop = () => { finished = true; const st = video.srcObject; if(st) st.getTracks().forEach(t=>t.stop()); L.innerHTML = ""; };
+  const stop = () => { finished = true; video.srcObject = null; parkCam(); L.innerHTML = ""; };
   const finish = code => { if(finished) return; stop(); onCode(code); };
   document.getElementById("scClose").onclick = stop;
   document.getElementById("scForm").onsubmit = e => { e.preventDefault(); const v = new FormData(e.target).get("code").trim(); if(v) finish(v); };
@@ -896,8 +908,8 @@ function scanBarcode(onCode){
       if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("This browser can't use the camera here.");
       await loadZXing();
       if(finished) return;
-      const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720}}});
-      if(finished){ stream.getTracks().forEach(t=>t.stop()); return; }
+      const stream = await getCam();
+      if(finished){ parkCam(); return; }
       video.srcObject = stream; await video.play().catch(()=>{});
       const F = ZXing.BarcodeFormat, hints = new Map();
       hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39]);
@@ -996,17 +1008,26 @@ async function serviceFetch(service, path){
   return r;
 }
 function isISBN(code){ return /^97[89]\d{10}$/.test(code) || /^\d{9}[\dX]$/i.test(code); }
-async function lookupBarcode(code){
-  const tries = [];
-  if(isISBN(code)) tries.push(lookupOpenLibrary);
-  if(metronCreds() || proxyUrl()) tries.push(async c => { const j = await metronGet("issue/?upc=" + encodeURIComponent(c)); const r = (j.results||[])[0]; return r ? {...metronIssue(await metronGet("issue/" + r.id + "/"))} : null; });
-  const tok = (cat.settings||{}).discogsToken;
-  if(tok) tries.push(c => lookupDiscogs(c, tok));
-  tries.push(lookupMusicBrainz);
-  if(!isISBN(code)) tries.push(lookupOpenLibrary);
-  tries.push(lookupUPCItemDB);
-  for(const t of tries){
-    try{ const r = await t(code); if(r && r.title) return await enrichFilm(r); }catch(e){ console.warn(e.message); }
+/* Barcode lookup: tries sources in an order that suits the gallery, gives each one a short time limit,
+   and reports progress so the screen never just sits on "Looking up…". */
+const withLimit = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("took too long")), ms))]);
+async function lookupBarcode(code, kind, progress, stopped){
+  const tries = [], tok = (cat.settings||{}).discogsToken;
+  const metron = ["Metron", async c => { const j = await metronGet("issue/?upc=" + encodeURIComponent(c)); const r = (j.results||[])[0]; return r ? {...metronIssue(await metronGet("issue/" + r.id + "/"))} : null; }];
+  const comicCode = kind === "comic" || String(code).replace(/\D/g,"").length >= 17;   // comic UPCs carry a 5-digit add-on
+  if(isISBN(code) && kind !== "comic") tries.push(["Open Library", lookupOpenLibrary]);
+  if(comicCode && (metronCreds() || proxyUrl())) tries.push(metron);
+  if(tok) tries.push(["Discogs", c => lookupDiscogs(c, tok)]);
+  tries.push(["MusicBrainz", lookupMusicBrainz]);
+  if(!isISBN(code) || kind === "comic") tries.push(["Open Library", lookupOpenLibrary]);
+  tries.push(["UPCitemdb", lookupUPCItemDB]);
+  for(const [name, t] of tries){
+    if(stopped && stopped()) return null;
+    if(progress) progress("Checking " + name + "…");
+    try{
+      const r = await withLimit(t(code), name === "Metron" ? 20000 : 12000);
+      if(r && r.title){ if(progress) progress("Found it. Getting details…"); return await withLimit(enrichFilm(r), 12000).catch(() => r); }
+    }catch(e){ console.warn(name, e.message); }
   }
   return null;
 }
@@ -1513,10 +1534,13 @@ function viewEdit(id, params){
     code = String(code).replace(/\D/g, "") || String(code).trim();
     it.barcode = code;
     const dupe = cat.items.find(x => x.id !== it.id && x.barcode && sameCode(x.barcode, code));
-    const done = busy("Looking up " + code + "…");
-    let r = null;
-    try{ r = await lookupBarcode(code); }catch(e){ console.warn(e); }
-    finally{ done(); }
+    let r = null, stop = false;
+    const b = document.createElement("div"); b.className = "busy";
+    b.innerHTML = `<div style="text-align:center;max-width:300px">Looking up ${esc(code)}…<div id="lkStep" style="color:var(--muted);font-size:.88rem;margin:6px 0 10px">&nbsp;</div><button type="button" class="iconbtn" id="lkStop">Stop and fill in by hand</button></div>`;
+    document.body.appendChild(b);
+    const stopP = new Promise(res => b.querySelector("#lkStop").onclick = () => { stop = true; res(null); });
+    try{ r = await Promise.race([lookupBarcode(code, lookupKind(coll(it.collectionId)), m => { const el = b.querySelector("#lkStep"); if(el) el.textContent = m; }, () => stop), stopP]); }catch(e){ console.warn(e); }
+    finally{ b.remove(); }
     found = {code, dupe, miss:!r, ...(r||{})};
     if(r) await applyResult(r, true);
     if(navigator.vibrate) navigator.vibrate(60);
@@ -1538,7 +1562,7 @@ function viewEdit(id, params){
       mergeResult(it, r, overwrite);
       if(r.cover && !it.media.some(m=>m.kind==="photo")){
         try{
-          const blob = await (await fetch(r.cover)).blob();
+          const blob = await (await fetchT(r.cover, {}, 15000)).blob();
           if(/^image\//.test(blob.type)) await addFiles([new File([blob], "cover.jpg", {type:blob.type})], "photo", true);
           else found.cover = "";
         }catch(e){ console.warn("cover fetch failed", e);
