@@ -219,7 +219,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.17";
+const APP_VERSION = "2026.11.03.18";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -796,7 +796,7 @@ async function serviceFetch(service, path){
     url = "https://boardgamegeek.com/xmlapi2/" + path; headers.Authorization = "Bearer " + tok;
   }
   let r;
-  try{ r = await fetchT(url, {headers}, 25000); }
+  try{ r = await fetchT(url, {headers}, 45000); }
   catch(e){ throw new Error(e.timeout ? name + " took too long to answer. Try again in a moment." : px ? "Couldn't reach " + name + " through your lookup helper. " + name + " may be down; try again later." : "Couldn't reach " + name + ". It may be down right now, or it may block web pages (the lookup helper in Settings → Lookups fixes that)."); }
   if(r.status === 401 || r.status === 403) throw new Error(name + " didn't accept the login" + (px ? " stored in your lookup helper." : ". Check it in Settings → Lookups."));
   if(r.status === 429) throw new Error(name + " says we're searching too fast. Wait a minute and try again.");
@@ -925,10 +925,22 @@ async function searchCandidates(kind, q, maker){
   }
   if(kind === "comic"){
     const m = q.match(/^(.*?)\s*#\s*([\w.\/-]+)\s*$/);
-    const params = m ? "series_name=" + encodeURIComponent(m[1]) + "&number=" + encodeURIComponent(m[2]) : "series_name=" + encodeURIComponent(q);
-    const j = await metronGet("issue/?" + params);
-    return (j.results||[]).slice(0, 20).map(r => ({source:"Metron", title:r.issue, year:(r.cover_date||"").slice(0,4), thumb:r.image || "", sub:r.cover_date || "",
-      get:async () => metronIssue(await metronGet("issue/" + r.id + "/"))}));
+    const seriesName = (m ? m[1] : q).trim(), num = m ? m[2] : "";
+    // Searching series by name is much quicker on Metron than searching every issue.
+    const sj = await metronGet("series/?name=" + encodeURIComponent(seriesName));
+    const series = (sj.results||[]).slice(0, 12);
+    if(!num) return series.map(sr => ({source:"Metron", title:sr.series || sr.display_name || sr.name || "", sub:[sr.year_began, sr.issue_count ? sr.issue_count + " issues" : ""].filter(Boolean).join(" · "),
+      get:async () => { const d = await metronGet("series/" + sr.id + "/");
+        return {source:"Metron", title:d.name || sr.series || "", maker:(d.publisher||{}).name || "", year:d.year_began ? String(d.year_began) : "",
+          named:{"Volume":d.volume ? String(d.volume) + (d.year_began ? " (" + d.year_began + ")" : "") : ""}}; }}));
+    const out = [];
+    for(const sr of series.slice(0, 5)){
+      const ij = await metronGet("issue/?series_id=" + sr.id + "&number=" + encodeURIComponent(num));
+      (ij.results||[]).forEach(r => out.push({source:"Metron", title:r.issue, year:(r.cover_date||"").slice(0,4), thumb:r.image || "", sub:r.cover_date || "",
+        get:async () => metronIssue(await metronGet("issue/" + r.id + "/"))}));
+      if(out.length >= 12) break;
+    }
+    return out;
   }
   return [];
 }
