@@ -126,6 +126,16 @@ legend{font-family:var(--serif);font-weight:600;padding:0 6px}
 .lightbox img{max-width:100%;max-height:100%;object-fit:contain}
 .lightbox img.zoom{max-width:none;max-height:none;width:auto}
 .lightbox .x{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:2}
+.scanner{position:fixed;inset:0;z-index:52;background:#000;display:flex;flex-direction:column;color:#fff}
+.scanner video{flex:1;min-height:0;width:100%;object-fit:cover;background:#000}
+.scanner .aim{position:absolute;left:10%;right:10%;top:38%;height:22%;border:3px solid rgba(255,255,255,.85);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);pointer-events:none}
+.scanner .bar{padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:#111;display:flex;flex-direction:column;gap:10px}
+.scanner .bar form{display:flex;gap:8px}
+.scanner .bar input{flex:1;min-width:0;height:42px;border-radius:10px;border:1px solid #444;background:#222;color:#fff;padding:0 12px}
+.scanner .msg{font-size:.92rem;color:#ddd}
+.found{border:1px solid var(--accent);background:var(--surface);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.found img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--mat)}
+.found .grow{flex:1;min-width:0}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:.9rem;z-index:60;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
 .busy{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center}
 .busy div{background:var(--surface);padding:14px 18px;border-radius:12px;box-shadow:var(--shadow)}
@@ -135,13 +145,15 @@ legend{font-family:var(--serif);font-weight:600;padding:0 6px}
 .panel code{background:var(--chip);padding:1px 6px;border-radius:5px;font-size:.85rem;overflow-wrap:anywhere}
 ol.steps{padding-left:20px;margin:.5rem 0;font-size:.92rem}
 ol.steps li{margin:.3rem 0}
-.fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:15;height:54px;padding:0 20px;border-radius:999px;border:none;background:var(--accent);color:var(--accent-ink);font-size:1rem;box-shadow:var(--shadow);cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px}
+.fabs{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:15;display:flex;gap:10px}
+.fab.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.fab{height:54px;padding:0 20px;border-radius:999px;border:none;background:var(--accent);color:var(--accent-ink);font-size:1rem;box-shadow:var(--shadow);cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px}
 /* report */
 table.report{width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:20px}
 table.report th,table.report td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:top}
 table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 .report-wrap{overflow-x:auto}
-@media print{header.top,.fab,.noprint{display:none!important} body{background:#fff;color:#000} main{padding:0}}
+@media print{header.top,.fabs,.noprint{display:none!important} body{background:#fff;color:#000} main{padding:0}}
 </style>
 </head>
 <body>
@@ -163,9 +175,12 @@ const PRESETS = [
   {id:"records", name:"Records", icon:"🎵", maker:"Artist", fields:[
     {k:"format",l:"Format",opts:["LP","EP","7\" single","12\" single","78","Box set","Picture disc"]},{k:"label",l:"Label"},{k:"catno",l:"Catalog #"},
     {k:"pressing",l:"Pressing / country"},{k:"matrix",l:"Matrix / runout"},{k:"mediaGrade",l:"Media grade"},{k:"sleeveGrade",l:"Sleeve grade"}]},
-  {id:"laserdiscs", name:"Laserdiscs", icon:"💿", maker:"Director / studio", fields:[
+  {id:"laserdiscs", name:"Laserdiscs", icon:"💿", maker:"Director", fields:[
     {k:"label",l:"Label / publisher"},{k:"catno",l:"Catalog #"},{k:"format",l:"Format",opts:["CLV","CAV","CLV/CAV","Extended play"]},
-    {k:"sides",l:"Sides"},{k:"edition",l:"Edition (e.g. Criterion, widescreen)"},{k:"region",l:"Region / system"}]},
+    {k:"sides",l:"Sides"},{k:"edition",l:"Edition (e.g. Criterion, widescreen)"},{k:"region",l:"Region / system"},{k:"runtime",l:"Runtime"},{k:"cast",l:"Starring"},{k:"studio",l:"Studio"}]},
+  {id:"movies", name:"Movies", icon:"🎬", maker:"Director", fields:[
+    {k:"format",l:"Format",opts:["DVD","Blu-ray","4K UHD","VHS","Betamax","Film reel"]},{k:"studio",l:"Studio"},{k:"label",l:"Label / distributor"},{k:"catno",l:"Catalog / spine #"},
+    {k:"edition",l:"Edition (e.g. steelbook, Criterion)"},{k:"runtime",l:"Runtime"},{k:"cast",l:"Starring"},{k:"region",l:"Region"}]},
   {id:"books", name:"Books", icon:"📚", maker:"Author", fields:[
     {k:"publisher",l:"Publisher"},{k:"edition",l:"Edition / printing"},{k:"isbn",l:"ISBN"},{k:"binding",l:"Binding",opts:["Hardcover","Paperback","Leather","Other"]},{k:"signed",l:"Signed / inscribed"}]},
   {id:"prints", name:"Art Prints", icon:"🖼️", maker:"Artist", fields:[
@@ -185,7 +200,7 @@ const PRESETS = [
     {k:"era",l:"Period / era"},{k:"origin",l:"Origin"},{k:"materials",l:"Materials"},{k:"mark",l:"Maker's mark"},{k:"dimensions",l:"Dimensions"},{k:"provenance",l:"Provenance"}]},
 ];
 function newCatalog(){
-  return {version:1, title:"The Collection", collections:JSON.parse(JSON.stringify(PRESETS)), items:[], updated:new Date().toISOString()};
+  return {version:1, title:"The Collection", collections:JSON.parse(JSON.stringify(PRESETS)), presetsSeen:PRESETS.map(p=>p.id), items:[], updated:new Date().toISOString()};
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -354,7 +369,7 @@ function plate(it){
 function matches(it, q){
   if(!q) return true;
   const c = coll(it.collectionId);
-  const hay = [it.title, it.maker, it.year, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]),
+  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" ").toLowerCase();
   return q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
 }
@@ -404,7 +419,7 @@ function viewHome(params){
     return `<a class="hall" href="#/c/${c.id}">${it ? `<img alt="" data-path="${esc(cover(it).thumb||cover(it).path)}" loading="lazy">` : `<div class="ph">${c.icon}</div>`}
       <div class="label"><h3>${c.icon} ${esc(c.name)}</h3><span>${counts[c.id]||0} ${counts[c.id]===1?"piece":"pieces"}</span></div></a>`; }).join("")}</div>
   ${recent.length ? `<div class="section-title"><h2>Recently added</h2></div><div class="grid">${recent.map(plate).join("")}</div>` : ""}`}
-  <a class="fab" href="#/new">＋ Add a piece</a>`;
+  <div class="fabs"><a class="fab ghost" href="#/new?scan=1">▦ Scan</a><a class="fab" href="#/new">＋ Add a piece</a></div>`;
   document.getElementById("sf").onsubmit = e => { e.preventDefault(); const v = new FormData(e.target).get("q").trim(); location.hash = v ? "#/?q=" + encodeURIComponent(v) : "#/"; };
   hydrate(app);
 }
@@ -426,7 +441,7 @@ function viewHall(id, params){
     ${tags.length ? `<div class="chips" style="margin-top:8px">${tags.map(t=>`<a class="chip ${t===tag?"on":""}" href="${link({tag:t===tag?"":t})}">${esc(t)}</a>`).join("")}</div>` : ""}
   </section>
   ${list.length ? `<div class="grid">${list.map(plate).join("")}</div>` : `<div class="empty">${all.length ? "Nothing matches." : "This gallery is empty. Add the first piece!"}</div>`}
-  <a class="fab" href="#/new?c=${id}">＋ Add to ${esc(c.name)}</a>`;
+  <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${id}">▦ Scan</a><a class="fab" href="#/new?c=${id}">＋ Add</a></div>`;
   const f = document.getElementById("sf");
   f.onsubmit = e => { e.preventDefault(); location.hash = link({q:new FormData(f).get("q").trim()}); };
   f.sort.onchange = () => { LS.set("cm.sort."+id, f.sort.value); location.hash = link({sort:f.sort.value, q:new FormData(f).get("q").trim()}); };
@@ -443,7 +458,7 @@ function viewItem(id){
   const add = (l, v, isPriv) => { if(v !== "" && v != null) facts.push([l, isPriv && priv ? hidden : esc(v)]); };
   add(c.maker || "Maker", it.maker); add("Year", it.year);
   c.fields.forEach(f => add(f.l, (it.fields||{})[f.k], f.priv));
-  add("Condition", it.condition); add("Location", it.location);
+  add("Condition", it.condition); add("Barcode", it.barcode); add("Location", it.location);
   add("Acquired", [it.acquiredDate, it.source].filter(Boolean).join(" · "));
   if(it.price) facts.push(["Price paid", priv ? hidden : esc(money(it.price))]);
   if(it.value) facts.push(["Estimated value", priv ? hidden : esc(money(it.value))]);
@@ -516,6 +531,190 @@ async function shrink(file, max, quality){
 }
 const safeName = n => (n||"file").replace(/[^\w.\- ]+/g,"_").slice(-80);
 
+/* ---------- Barcode scanning ---------- */
+let zxingLoad;
+function loadZXing(){
+  if(window.ZXing) return Promise.resolve();
+  return zxingLoad = zxingLoad || new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="vendor/zxing.min.js"; s.onload=res; s.onerror=()=>{ zxingLoad=null; rej(new Error("Couldn't load the scanner.")); }; document.head.appendChild(s); });
+}
+function scanBarcode(onCode){
+  const L = document.getElementById("layer");
+  L.innerHTML = `<div class="scanner" id="sc"><video playsinline muted autoplay></video><div class="aim"></div>
+    <div class="bar"><div class="msg" id="scMsg">Starting camera…</div>
+    <form id="scForm"><input name="code" inputmode="numeric" placeholder="Or type the number under the barcode"><button class="iconbtn primary" type="submit">Look up</button></form>
+    <button class="iconbtn" id="scClose" type="button" style="background:#222;color:#fff;border-color:#444">Cancel</button></div></div>`;
+  const video = L.querySelector("video"), msg = document.getElementById("scMsg");
+  let finished = false;
+  const stop = () => { finished = true; const st = video.srcObject; if(st) st.getTracks().forEach(t=>t.stop()); L.innerHTML = ""; };
+  const finish = code => { if(finished) return; stop(); onCode(code); };
+  document.getElementById("scClose").onclick = stop;
+  document.getElementById("scForm").onsubmit = e => { e.preventDefault(); const v = new FormData(e.target).get("code").trim(); if(v) finish(v); };
+  (async () => {
+    try{
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("This browser can't use the camera here.");
+      await loadZXing();
+      if(finished) return;
+      const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720}}});
+      if(finished){ stream.getTracks().forEach(t=>t.stop()); return; }
+      video.srcObject = stream; await video.play().catch(()=>{});
+      const F = ZXing.BarcodeFormat, hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      const zx = new ZXing.MultiFormatReader(); zx.setHints(hints);
+      let native = null;
+      try{ if("BarcodeDetector" in window) native = new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39"]}); }catch{}
+      const cv = document.createElement("canvas"), ctx = cv.getContext("2d", {willReadFrequently:true});
+      const tick = async () => {
+        if(finished) return;
+        if(video.readyState >= 2 && video.videoWidth){
+          const s = Math.min(1, 1280 / video.videoWidth);
+          cv.width = Math.round(video.videoWidth * s); cv.height = Math.round(video.videoHeight * s);
+          ctx.drawImage(video, 0, 0, cv.width, cv.height);
+          try{
+            if(native){ const r = await native.detect(cv); if(r.length) return finish(r[0].rawValue); }
+            const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)));
+            const r = zx.decode(bmp); if(r) return finish(r.getText());
+          }catch(e){ /* not found in this frame */ }
+        }
+        setTimeout(tick, 200);
+      };
+      tick();
+      if(!finished) msg.textContent = "Point the camera at the barcode and hold steady.";
+    }catch(e){
+      if(finished) return;
+      msg.textContent = (e && e.name === "NotAllowedError") ? "Camera permission was blocked. Allow camera access for this site, or type the number below." : (e.message || "Camera unavailable.") + " You can type the number below.";
+    }
+  })();
+}
+const sameCode = (a,b) => { const n = x => String(x).replace(/\D/g,"").replace(/^0+/,""); return n(a) && n(a) === n(b); };
+async function getJSON(url, opts){ const r = await fetch(url, opts); if(!r.ok) throw new Error(url + " " + r.status); return r.json(); }
+function isISBN(code){ return /^97[89]\d{10}$/.test(code) || /^\d{9}[\dX]$/i.test(code); }
+async function lookupBarcode(code){
+  const tries = [];
+  if(isISBN(code)) tries.push(lookupOpenLibrary);
+  const tok = (cat.settings||{}).discogsToken;
+  if(tok) tries.push(c => lookupDiscogs(c, tok));
+  tries.push(lookupMusicBrainz);
+  if(!isISBN(code)) tries.push(lookupOpenLibrary);
+  tries.push(lookupUPCItemDB);
+  for(const t of tries){
+    try{ const r = await t(code); if(r && r.title) return await enrichFilm(r); }catch(e){ console.warn(e.message); }
+  }
+  return null;
+}
+const FILM_TYPES = new Set(["Q11424","Q24869","Q506240","Q202866","Q24862","Q17123180","Q226730","Q5398426","Q21191270","Q29168811","Q20650540","Q1259759"]);
+function cleanTitle(t){
+  return String(t||"").replace(/\[[^\]]*\]|\([^)]*\)/g," ")
+    .replace(/\b(laser ?discs?|ld|dvd|blu-?ray|4k|uhd|vhs|widescreen|letterbox(ed)?|full ?screen|special edition|collector'?s edition|director'?s cut|unrated|remastered|\d+(th)? anniversary edition|deluxe edition|cav|clv|extended play|ntsc|pal|digitally mastered|thx|the criterion collection|criterion)\b/gi," ")
+    .replace(/\s+[-–:|]\s*$/,"").replace(/\s{2,}/g," ").trim().replace(/^[-–:|\s]+|[-–:|\s]+$/g,"");
+}
+async function wdEntities(ids, props){
+  if(!ids.length) return {};
+  const j = await getJSON("https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&languages=en&props=" + props + "&ids=" + ids.slice(0,50).join("|"));
+  return j.entities || {};
+}
+async function lookupFilm(rawTitle, yearHint){
+  const title = cleanTitle(rawTitle); if(!title) return null;
+  const r = await lookupFilmExact(title, yearHint);
+  if(r) return r;
+  const short = title.split(/\s[-–:|]\s|:\s/)[0].trim();
+  return short && short !== title ? lookupFilmExact(short, yearHint) : null;
+}
+async function lookupFilmExact(title, yearHint){
+  const s = await getJSON("https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&origin=*&language=en&type=item&limit=12&search=" + encodeURIComponent(title));
+  const ids = (s.search||[]).map(x=>x.id); if(!ids.length) return null;
+  const ents = await wdEntities(ids, "claims|labels");
+  const val = (en,p) => (en.claims[p]||[]).map(c => c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value).filter(Boolean);
+  const year = en => { const t = val(en,"P577")[0]; return t && t.time ? t.time.slice(1,5) : ""; };
+  let films = ids.map(id=>ents[id]).filter(en => en && en.claims && val(en,"P31").some(v => FILM_TYPES.has(v.id)));
+  if(yearHint) films.sort((a,b) => (year(b)===String(yearHint)) - (year(a)===String(yearHint)));
+  const film = films[0]; if(!film) return null;
+  const qids = p => val(film,p).map(v=>v.id).filter(Boolean);
+  const directors = qids("P57"), cast = qids("P161").slice(0,5), studios = qids("P272").slice(0,2);
+  const names = await wdEntities([...new Set([...directors, ...cast, ...studios])], "labels");
+  const nm = list => list.map(id => names[id] && names[id].labels.en && names[id].labels.en.value).filter(Boolean).join(", ");
+  const dur = val(film,"P2047")[0];
+  return {source:"Wikidata", title:(film.labels.en||{}).value || title, maker:nm(directors), year:year(film),
+    fields:{runtime: dur ? Math.round(+dur.amount) + " min" : "", cast:nm(cast), studio:nm(studios)}};
+}
+async function lookupByTitle(collectionId, title, maker){
+  if(collectionId === "laserdiscs" || collectionId === "movies") return lookupFilm(title);
+  if(collectionId === "books"){
+    const j = await getJSON("https://openlibrary.org/search.json?limit=1&fields=title,subtitle,author_name,first_publish_year,publisher,isbn,cover_i&title=" + encodeURIComponent(title) + (maker ? "&author=" + encodeURIComponent(maker) : ""));
+    const b = (j.docs||[])[0]; if(!b) return null;
+    return {source:"Open Library", title:[b.title, b.subtitle].filter(Boolean).join(": "), maker:(b.author_name||[]).join(", "), year:b.first_publish_year ? String(b.first_publish_year) : "",
+      cover:b.cover_i ? "https://covers.openlibrary.org/b/id/" + b.cover_i + "-L.jpg" : "", fields:{publisher:(b.publisher||[])[0]||""}};
+  }
+  if(collectionId === "records"){
+    const q = 'release:"' + title.replace(/"/g,"") + '"' + (maker ? ' AND artist:"' + maker.replace(/"/g,"") + '"' : "") + " AND format:vinyl";
+    const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=5&query=" + encodeURIComponent(q));
+    const r = (j.releases||[])[0]; if(!r) return null;
+    const li = (r["label-info"]||[])[0] || {}, fm = formatFrom((r.media||[]).map(m=>m.format||""));
+    return {source:"MusicBrainz", title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""), year:(r.date||"").slice(0,4),
+      cover:"https://coverartarchive.org/release/" + r.id + "/front-500", fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""}};
+  }
+  return null;
+}
+async function enrichFilm(r){
+  const t = (r.title||"").toLowerCase();
+  const filmy = r.collectionId === "laserdiscs" || r.collectionId === "movies" || /laser ?disc|dvd|blu-?ray|vhs|widescreen/.test(t + " " + (r.category||""));
+  if(!filmy) return r;
+  if(!r.collectionId) r.collectionId = /laser ?disc/.test(t) ? "laserdiscs" : "movies";
+  if(r.source === "MusicBrainz" || r.source === "Discogs") return r; // music laserdiscs: keep music data
+  try{
+    const f = await lookupFilm(r.title);
+    if(f){ r = {...r, title:f.title, maker:f.maker || r.maker, year:f.year || r.year, source:r.source + " + " + f.source, fields:{...(r.fields||{}), ...Object.fromEntries(Object.entries(f.fields).filter(([,v])=>v))}}; }
+  }catch(e){ console.warn(e.message); }
+  return r;
+}
+async function lookupOpenLibrary(code){
+  if(!isISBN(code)) return null;
+  const j = await getJSON("https://openlibrary.org/api/books?bibkeys=ISBN:" + code + "&format=json&jscmd=data");
+  const b = j["ISBN:" + code]; if(!b) return null;
+  return {source:"Open Library", collectionId:"books", title:[b.title, b.subtitle].filter(Boolean).join(": "), maker:(b.authors||[]).map(a=>a.name).join(", "),
+    year:((b.publish_date||"").match(/\d{4}/)||[""])[0], cover:b.cover && (b.cover.large || b.cover.medium),
+    fields:{publisher:(b.publishers||[]).map(p=>p.name).join(", "), isbn:code}};
+}
+function formatFrom(fmts){
+  const f = fmts.join(" ").toLowerCase();
+  if(/laser ?disc/.test(f)) return {collectionId:"laserdiscs"};
+  if(/vinyl|lp|7"|12"|10"|45 rpm|78 rpm/.test(f)) return {collectionId:"records", format:/7"|45 rpm/.test(f) ? '7" single' : /78 rpm/.test(f) ? "78" : /\bep\b/.test(f) ? "EP" : /box/.test(f) ? "Box set" : "LP"};
+  return {};
+}
+async function lookupDiscogs(code, tok){
+  const j = await getJSON("https://api.discogs.com/database/search?type=release&per_page=10&barcode=" + encodeURIComponent(code) + "&token=" + encodeURIComponent(tok));
+  const list = j.results || []; if(!list.length) return null;
+  const r = list.find(x => /vinyl|laserdisc/i.test((x.format||[]).join(" "))) || list[0];
+  const [artist, ...rest] = (r.title||"").split(" - ");
+  const fm = formatFrom(r.format||[]);
+  return {source:"Discogs", collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "",
+    year:r.year||"", cover:r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "",
+    fields:{label:(r.label||[])[0]||"", catno:r.catno && r.catno!=="none" ? r.catno : "", format:fm.format||"", pressing:r.country||""}};
+}
+async function lookupMusicBrainz(code){
+  const alt = code.length === 13 && code[0] === "0" ? code.slice(1) : code.length === 12 ? "0" + code : null;
+  const q = "barcode:" + code + (alt ? " OR barcode:" + alt : "");
+  const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=10&query=" + encodeURIComponent(q));
+  const list = j.releases || []; if(!list.length) return null;
+  const fmts = r => (r.media||[]).map(m=>m.format||"");
+  const r = list.find(x => /vinyl|laserdisc/i.test(fmts(x).join(" "))) || list[0];
+  const fm = formatFrom(fmts(r)), li = (r["label-info"]||[])[0] || {};
+  return {source:"MusicBrainz", collectionId:fm.collectionId, title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""),
+    year:(r.date||"").slice(0,4), cover:"https://coverartarchive.org/release/" + r.id + "/front-500",
+    fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""}};
+}
+async function lookupUPCItemDB(code){
+  const j = await getJSON("https://api.upcitemdb.com/prod/trial/lookup?upc=" + encodeURIComponent(code));
+  const r = (j.items||[])[0]; if(!r) return null;
+  return {source:"UPCitemdb", title:r.title, maker:"", category:r.category||"", cover:(r.images||[])[0]||"", extra:r.brand ? [{l:"Brand / publisher", v:r.brand}] : [], fields:{}};
+}
+
+const TITLE_LOOKUP = ["records","laserdiscs","movies","books"];
+function extraRow(x){ return `<div class="xrow" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr) auto;gap:6px">
+  <input data-xl list="xlabels" value="${esc(x.l)}" placeholder="Label" aria-label="Detail label" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0">
+  <input data-xv value="${esc(x.v)}" placeholder="Value" aria-label="Detail value" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0">
+  <button type="button" class="iconbtn" data-xrm title="Remove" style="height:auto">✕</button></div>`; }
+
 /* ---------- Edit form ---------- */
 function viewEdit(id, params){
   const existing = id ? item(id) : null;
@@ -534,6 +733,8 @@ function viewEdit(id, params){
     app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › ${existing ? `<a href="#/i/${it.id}">${esc(existing.title)}</a> › Edit` : "Add a piece"}</div>
     <form class="edit" id="ef" autocomplete="off">
       <h1 style="font-size:1.8rem;margin-bottom:16px">${existing ? "Edit piece" : "Add a piece"}</h1>
+      ${existing ? "" : `<div class="actions" style="margin:0 0 16px"><button type="button" class="iconbtn primary" id="scanTop" style="height:44px;padding:0 18px">▦ Scan a barcode to fill this in</button></div>`}
+      <div id="foundBox"></div>
       <fieldset><legend>Photos &amp; documents</legend>
         <div class="actions" style="margin-top:0">
           <label class="iconbtn primary filebtn">📷 Add photos<input type="file" accept="image/*" multiple id="addPhotos"></label>
@@ -544,9 +745,10 @@ function viewEdit(id, params){
       </fieldset>
       <fieldset><legend>The piece</legend><div class="fgrid">
         <div class="f"><label for="collectionId">Gallery</label><select id="collectionId" name="collectionId">${cat.collections.map(x=>`<option value="${x.id}" ${x.id===it.collectionId?"selected":""}>${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
-        <div class="f"><label for="title">Title *</label><input id="title" name="title" required value="${esc(it.title)}"></div>
+        <div class="f"><label for="title">Title *</label><div style="display:flex;gap:6px"><input id="title" name="title" required value="${esc(it.title)}">${TITLE_LOOKUP.includes(it.collectionId) ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title" style="height:auto;white-space:nowrap">🔎 Look up</button>` : ""}</div></div>
         <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" value="${esc(it.maker||"")}" list="makers"></div>
         <div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
+        <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div style="display:flex;gap:6px"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" style="height:auto">▦</button></div></div>
         ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts
           ? `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}" list="o_${f.k}"><datalist id="o_${f.k}">${f.opts.map(o=>`<option value="${esc(o)}">`).join("")}</datalist>`
           : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}">`}</div>`).join("")}
@@ -561,6 +763,12 @@ function viewEdit(id, params){
         <div class="f"><label for="price">Price paid ($)</label><input id="price" name="price" value="${esc(it.price??"")}" inputmode="decimal"></div>
         <div class="f"><label for="value">Estimated value ($)</label><input id="value" name="value" value="${esc(it.value??"")}" inputmode="decimal"></div>
       </div><p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">🔒 Values, prices and private fields are hidden whenever “Show values” is off.</p></fieldset>
+      <fieldset><legend>More details</legend>
+        <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Anything else worth recording: edition number, pressing plant, signed by, variant, original box…</p>
+        <div id="extras" style="display:grid;gap:8px">${(it.extra||[]).concat(it.extra && it.extra.length ? [] : [{l:"",v:""}]).map(x => extraRow(x)).join("")}</div>
+        <datalist id="xlabels">${[...new Set(["Edition number","Variant","Pressing plant","Signed by","Original box","Run time","Language"].concat(cat.items.filter(i=>i.collectionId===it.collectionId).flatMap(i=>(i.extra||[]).map(x=>x.l))))].filter(Boolean).map(l=>`<option value="${esc(l)}">`).join("")}</datalist>
+        <div class="actions" style="margin-top:10px"><button type="button" class="iconbtn" id="addExtra">＋ Add a detail</button></div>
+      </fieldset>
       <fieldset><legend>Notes &amp; story</legend><div class="f full"><textarea name="notes" placeholder="Where you found it, who it came from, why it matters…">${esc(it.notes||"")}</textarea></div></fieldset>
       <datalist id="makers">${[...new Set(cat.items.filter(i=>i.collectionId===it.collectionId).map(i=>i.maker).filter(Boolean))].sort().map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
       <div class="actions"><button class="iconbtn primary" type="submit" style="height:44px;padding:0 22px">Save</button><a class="iconbtn" href="${existing ? "#/i/"+it.id : "#/"}" style="height:44px">Cancel</a></div>
@@ -571,16 +779,79 @@ function viewEdit(id, params){
     document.getElementById("addPhotos").onchange = e => addFiles(e.target.files, "photo");
     document.getElementById("addDocs").onchange = e => addFiles(e.target.files, "document");
     f.onsubmit = async e => { e.preventDefault(); collect(); await save(); };
+    const startScan = () => { collect(); scanBarcode(code => lookupInto(code)); };
+    document.getElementById("scanBtn").onclick = startScan;
+    if(document.getElementById("scanTop")) document.getElementById("scanTop").onclick = startScan;
+    document.getElementById("barcode").onchange = e => { const v = e.target.value.trim(); if(v && !existing) { collect(); lookupInto(v); } };
+    if(document.getElementById("titleLook")) document.getElementById("titleLook").onclick = lookupTitle;
+    document.getElementById("addExtra").onclick = () => { document.getElementById("extras").insertAdjacentHTML("beforeend", extraRow({l:"",v:""})); wireExtras(); document.querySelector("#extras .xrow:last-child [data-xl]").focus(); };
+    wireExtras();
+    renderFound();
+  }
+  function wireExtras(){ document.querySelectorAll("#extras [data-xrm]").forEach(b => b.onclick = () => b.closest(".xrow").remove()); }
+
+  let found = null;
+  function renderFound(){
+    const box = document.getElementById("foundBox"); if(!box) return;
+    if(!found){ box.innerHTML = ""; return; }
+    if(found.dupe){ box.innerHTML = `<div class="found" style="border-color:#c8962c"><span style="font-size:1.6rem">⚠️</span><div class="grow"><b>You already have this barcode</b><br><a href="#/i/${found.dupe.id}">${esc(found.dupe.title)}</a></div></div>`; }
+    else box.innerHTML = "";
+    if(found.title) box.innerHTML += `<div class="found">${found.cover ? `<img src="${esc(found.cover)}" alt="">` : ""}<div class="grow"><b>${esc(found.title)}</b><br><small style="color:var(--muted)">${esc([found.maker, found.year].filter(Boolean).join(" · "))}${found.source ? " · from " + esc(found.source) : ""}</small></div></div>`;
+    else if(found.miss) box.innerHTML += `<div class="found" style="border-color:var(--line)"><span style="font-size:1.4rem">🔍</span><div class="grow">No match for <b>${esc(found.code)}</b>. The barcode is saved; fill in the rest by hand.</div></div>`;
+  }
+
+  async function lookupInto(code){
+    code = String(code).replace(/\D/g, "") || String(code).trim();
+    it.barcode = code;
+    const dupe = cat.items.find(x => x.id !== it.id && x.barcode && sameCode(x.barcode, code));
+    const done = busy("Looking up " + code + "…");
+    let r = null;
+    try{ r = await lookupBarcode(code); }catch(e){ console.warn(e); }
+    finally{ done(); }
+    found = {code, dupe, miss:!r, ...(r||{})};
+    if(r) await applyResult(r, true);
+    if(navigator.vibrate) navigator.vibrate(60);
+    render();
+  }
+
+  async function lookupTitle(){
+    collect();
+    if(!it.title) return toast("Type a title first.");
+    const done = busy("Looking up “" + it.title + "”…");
+    let r = null;
+    try{ r = await lookupByTitle(it.collectionId, it.title, it.maker); }catch(e){ console.warn(e); }
+    finally{ done(); }
+    if(!r){ found = null; render(); return toast("No match found. Try a shorter title, or add the artist/director."); }
+    found = {...r};
+    await applyResult(r, false);
+    render();
+  }
+
+  async function applyResult(r, overwrite){
+      if(r.collectionId && !existing && overwrite && cat.collections.some(c=>c.id===r.collectionId)) it.collectionId = r.collectionId;
+      ["title","maker","year"].forEach(k => { if(r[k] && (overwrite || !it[k])) it[k] = r[k]; });
+      it.fields = it.fields || {};
+      Object.entries(r.fields||{}).forEach(([k,v]) => { if(v && (overwrite || !it.fields[k]) && coll(it.collectionId).fields.some(f=>f.k===k)) it.fields[k] = v; });
+      it.extra = it.extra || [];
+      (r.extra||[]).forEach(x => { if(x.v && !it.extra.some(e=>e.l.toLowerCase()===x.l.toLowerCase())) it.extra.push(x); });
+      if(r.cover && !it.media.some(m=>m.kind==="photo")){
+        try{
+          const blob = await (await fetch(r.cover)).blob();
+          if(/^image\//.test(blob.type)) await addFiles([new File([blob], "cover.jpg", {type:blob.type})], "photo", true);
+          else found.cover = "";
+        }catch(e){ console.warn("cover fetch failed", e); found.cover = ""; }
+      }
   }
 
   function collect(){
     const f = document.getElementById("ef"), d = new FormData(f), c = coll(it.collectionId);
-    ["title","maker","year","condition","location","acquiredDate","source","notes"].forEach(k => it[k] = (d.get(k)||"").trim());
+    ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => it[k] = (d.get(k)||"").trim());
     ["price","value"].forEach(k => { const v = (d.get(k)||"").replace(/[$,\s]/g,""); it[k] = v === "" ? "" : (isNaN(+v) ? v : +v); });
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
     it.fields = it.fields || {};
     c.fields.forEach(x => { const v = (d.get("x_"+x.k)||"").trim(); if(v) it.fields[x.k] = v; else delete it.fields[x.k]; });
+    it.extra = [...document.querySelectorAll("#extras .xrow")].map(r => ({l:r.querySelector("[data-xl]").value.trim(), v:r.querySelector("[data-xv]").value.trim()})).filter(x => x.l || x.v);
     document.querySelectorAll("#media [data-label]").forEach(inp => { const m = it.media.find(m=>m.id===inp.dataset.label); if(m) m.label = inp.value.trim(); });
   }
 
@@ -600,8 +871,8 @@ function viewEdit(id, params){
     hydrate(el);
   }
 
-  async function addFiles(files, kind){
-    collect();
+  async function addFiles(files, kind, noCollect){
+    if(!noCollect) collect();
     const done = busy("Preparing " + files.length + " file" + (files.length>1?"s":"") + "…");
     try{
       for(const file of files){
@@ -619,7 +890,7 @@ function viewEdit(id, params){
         }
       }
     }catch(e){ alert("Couldn't read one of those files: " + e.message); }
-    finally{ done(); renderMedia(); }
+    finally{ done(); if(document.getElementById("media")) renderMedia(); }
   }
 
   async function save(){
@@ -639,6 +910,7 @@ function viewEdit(id, params){
     }catch(e){ alert(e.message); } finally{ done(); }
   }
   render();
+  if(params.get("scan") && !existing) setTimeout(() => document.getElementById("scanTop")?.click(), 50);
 }
 
 /* ---------- Settings ---------- */
@@ -669,6 +941,9 @@ function viewSettings(){
       <div class="f"><label for="nm">What to call the maker</label><input id="nm" placeholder="Publisher"></div>
       <div class="f"><label for="nf">Fields (comma separated)</label><input id="nf" placeholder="Issue #, Grade, Grader cert #*"></div></div>
     <div class="actions"><button class="iconbtn" id="addc">Add gallery</button></div></div>
+  <div class="panel"><h2>Barcode lookups</h2>
+    <p>Scanning looks up books (Open Library), music and laserdiscs (MusicBrainz) and general products automatically. For the best record and laserdisc matches, add a free Discogs token: sign in at <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener">discogs.com/settings/developers</a> → <b>Generate new token</b>, and paste it here. It's saved in your private catalog.</p>
+    <div class="actions" style="margin-top:4px"><input id="dtok" type="password" value="${esc((cat.settings||{}).discogsToken||"")}" placeholder="Discogs personal token (optional)" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn" id="dtokSave">Save</button></div></div>
   <div class="panel"><h2>Reports &amp; backups</h2>
     <p>The insurance report lists every piece with values, serials and certificate numbers. Print it or save as PDF.</p>
     <div class="actions"><a class="iconbtn" href="#/report">🧾 Insurance report</a><button class="iconbtn" id="csv">⬇ Spreadsheet (CSV)</button><button class="iconbtn" id="json">⬇ Full backup (JSON)</button>
@@ -693,6 +968,7 @@ function viewSettings(){
   };
   app.querySelectorAll("[data-delc]").forEach(a => a.onclick = async e => { e.preventDefault();
     cat.collections = cat.collections.filter(c => c.id !== a.dataset.delc); await persist().catch(er=>alert(er.message)); viewSettings(); });
+  $("dtokSave").onclick = async () => { cat.settings = {...(cat.settings||{}), discogsToken:$("dtok").value.trim()}; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); };
   $("csv").onclick = exportCSV;
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
   $("imp").onchange = async e => {
@@ -708,10 +984,10 @@ function viewSettings(){
 function download(blob, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
 function exportCSV(){
   const fieldCols = []; cat.collections.forEach(c => c.fields.forEach(f => { if(!fieldCols.some(x=>x.l===f.l)) fieldCols.push(f); }));
-  const head = ["Gallery","Title","Maker","Year","Condition","Location","Acquired","Source","Price paid","Estimated value","Tags","Notes", ...fieldCols.map(f=>f.l), "Photos","Documents"];
+  const head = ["Gallery","Title","Maker","Year","Barcode","Condition","Location","Acquired","Source","Price paid","Estimated value","Tags","Notes","More details", ...fieldCols.map(f=>f.l), "Photos","Documents"];
   const q = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; };
   const rows = sortItems(cat.items,"title").map(i => { const c = coll(i.collectionId);
-    return [c.name, i.title, i.maker, i.year, i.condition, i.location, i.acquiredDate, i.source, i.price, i.value, (i.tags||[]).join("; "), i.notes,
+    return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, i.price, i.value, (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "),
       ...fieldCols.map(fc => { const f = c.fields.find(x=>x.l===fc.l); return f ? (i.fields||{})[f.k] : ""; }),
       (i.media||[]).filter(m=>m.kind==="photo").length, (i.media||[]).filter(m=>m.kind!=="photo").map(m=>m.label||m.name).join("; ")]; });
   download(new Blob(["﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"}), "collection-" + new Date().toISOString().slice(0,10) + ".csv");
@@ -809,6 +1085,8 @@ async function boot(){
     cat = (await local.load().catch(()=>null)) || newCatalog();
   }
   // Make sure newer preset galleries/fields exist in older catalogs.
+  cat.presetsSeen = cat.presetsSeen || ["records","laserdiscs","books","prints","autographs","cels","pennies","memorabilia","instruments","antiques"];
+  PRESETS.forEach(p => { if(!cat.presetsSeen.includes(p.id)){ cat.presetsSeen.push(p.id); if(!cat.collections.some(x=>x.id===p.id)) cat.collections.push(JSON.parse(JSON.stringify(p))); } });
   PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; p.fields.forEach(f => { if(!c.fields.some(x=>x.k===f.k)) c.fields.push(JSON.parse(JSON.stringify(f))); }); });
   setBrand();
   window.addEventListener("hashchange", route);

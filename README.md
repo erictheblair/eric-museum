@@ -26,3 +26,12 @@ You can also try it without Dropbox: it saves on that device only until you conn
   so you can hand someone your phone.
 - The app can only see its own folder in your Dropbox, nothing else.
 - Back up anytime from Settings (CSV spreadsheet or JSON). Photos are already in Dropbox.
+
+## Barcode scanning & lookups
+Tap **▦ Scan** to scan a UPC/EAN/ISBN with your phone camera (or type the number).
+Lookups use free public sources: Open Library (books), MusicBrainz + Cover Art Archive (records),
+Wikidata (movie/laserdisc director, year, runtime, cast), and UPCitemdb (general products, limited free daily lookups).
+Optional: add a free Discogs token in Settings for better record and laserdisc matches.
+For older items without barcodes, type the title and press **🔎 Look up**.
+Use **More details** on any piece for your own label/value pairs (edition number, variant, signed by…).
+Barcode scanning uses ZXing (Apache-2.0), bundled in `vendor/`.
