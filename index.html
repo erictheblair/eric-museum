@@ -254,6 +254,24 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .copylist{list-style:none;margin:8px 0 0;padding:0}
 .copylist li{padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
 .copylist li .cm{color:var(--muted);font-size:.85rem}
+.pedit{position:fixed;inset:0;z-index:52;background:#111;color:#f3ede2;display:flex;flex-direction:column}
+.pe-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+.pe-top .iconbtn:not(.primary){background:#222;color:#fff;border-color:#444}
+.pe-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+.pe-wrap{position:relative}
+.pe-wrap canvas{width:100%;height:100%;display:block}
+.pe-crop{position:absolute;box-shadow:0 0 0 9999px rgba(0,0,0,.6);outline:2px solid #fff;cursor:move;touch-action:none;
+  background-image:linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)),linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)),linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,.35)),linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,.35));
+  background-size:100% 1px,100% 1px,1px 100%,1px 100%;background-position:0 33.3%,0 66.6%,33.3% 0,66.6% 0;background-repeat:no-repeat}
+.pe-crop i{position:absolute;width:28px;height:28px;border:4px solid #fff;touch-action:none}
+.pe-crop i[data-h=nw]{left:-6px;top:-6px;border-right:none;border-bottom:none;cursor:nwse-resize}
+.pe-crop i[data-h=ne]{right:-6px;top:-6px;border-left:none;border-bottom:none;cursor:nesw-resize}
+.pe-crop i[data-h=sw]{left:-6px;bottom:-6px;border-right:none;border-top:none;cursor:nesw-resize}
+.pe-crop i[data-h=se]{right:-6px;bottom:-6px;border-left:none;border-top:none;cursor:nwse-resize}
+.pe-tools{padding:10px 14px calc(14px + env(safe-area-inset-bottom));background:#1a1a1a;display:flex;flex-direction:column;gap:10px;font-size:.9rem}
+.pe-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pe-tools .iconbtn{background:#262626;color:#fff;border-color:#444}
+.pe-hint{color:#9a958c;font-size:.8rem}
 </style>
 </head>
 <body>
@@ -267,7 +285,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.25";
+const APP_VERSION = "2026.11.03.26";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -870,6 +888,115 @@ async function shrink(file, max, quality){
   const cv = document.createElement("canvas"); cv.width = Math.round(w*s); cv.height = Math.round(h*s);
   cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
   return await new Promise(r => cv.toBlob(r, "image/jpeg", quality));
+}
+/* ---------- Photo editor: rotate, straighten, crop (with auto-crop) ---------- */
+async function loadBitmap(blob){
+  try{ return await createImageBitmap(blob, {imageOrientation:"from-image"}); }
+  catch{ return await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("Couldn't open that photo.")); i.src=URL.createObjectURL(blob); }); }
+}
+function scaledCanvas(src, max){
+  const s = Math.min(1, max / Math.max(src.width, src.height)), c = document.createElement("canvas");
+  c.width = Math.round(src.width*s); c.height = Math.round(src.height*s); c.getContext("2d").drawImage(src, 0, 0, c.width, c.height); return c;
+}
+// Rotate by quarter turns + a small straightening angle; returns the rotated canvas and the biggest clean rectangle inside it.
+function rotated(src, quarter, deg){
+  const q = ((quarter % 4) + 4) % 4, w0 = q % 2 ? src.height : src.width, h0 = q % 2 ? src.width : src.height;
+  const a = Math.abs(deg) * Math.PI / 180, cos = Math.cos(a), sin = Math.sin(a);
+  const W = Math.ceil(w0*cos + h0*sin), H = Math.ceil(w0*sin + h0*cos);
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0,0,W,H);
+  x.translate(W/2, H/2); x.rotate(q*Math.PI/2 + deg*Math.PI/180); x.imageSmoothingQuality = "high";
+  x.drawImage(src, -src.width/2, -src.height/2);
+  const k = Math.min(w0 / (w0*cos + h0*sin), h0 / (w0*sin + h0*cos));
+  const iw = w0*k/W, ih = h0*k/H;
+  return {c, inner:{x:(1-iw)/2, y:(1-ih)/2, w:iw, h:ih}};
+}
+// Find the piece against a plain background: compare every pixel to the border colour.
+function autoCropBox(canvas){
+  const sm = scaledCanvas(canvas, 360), W = sm.width, H = sm.height, d = sm.getContext("2d").getImageData(0,0,W,H).data;
+  const px = (x,y) => { const i = (y*W+x)*4; return [d[i],d[i+1],d[i+2]]; };
+  const border = []; for(let x=0;x<W;x+=2){ border.push(px(x,1), px(x,H-2)); } for(let y=0;y<H;y+=2){ border.push(px(1,y), px(W-2,y)); }
+  const med = [0,1,2].map(ch => border.map(p=>p[ch]).sort((a,b)=>a-b)[border.length>>1]);
+  const dist = p => Math.abs(p[0]-med[0]) + Math.abs(p[1]-med[1]) + Math.abs(p[2]-med[2]);
+  const spread = border.map(dist).sort((a,b)=>a-b)[Math.floor(border.length*.8)];
+  const th = Math.max(48, spread * 1.6);
+  const cols = new Array(W).fill(0), rows = new Array(H).fill(0);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(dist(px(x,y)) > th){ cols[x]++; rows[y]++; }
+  const edge = (arr, lim) => { let a = 0, b = arr.length-1; while(a < b && arr[a] < lim) a++; while(b > a && arr[b] < lim) b--; return [a, b]; };
+  const [x0,x1] = edge(cols, H*.04), [y0,y1] = edge(rows, W*.04);
+  const pad = .012, box = {x:x0/W - pad, y:y0/H - pad, w:(x1-x0+1)/W + 2*pad, h:(y1-y0+1)/H + 2*pad};
+  box.x = Math.max(0, box.x); box.y = Math.max(0, box.y); box.w = Math.min(1-box.x, box.w); box.h = Math.min(1-box.y, box.h);
+  if(box.w*box.h > .94 || box.w < .12 || box.h < .12) return null;
+  return box;
+}
+function photoEditor(blob){
+  return new Promise(async resolve => {
+    let full; try{ full = await loadBitmap(blob); }catch(e){ alert(e.message); return resolve(null); }
+    const prev = scaledCanvas(full, 1100);
+    let quarter = 0, deg = 0, R, crop;
+    const L = document.getElementById("layer");
+    L.innerHTML = `<div class="pedit" id="pe">
+      <div class="pe-top"><button type="button" class="iconbtn" id="peX">Cancel</button><b>Adjust photo</b><button type="button" class="iconbtn primary" id="peOk">Done</button></div>
+      <div class="pe-stage" id="peStage"><div class="pe-wrap" id="peWrap"><canvas id="peC"></canvas><div class="pe-crop" id="peCrop"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div></div></div>
+      <div class="pe-tools">
+        <div class="pe-row"><button type="button" class="iconbtn" id="peL" title="Rotate left">⟲ Left</button><button type="button" class="iconbtn" id="peR" title="Rotate right">⟳ Right</button><button type="button" class="iconbtn" id="peAuto">✨ Auto crop</button><button type="button" class="iconbtn" id="peReset">Reset</button></div>
+        <label class="pe-row" style="gap:10px">Straighten<input type="range" id="peDeg" min="-15" max="15" step="0.5" value="0" style="flex:1"><span id="peDegV" style="width:3.2em;text-align:right">0°</span></label>
+        <div class="pe-hint">Drag the corners to crop. Drag inside the box to move it.</div>
+      </div></div>`;
+    const cv = document.getElementById("peC"), box = document.getElementById("peCrop"), stage = document.getElementById("peStage"), wrap = document.getElementById("peWrap");
+    const draw = () => {
+      const sw = stage.clientWidth - 24, sh = stage.clientHeight - 24, s = Math.min(sw / R.c.width, sh / R.c.height);
+      cv.width = R.c.width; cv.height = R.c.height; cv.getContext("2d").drawImage(R.c, 0, 0);
+      wrap.style.width = Math.round(R.c.width*s) + "px"; wrap.style.height = Math.round(R.c.height*s) + "px";
+      Object.assign(box.style, {left:crop.x*100+"%", top:crop.y*100+"%", width:crop.w*100+"%", height:crop.h*100+"%"});
+    };
+    const rebuild = keepCrop => { R = rotated(prev, quarter, deg); const inn = R.inner;
+      if(!keepCrop || !crop) crop = {...inn};
+      else { crop.x = Math.max(inn.x, crop.x); crop.y = Math.max(inn.y, crop.y); crop.w = Math.min(crop.w, inn.x+inn.w-crop.x); crop.h = Math.min(crop.h, inn.y+inn.h-crop.y);
+        if(crop.w < .05 || crop.h < .05) crop = {...inn}; }
+      draw(); };
+    rebuild();
+    const ro = new ResizeObserver(() => draw()); ro.observe(stage);
+    document.getElementById("peL").onclick = () => { quarter--; rebuild(); };
+    document.getElementById("peR").onclick = () => { quarter++; rebuild(); };
+    document.getElementById("peReset").onclick = () => { quarter = 0; deg = 0; document.getElementById("peDeg").value = 0; document.getElementById("peDegV").textContent = "0°"; rebuild(); };
+    document.getElementById("peDeg").oninput = e => { deg = +e.target.value; document.getElementById("peDegV").textContent = deg + "°"; rebuild(false); };
+    document.getElementById("peAuto").onclick = () => {
+      // Look only inside the clean area (no blank corners from straightening), then map back.
+      const inn = R.inner, ic = document.createElement("canvas"), W = R.c.width, H = R.c.height;
+      ic.width = Math.round(inn.w*W); ic.height = Math.round(inn.h*H); ic.getContext("2d").drawImage(R.c, inn.x*W, inn.y*H, ic.width, ic.height, 0, 0, ic.width, ic.height);
+      const b = autoCropBox(ic); if(!b) return toast("Couldn't find clear edges. Drag the corners instead.");
+      crop = {x:inn.x + b.x*inn.w, y:inn.y + b.y*inn.h, w:b.w*inn.w, h:b.h*inn.h}; draw(); };
+    // Dragging the crop box and its corners.
+    let drag = null;
+    box.addEventListener("pointerdown", e => { e.preventDefault(); box.setPointerCapture(e.pointerId);
+      drag = {h:e.target.dataset.h || "move", sx:e.clientX, sy:e.clientY, c:{...crop}, W:wrap.clientWidth, H:wrap.clientHeight}; });
+    box.addEventListener("pointermove", e => { if(!drag) return;
+      const dx = (e.clientX - drag.sx) / drag.W, dy = (e.clientY - drag.sy) / drag.H, c = {...drag.c}, inn = R.inner, min = .06;
+      const L0 = inn.x, T0 = inn.y, R0 = inn.x + inn.w, B0 = inn.y + inn.h;
+      if(drag.h === "move"){ c.x = Math.min(Math.max(L0, c.x + dx), R0 - c.w); c.y = Math.min(Math.max(T0, c.y + dy), B0 - c.h); }
+      else {
+        let l = c.x, t = c.y, r = c.x + c.w, b = c.y + c.h;
+        if(drag.h.includes("w")) l = Math.min(Math.max(L0, l + dx), r - min); if(drag.h.includes("e")) r = Math.max(Math.min(R0, r + dx), l + min);
+        if(drag.h.includes("n")) t = Math.min(Math.max(T0, t + dy), b - min); if(drag.h.includes("s")) b = Math.max(Math.min(B0, b + dy), t + min);
+        Object.assign(c, {x:l, y:t, w:r-l, h:b-t});
+      }
+      crop = c; draw(); });
+    const endDrag = () => drag = null; box.addEventListener("pointerup", endDrag); box.addEventListener("pointercancel", endDrag);
+    const close = v => { ro.disconnect(); L.innerHTML = ""; resolve(v); };
+    document.getElementById("peX").onclick = () => close(null);
+    document.getElementById("peOk").onclick = async () => {
+      const done = busy("Saving the photo…");
+      try{
+        const src = Math.max(full.width, full.height) > 3000 ? scaledCanvas(full, 3000) : full;
+        const F = rotated(src, quarter, deg).c, out = document.createElement("canvas");
+        const sx = Math.round(crop.x*F.width), sy = Math.round(crop.y*F.height), w = Math.round(crop.w*F.width), h = Math.round(crop.h*F.height);
+        out.width = w; out.height = h; out.getContext("2d").drawImage(F, sx, sy, w, h, 0, 0, w, h);
+        const b = await new Promise(r => out.toBlob(r, "image/jpeg", .92));
+        done(); close(b);
+      }catch(e){ done(); alert("Couldn't save the photo: " + e.message); }
+    };
+  });
 }
 const safeName = n => (n||"file").replace(/[^\w.\- ]+/g,"_").slice(-80);
 
@@ -1603,16 +1730,39 @@ function viewEdit(id, params){
       const p = pending.find(p => p.m === m);
       const im = m.kind === "photo" ? (p ? `<img src="${p.previewUrl}" alt="">` : `<img alt="" data-path="${esc(m.thumb||m.path)}">`) : (/pdf$/i.test(m.name||"") ? "📄" : "📜");
       return `<div class="mtile"><div class="im">${im}</div><div class="row">
-        ${m.kind === "photo" ? `<span style="flex:1;color:var(--muted)">${n===it.media.findIndex(x=>x.kind==="photo")?"Cover":"Photo"}</span><button type="button" data-cover="${m.id}" title="Make cover">⤒</button>`
+        ${m.kind === "photo" ? `<span style="flex:1;color:var(--muted)">${n===it.media.findIndex(x=>x.kind==="photo")?"Cover":"Photo"}</span><button type="button" data-cover="${m.id}" title="Make cover">⤒</button><button type="button" data-edit="${m.id}" title="Crop &amp; rotate">✎</button>`
           : `<input data-label="${m.id}" value="${esc(m.label||"")}" placeholder="COA, receipt…">`}
         <button type="button" data-rm="${m.id}" title="Remove">✕</button></div></div>`;
     }).join("");
     el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { collect(); const i = it.media.findIndex(m=>m.id===b.dataset.rm); const [m] = it.media.splice(i,1);
       const pi = pending.findIndex(p=>p.m===m); if(pi>=0) pending.splice(pi,1); else removed.push(m); renderMedia(); });
+    el.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editPhoto(b.dataset.edit));
     el.querySelectorAll("[data-cover]").forEach(b => b.onclick = () => { collect(); const i = it.media.findIndex(m=>m.id===b.dataset.cover); const [m] = it.media.splice(i,1); it.media.unshift(m); renderMedia(); });
     hydrate(el);
   }
 
+  async function editPhoto(mid){
+    collect();
+    const m = it.media.find(x => x.id === mid); if(!m) return;
+    const p = pending.find(x => x.m === m);
+    let src = p && p.blob;
+    if(!src){
+      const done = busy("Opening the photo…");
+      try{ const u = await mediaUrl(m.path); const r = await fetchT(u, {}, 30000); if(!r.ok) throw new Error("status " + r.status); src = await r.blob(); }
+      catch(e){ done(); return alert("Couldn't open this photo for editing" + (m.remote ? " (the site it came from doesn't allow it). Save the picture to your phone and add it as a new photo instead." : ": " + e.message)); }
+      done();
+    }
+    const out = await photoEditor(src); if(!out) return;
+    const th = await shrink(out, 520, .8), big = await shrink(out, 2400, .88);
+    if(p){ p.blob = big; p.thumbBlob = th; URL.revokeObjectURL(p.previewUrl); p.previewUrl = URL.createObjectURL(th); }
+    else {
+      // A saved photo gets new file names, so cached links never show the old version; the old files are removed on save.
+      const nid = uid(), base = "media/" + it.id + "/" + nid, nm = {...m, id:nid, path:base + ".jpg", thumb:base + "_t.jpg", remote:undefined};
+      delete nm.remote; it.media[it.media.indexOf(m)] = nm; removed.push(m);
+      pending.push({m:nm, blob:big, thumbBlob:th, previewUrl:URL.createObjectURL(th)});
+    }
+    renderMedia(); toast("Photo updated. Save to keep it.");
+  }
   async function addFiles(files, kind, noCollect){
     if(!noCollect) collect();
     const done = busy("Preparing " + files.length + " file" + (files.length>1?"s":"") + "…");
