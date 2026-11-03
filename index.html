@@ -300,8 +300,11 @@ class DropboxStore {
     history.replaceState(null, "", location.pathname + location.hash);
     if(p.has("error")) throw new Error("Dropbox sign-in was cancelled.");
     const saved = LS.get("cm.pkce", null);
-    if(!saved || saved.state !== p.get("state")){ authLog("sign-in state mismatch"); throw new Error("Dropbox sign-in could not be verified. Please try again."); }
-    await DropboxStore.exchange(p.get("code"), saved, true);
+    if(!saved){ authLog("sign-in returned but no pending sign-in on this device"); throw new Error("Dropbox sign-in could not be finished here. Please tap Connect Dropbox again."); }
+    // PKCE ties the code to this device's secret, so a code from another sign-in simply fails to exchange.
+    if(saved.state !== p.get("state")) authLog("state differs (" + (p.get("state") ? "other" : "none") + ", " + (saved.manual ? "manual" : "redirect") + "); trying anyway");
+    try{ await DropboxStore.exchange(p.get("code"), saved, true); }
+    catch(e){ await DropboxStore.exchange(p.get("code"), saved, false); }
     return true;
   }
   async token(){
