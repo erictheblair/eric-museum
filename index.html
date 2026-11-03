@@ -259,7 +259,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.21";
+const APP_VERSION = "2026.11.03.22";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -543,7 +543,7 @@ function plate(it){
   const isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
   const shown = iss && !/#/.test(it.title||"") ? it.title + " #" + iss : it.title;
   const sub = [it.maker, it.year].filter(Boolean).join(" · ");
-  const meta = c.fields.filter(f => !(priv && f.priv) && (it.fields||{})[f.k]).slice(0,2).map(f => it.fields[f.k]).concat(it.condition ? [it.condition] : [], !priv && it.value ? [money(it.value)] : []);
+  const meta = c.fields.filter(f => !(priv && f.priv) && (it.fields||{})[f.k]).slice(0,2).map(f => it.fields[f.k]).concat(it.qty > 1 ? ["×" + it.qty] : [], it.condition ? [it.condition] : [], !priv && it.value ? [money(it.value)] : []);
   return `<a class="card" href="#/i/${it.id}"><div class="frame"><div class="matte">${inner}</div></div>
     <div class="plaque"><div class="t">${it.favorite?'<span class="star">★</span> ':""}${esc(shown)}</div><div class="s">${esc(sub)||"&nbsp;"}</div></div><div class="meta">${esc(meta.join(" · "))}</div></a>`;
 }
@@ -788,7 +788,7 @@ function viewItem(id){
   const add = (l, v, isPriv) => { if(v !== "" && v != null) facts.push([l, isPriv && priv ? hidden : esc(v)]); };
   add(c.maker || "Maker", it.maker); add("Year", it.year);
   c.fields.forEach(f => add(f.l, (it.fields||{})[f.k], f.priv));
-  add("Condition", it.condition); add("Barcode", it.barcode); add("Location", it.location);
+  add("Condition", it.condition); add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
   add("Acquired", [it.acquiredDate, it.source].filter(Boolean).join(" · "));
   if(it.price) facts.push(["Price paid", priv ? hidden : esc(money(it.price))]);
   if(it.value) facts.push(["Estimated value", priv ? hidden : esc(money(it.value))]);
@@ -917,6 +917,44 @@ function scanBarcode(onCode){
       msg.textContent = (e && e.name === "NotAllowedError") ? "Camera permission was blocked. Allow camera access for this site, or type the number below." : (e.message || "Camera unavailable.") + " You can type the number below.";
     }
   })();
+}
+
+/* ---------- Duplicate check when adding a new piece ---------- */
+const normTitle = t => sortKey(String(t||"").toLowerCase().replace(/,\s*(the|a|an)\s*$/,"")).replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim();
+// Fields that tell two otherwise-identical pieces apart (an LP vs a 7-inch, issue #14 vs #15, a variant cover).
+const DISTINCT_FIELD = /issue|volume|vol|variant|cover|format|edition|size|speed|printing|version|region|platform/i;
+function findDupes(it){
+  const c = coll(it.collectionId), t = normTitle(it.title);
+  return cat.items.filter(x => {
+    if(x.id === it.id || x.collectionId !== it.collectionId) return false;
+    if(it.barcode && x.barcode && sameCode(it.barcode, x.barcode)) return true;
+    if(!t || normTitle(x.title) !== t) return false;
+    if(it.maker && x.maker && normTitle(it.maker) !== normTitle(x.maker)) return false;
+    if(it.year && x.year && String(it.year).trim() !== String(x.year).trim()) return false;
+    return !c.fields.some(f => { const a = (it.fields||{})[f.k], b = (x.fields||{})[f.k];
+      return (f.opts || DISTINCT_FIELD.test(f.l)) && a && b && normTitle(a) !== normTitle(b); });
+  }).slice(0, 4);
+}
+function askDupe(it, dupes){
+  return new Promise(resolve => {
+    const L = document.getElementById("layer"), add = it.qty || 1;
+    const desc = d => esc([d.maker, d.year, ...coll(d.collectionId).fields.filter(f => !(priv && f.priv) && (d.fields||{})[f.k]).slice(0,2).map(f => d.fields[f.k]), d.condition, d.location ? "📍 " + d.location : ""].filter(Boolean).join(" · "));
+    L.innerHTML = `<div class="lightbox" id="dq" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" role="dialog" aria-labelledby="dqH" style="width:100%;max-width:560px;max-height:88vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+      <h2 id="dqH">⚠️ You may already have this</h2>
+      <p>${dupes.length === 1 ? "This looks like a piece already in your collection:" : "These pieces in your collection look the same:"}</p>
+      <div class="docs" style="margin:10px 0">${dupes.map((d,n) => { const m = cover(d); return `<div class="doc" style="cursor:default">${m ? `<img alt="" data-path="${esc(m.thumb||m.path)}" style="width:46px;height:46px;object-fit:cover;border-radius:5px;background:var(--mat);flex:0 0 46px">` : `<span class="ic" style="width:46px;text-align:center">${coll(d.collectionId).icon}</span>`}
+        <span class="grow" style="white-space:normal"><b>${esc(d.title)}</b>${d.qty > 1 ? ` <span style="color:var(--muted)">×${d.qty}</span>` : ""}<br><small style="color:var(--muted)">${desc(d)}</small></span>
+        <button type="button" class="iconbtn primary" data-add="${n}" style="white-space:nowrap">＋${add} to quantity</button></div>`; }).join("")}</div>
+      <p style="font-size:.85rem">Adding to the quantity keeps the one entry and raises its count. Anything new you typed or photographed on this form isn't copied over.</p>
+      <div class="actions"><button type="button" class="iconbtn" id="dqNew">Add as a separate entry</button><button type="button" class="iconbtn" id="dqX">Cancel</button></div>
+    </div></div>`;
+    const done = v => { L.innerHTML = ""; resolve(v); };
+    L.querySelectorAll("[data-add]").forEach(b => b.onclick = () => done({add:dupes[+b.dataset.add]}));
+    document.getElementById("dqNew").onclick = () => done({separate:true});
+    document.getElementById("dqX").onclick = () => done(null);
+    document.getElementById("dq").onclick = e => { if(e.target.id === "dq") done(null); };
+    hydrate(L);
+  });
 }
 const sameCode = (a,b) => { const n = x => String(x).replace(/\D/g,"").replace(/^0+/,""); return n(a) && n(a) === n(b); };
 /* fetch with a time limit, so a silent service never leaves "Searching…" spinning forever */
@@ -1400,6 +1438,7 @@ function viewEdit(id, params){
           ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts)
           : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}">`}</div>`).join("")}
         <div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>
+        <div class="f"><label for="qty">How many you have</label><input id="qty" name="qty" type="number" min="1" step="1" value="${esc(it.qty||1)}" inputmode="numeric"></div>
         <div class="f"><label for="location">Where it lives (shelf, box, wall)</label><input id="location" name="location" value="${esc(it.location||"")}"></div>
         <div class="f full"><label for="tags">Tags (comma separated)</label><input id="tags" name="tags" value="${esc((it.tags||[]).join(", "))}" placeholder="e.g. Disney, signed, wishlist upgrade"></div>
         <label class="check full"><input type="checkbox" name="favorite" ${it.favorite?"checked":""}> ★ Highlight this piece on the front page</label>
@@ -1450,7 +1489,7 @@ function viewEdit(id, params){
   function renderFound(){
     const box = document.getElementById("foundBox"); if(!box) return;
     if(!found){ box.innerHTML = ""; return; }
-    if(found.dupe){ box.innerHTML = `<div class="found" style="border-color:#c8962c"><span style="font-size:1.6rem">⚠️</span><div class="grow"><b>You already have this barcode</b><br><a href="#/i/${found.dupe.id}">${esc(found.dupe.title)}</a></div></div>`; }
+    if(found.dupe){ box.innerHTML = `<div class="found" style="border-color:#c8962c"><span style="font-size:1.6rem">⚠️</span><div class="grow"><b>You already have this barcode</b><br><a href="#/i/${found.dupe.id}">${esc(found.dupe.title)}</a><br><small style="color:var(--muted)">When you save, you can add to its quantity instead.</small></div></div>`; }
     else box.innerHTML = "";
     if(found.title) box.innerHTML += `<div class="found">${found.cover ? `<img src="${esc(found.cover)}" alt="">` : ""}<div class="grow"><b>${esc(found.title)}</b><br><small style="color:var(--muted)">${esc([found.maker, found.year].filter(Boolean).join(" · "))}${found.source ? " · from " + esc(found.source) : ""}</small></div></div>`;
     else if(found.miss) box.innerHTML += `<div class="found" style="border-color:var(--line)"><span style="font-size:1.4rem">🔍</span><div class="grow">No match for <b>${esc(found.code)}</b>. The barcode is saved; fill in the rest by hand.</div></div>`;
@@ -1499,6 +1538,7 @@ function viewEdit(id, params){
     ["price","value"].forEach(k => { const v = (d.get(k)||"").replace(/[$,\s]/g,""); it[k] = v === "" ? "" : (isNaN(+v) ? v : +v); });
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
+    const q = parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
     it.fields = it.fields || {};
     c.fields.forEach(x => { const v = (d.get("x_"+x.k)||"").trim().replace(/^__other$/,""); if(v) it.fields[x.k] = v; else delete it.fields[x.k]; });
     it.extra = [...document.querySelectorAll("#extras .xrow")].map(r => ({l:r.querySelector("[data-xl]").value.trim(), v:r.querySelector("[data-xv]").value.trim()})).filter(x => x.l || x.v);
@@ -1545,6 +1585,23 @@ function viewEdit(id, params){
 
   async function save(next){
     if(!it.title) return toast("Please add a title.");
+    if(!existing){
+      const dupes = findDupes(it);
+      if(dupes.length){
+        const ch = await askDupe(it, dupes);
+        if(!ch) return;
+        if(ch.add){
+          const d = ch.add, add = it.qty || 1, was = d.qty || 1;
+          d.qty = was + add; d.updated = new Date().toISOString();
+          const done = busy("Saving…");
+          try{ await persist(); }catch(e){ if(was > 1) d.qty = was; else delete d.qty; done(); return alert(e.message); }
+          done(); pending.length = 0;
+          toast("You now have " + d.qty + " of “" + d.title + "”");
+          location.hash = next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + d.id;
+          return;
+        }
+      }
+    }
     const done = busy(pending.length ? "Uploading " + pending.length + " file" + (pending.length>1?"s":"") + "…" : "Saving…");
     try{
       for(const p of pending){ await store.putFile(p.m.path, p.blob); if(p.thumbBlob) await store.putFile(p.m.thumb, p.thumbBlob); }
