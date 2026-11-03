@@ -219,7 +219,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.18";
+const APP_VERSION = "2026.11.03.19";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -576,21 +576,21 @@ function viewHome(params){
 function viewHall(id, params){
   const c = coll(id);
   const q = params.get("q") || "", sort = params.get("sort") || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
-  const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "";
+  const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1";
   const fsel = {}; c.fields.forEach(f => { const v = params.get("f." + f.k); if(v && !(priv && f.priv)) fsel[f.k] = v; });
   document.title = c.name + " · " + (cat.title||"The Collection");
   const all = cat.items.filter(i => i.collectionId === id);
   const tags = [...new Set(all.flatMap(i => i.tags||[]))].sort();
-  const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i))
+  const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
     && (!cond || (i.condition||"") === cond) && Object.entries(fsel).every(([k,v]) => ((i.fields||{})[k]||"") === v)), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
-  const state = {q, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
+  const state = {q, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
   const link = (o) => { const p = new URLSearchParams({...state, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
   // Filter choices come from what's actually in this gallery.
   const distinct = get => [...new Set(all.map(get).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true}));
   const conds = distinct(i => i.condition).sort((a,b) => condRank(a) - condRank(b));
   const ffields = c.fields.filter(f => !(priv && f.priv)).map(f => ({f, vals:distinct(i => (i.fields||{})[f.k])})).filter(x => x.vals.length >= 2 && x.vals.length <= 60);
-  const active = [fav && ["★ Highlights", {fav:""}], nophoto && ["Missing photos", {nophoto:""}], cond && ["Condition: " + cond, {cond:""}],
+  const active = [fav && ["★ Highlights", {fav:""}], nophoto && ["Missing photos", {nophoto:""}], unmatched && ["Not matched yet", {unmatched:""}], cond && ["Condition: " + cond, {cond:""}],
     ...Object.entries(fsel).map(([k,v]) => [(c.fields.find(f=>f.k===k)||{}).l + ": " + v, {["f." + k]:""}]), tag && ["Tag: " + tag, {tag:""}]].filter(Boolean);
   const showFilters = params.get("filters") === "1";
   // Group headers: letters for names, decades for years, grades for condition.
@@ -616,11 +616,13 @@ function viewHall(id, params){
       ${tags.length ? `<label>Tag<select data-p="tag"><option value="">Any</option>${tags.map(v=>`<option ${v===tag?"selected":""}>${esc(v)}</option>`).join("")}</select></label>` : ""}
       <label class="check"><input type="checkbox" data-c="fav" ${fav?"checked":""}> ★ Highlights only</label>
       <label class="check"><input type="checkbox" data-c="nophoto" ${nophoto?"checked":""}> Missing photos</label>
+      ${lookupKind(c) !== "none" ? `<label class="check"><input type="checkbox" data-c="unmatched" ${unmatched?"checked":""}> Not matched yet</label>` : ""}
     </div>` : ""}
     ${active.length ? `<div class="chips" style="margin-top:10px">${active.map(([l,o]) => `<a class="chip on" href="${link(o)}">${esc(l)} ✕</a>`).join("")}${active.length > 1 ? `<a class="chip" href="#/c/${id}?sort=${sort}${showFilters?"&filters=1":""}">Clear all</a>` : ""}</div>`
       : (!showFilters && tags.length ? `<div class="chips" style="margin-top:8px">${tags.slice(0,12).map(t=>`<a class="chip" href="${link({tag:t})}">${esc(t)}</a>`).join("")}</div>` : "")}
     ${grouped && groups.length > 3 ? `<div class="groupbar" aria-label="Jump to">${groups.map((g,n) => `<button type="button" data-jump="${n}">${esc(g.g)}</button>`).join("")}</div>` : ""}
   </section>
+  ${lookupKind(c) !== "none" && list.some(i => !isMatched(i)) && (unmatched || showFilters) ? `<div class="banner noprint"><span>🔎</span><div class="grow">${list.filter(i => !isMatched(i)).length} piece${list.filter(i => !isMatched(i)).length===1?"":"s"} here not matched to ${esc(LOOKUPS[lookupKind(c)].split(": ")[1])} yet. Go through them one by one; anything you've already typed is kept.</div><button class="iconbtn primary" id="bulkMatch">Match them</button></div>` : ""}
   ${!list.length ? `<div class="empty">${all.length ? "Nothing matches these filters." : "This gallery is empty. Add the first piece!"}</div>`
     : grouped ? groups.map((g,n) => `<h3 class="grouphead" id="grp${n}">${esc(g.g)} <span style="color:var(--muted);font-family:var(--sans);font-size:.75rem;font-weight:400">${g.items.length}</span></h3><div class="grid">${g.items.map(plate).join("")}</div>`).join("")
     : `<div class="grid">${list.map(plate).join("")}</div>`}
@@ -630,6 +632,15 @@ function viewHall(id, params){
   f.sort.onchange = () => { LS.set("cm.sort."+id, f.sort.value); location.hash = link({sort:f.sort.value, q:new FormData(f).get("q").trim(), filters:showFilters?"1":""}); };
   app.querySelectorAll("#filt [data-p]").forEach(sel => sel.onchange = () => { location.hash = link({[sel.dataset.p]:sel.value, filters:"1"}); });
   app.querySelectorAll("#filt [data-c]").forEach(cb => cb.onchange = () => { location.hash = link({[cb.dataset.c]:cb.checked?"1":"", filters:"1"}); });
+  if(document.getElementById("bulkMatch")) document.getElementById("bulkMatch").onclick = () => {
+    const queue = list.filter(i => !isMatched(i)); let n = 0, done = 0;
+    const next = () => {
+      if(n >= queue.length){ toast("Matched " + done + " of " + queue.length); route(); return; }
+      const it = queue[n++];
+      matchSaved(it, {label:"Match " + n + " of " + queue.length + ": " + it.title, after:() => { done++; next(); }, onSkip:next});
+    };
+    next();
+  };
   app.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => document.getElementById("grp" + b.dataset.jump).scrollIntoView({behavior:"smooth"}));
   hydrate(app);
 }
@@ -663,7 +674,7 @@ function viewItem(id){
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
       ${docs.length ? `<h3 style="margin-top:20px;font-size:1.05rem">Documents</h3><div class="docs">${docs.map(d=>`<button class="doc" data-path="${esc(d.path)}" data-name="${esc(d.name||"")}"><span class="ic">${/pdf$/i.test(d.name||"")?"📄":"📜"}</span><span class="grow"><b>${esc(d.label||"Document")}</b><br><small style="color:var(--muted)">${esc(d.name||"")}</small></span><span>↗</span></button>`).join("")}</div>` : ""}
       <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${c.id}">▦ Scan</a><a class="fab" href="#/new?c=${c.id}">＋ Add</a></div>
-      <div class="actions noprint"><a class="iconbtn primary" href="#/edit/${it.id}">✎ Edit</a><button class="iconbtn" id="dupBtn">Duplicate</button><button class="iconbtn" id="delBtn" style="color:var(--danger)">Delete</button></div>
+      <div class="actions noprint"><a class="iconbtn primary" href="#/edit/${it.id}">✎ Edit</a>${lookupKind(c) !== "none" ? `<button class="iconbtn" id="matchBtn">🔎 ${isMatched(it) ? "Re-match" : "Match to"} ${esc(LOOKUPS[lookupKind(c)].split(": ")[1])}</button>` : ""}<button class="iconbtn" id="dupBtn">Duplicate</button><button class="iconbtn" id="delBtn" style="color:var(--danger)">Delete</button></div>
     </div>
   </article>`;
   hydrate(app);
@@ -683,6 +694,7 @@ function viewItem(id){
       location.hash = "#/c/" + c.id;
     }catch(e){ cat.items.push(it); alert(e.message); } finally{ done(); }
   };
+  if(document.getElementById("matchBtn")) document.getElementById("matchBtn").onclick = () => matchSaved(it);
   document.getElementById("dupBtn").onclick = () => { location.hash = "#/new?from=" + it.id; };
 }
 
@@ -1045,14 +1057,60 @@ async function autoSyncBGG(){
   catch(e){ console.warn("BGG auto-sync:", e.message); }
 }
 
+/* Copy looked-up details into a piece. overwrite=false only fills blanks, so your own entries win. */
+function mergeResult(it, r, overwrite){
+  ["title","maker","year"].forEach(k => { if(r[k] && (overwrite || !it[k])) it[k] = r[k]; });
+  it.fields = it.fields || {}; it.extra = it.extra || []; it.media = it.media || [];
+  const gf = coll(it.collectionId).fields, norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
+  Object.entries(r.fields||{}).forEach(([k,v]) => { if(v && (overwrite || !it.fields[k]) && gf.some(f=>f.k===k)) it.fields[k] = v; });
+  if(r.barcode && !it.barcode) it.barcode = r.barcode;
+  const keyed = new Set(Object.entries(r.fields||{}).filter(([k,v]) => v && gf.some(f=>f.k===k)).map(([k]) => k));
+  Object.entries(r.named||{}).forEach(([label, v]) => {
+    if(!v) return; v = String(v);
+    const f = gf.find(f => norm(f.l) === norm(label) || norm(f.l).startsWith(norm(label)));
+    if(f){ if(keyed.has(f.k)) return; if(overwrite || !it.fields[f.k]) it.fields[f.k] = v; return; }
+    if(gf.some(f => keyed.has(f.k) && norm(f.l).includes(norm(label)))) return;
+    const ex = it.extra.find(e => norm(e.l) === norm(label));
+    if(ex){ if(overwrite) ex.v = v; } else it.extra.push({l:label, v});
+  });
+  (r.extra||[]).forEach(x => { if(x.v && !it.extra.some(e=>e.l.toLowerCase()===x.l.toLowerCase())) it.extra.push(x); });
+  it.matched = {source:r.source || "", at:new Date().toISOString()};
+}
+const isMatched = it => !!(it.matched || it.bggId);
+/* Match a saved piece to a database later: fills in blanks and adds a cover if it has no photo. */
+function matchSaved(it, opts){
+  opts = opts || {};
+  const c = coll(it.collectionId), kind = lookupKind(c), isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
+  if(kind === "none") return toast("Choose a lookup source for this gallery in ✎ Edit gallery first.");
+  pickResult(kind, kind === "comic" && iss && !/#/.test(it.title) ? it.title + " #" + iss : it.title, it.maker, async r => {
+    const before = JSON.stringify(it);
+    mergeResult(it, r, false);
+    if(r.cover && !(it.media||[]).some(m => m.kind === "photo")){
+      try{
+        const resp = await fetchT(r.cover, {}, 20000), blob = await resp.blob();
+        if(!resp.ok || !/^image\//.test(blob.type)){ const e = new Error("no cover"); e.noCover = true; throw e; }
+        const base = "media/" + it.id + "/" + uid();
+        await store.putFile(base + ".jpg", await shrink(blob, 2400, .88)); await store.putFile(base + "_t.jpg", await shrink(blob, 520, .8));
+        it.media.unshift({id:uid(), kind:"photo", name:"cover.jpg", path:base + ".jpg", thumb:base + "_t.jpg"});
+      }catch(e){ if(!e.noCover && /^https:/.test(r.cover)) it.media.unshift({id:uid(), kind:"photo", remote:true, name:"cover", path:r.cover, thumb:r.thumb || r.cover}); }
+    }
+    it.updated = new Date().toISOString();
+    try{ await persist(); toast("Matched to " + (r.source || "database")); }
+    catch(e){ Object.assign(it, JSON.parse(before)); alert(e.message); return; }
+    opts.after ? opts.after() : route();
+  }, opts);
+}
+
 /* Search-and-pick sheet */
-function pickResult(kind, q, maker, onPick){
+function pickResult(kind, q, maker, onPick, opts){
+  opts = opts || {};
   const L = document.getElementById("layer");
   L.innerHTML = `<div class="lightbox" id="pk" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" style="width:100%;max-width:640px;max-height:88vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Find it in ${esc(LOOKUPS[kind].split(": ")[1]||"")}</h2><button class="iconbtn" id="pkX" aria-label="Close">✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>${opts.label ? esc(opts.label) : "Find it in " + esc(LOOKUPS[kind].split(": ")[1]||"")}</h2><span style="display:flex;gap:6px">${opts.onSkip ? `<button class="iconbtn" id="pkS">Skip</button>` : ""}<button class="iconbtn" id="pkX" aria-label="Close">✕</button></span></div>
     <form id="pkF" class="search" style="margin:8px 0"><input name="q" value="${esc(q)}" placeholder="${kind==="comic" ? "Series #issue, e.g. Batman #423" : "Title"}" aria-label="Search">${kind==="music"||kind==="book" ? `<input name="m" value="${esc(maker||"")}" placeholder="${kind==="music"?"Artist":"Author"} (optional)" aria-label="Maker" style="flex:1 1 100%">` : ""}<button class="iconbtn primary" type="submit" style="height:42px">Search</button></form>
     <div id="pkR" class="docs"></div></div></div>`;
   const close = () => L.innerHTML = "";
+  if(opts.onSkip) document.getElementById("pkS").onclick = () => { close(); opts.onSkip(); };
   document.getElementById("pkX").onclick = close;
   document.getElementById("pk").onclick = e => { if(e.target.id === "pk") close(); };
   const out = document.getElementById("pkR"), f = document.getElementById("pkF");
@@ -1291,22 +1349,7 @@ function viewEdit(id, params){
 
   async function applyResult(r, overwrite){
       if(r.collectionId && !existing && overwrite && cat.collections.some(c=>c.id===r.collectionId)) it.collectionId = r.collectionId;
-      ["title","maker","year"].forEach(k => { if(r[k] && (overwrite || !it[k])) it[k] = r[k]; });
-      it.fields = it.fields || {};
-      Object.entries(r.fields||{}).forEach(([k,v]) => { if(v && (overwrite || !it.fields[k]) && coll(it.collectionId).fields.some(f=>f.k===k)) it.fields[k] = v; });
-      it.extra = it.extra || [];
-      if(r.barcode && !it.barcode) it.barcode = r.barcode;
-      const gf = coll(it.collectionId).fields, norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
-      const keyed = new Set(Object.entries(r.fields||{}).filter(([k,v]) => v && gf.some(f=>f.k===k)).map(([k]) => k));
-      Object.entries(r.named||{}).forEach(([label, v]) => {
-        if(!v) return; v = String(v);
-        const f = gf.find(f => norm(f.l) === norm(label) || norm(f.l).startsWith(norm(label)));
-        if(f){ if(keyed.has(f.k)) return; if(overwrite || !it.fields[f.k]) it.fields[f.k] = v; return; }
-        if(gf.some(f => keyed.has(f.k) && norm(f.l).includes(norm(label)))) return;
-        const ex = it.extra.find(e => norm(e.l) === norm(label));
-        if(ex){ if(overwrite) ex.v = v; } else it.extra.push({l:label, v});
-      });
-      (r.extra||[]).forEach(x => { if(x.v && !it.extra.some(e=>e.l.toLowerCase()===x.l.toLowerCase())) it.extra.push(x); });
+      mergeResult(it, r, overwrite);
       if(r.cover && !it.media.some(m=>m.kind==="photo")){
         try{
           const blob = await (await fetch(r.cover)).blob();
