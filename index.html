@@ -422,6 +422,10 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
   url(rooms/steel.jpg) left bottom/100% calc(100% - var(--rail) - 34px) no-repeat,
   linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.18)),
   url(rooms/diner-tile.jpg) 0 0/240px auto,#8fd0bd}
+.wall.r-diner .bay{justify-content:flex-end;gap:84px;padding-bottom:calc(11vh + env(safe-area-inset-bottom))}
+.wall.r-diner .pmat img{max-height:calc(100svh - 64px - 11vh - 260px)}
+@media (orientation:landscape) and (max-height:560px){.wall.r-diner .bay{justify-content:center;gap:clamp(18px,4vw,40px);padding-bottom:calc(8vh + 56px)}
+  .wall.r-diner .pmat img{max-height:calc(100svh - 46px - 8vh - 70px - 2*clamp(8px,1.4vw,14px) - 2*clamp(10px,2vw,22px))}}
 .wall.r-diner .bay::before{background:radial-gradient(ellipse 44% 46% at 50% 32%,rgba(255,252,240,.28),transparent 72%)}
 .wall.r-diner .floor{height:8vh;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(0,0,0,.1) 40%,rgba(0,0,0,.35)),url(rooms/checker.jpg) 0 0/128px;transform:perspective(220px) rotateX(40deg);transform-origin:top;box-shadow:0 -4px 12px rgba(0,0,0,.3)}
 .wall.r-diner .floor::before{display:none}
@@ -443,7 +447,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.36";
+const APP_VERSION = "2026.11.03.37";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -973,8 +977,11 @@ function viewWall(id, params){
     if(!wall.classList.contains("r-diner")) return;
     const top = wall.getBoundingClientRect().top, cards = [...wall.querySelectorAll(".placard")];
     if(!cards.length) return;
-    const y = Math.min(...cards.map(p => p.getBoundingClientRect().top - top));
-    wall.style.setProperty("--rail", Math.max(80, Math.round(y - 52)) + "px");
+    // Frames and placards are bottom-aligned in this room, so there's one clear gap to run the rail through.
+    const frameBottom = Math.max(...[...wall.querySelectorAll(".pframe")].map(f => f.getBoundingClientRect().bottom - top));
+    const cardTop = Math.min(...cards.map(p => p.getBoundingClientRect().top - top));
+    const y = cardTop > frameBottom + 40 ? (frameBottom + cardTop - 34) / 2 : frameBottom + 16;   // side-by-side layout: just under the frames
+    wall.style.setProperty("--rail", Math.max(80, Math.round(y)) + "px");
   };
   placeRail(); wall.addEventListener("load", placeRail, true);
   window.addEventListener("resize", function pr(){ if(!wall.isConnected) return window.removeEventListener("resize", pr); placeRail(); });
