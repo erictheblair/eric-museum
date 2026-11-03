@@ -268,38 +268,60 @@ class DropboxStore {
   constructor(appKey){ this.kind="dropbox"; this.appKey=appKey; this.rev=null; this.links=new Map(Object.entries(LS.get("cm.links",{}))); }
   static redirectUri(){ return location.origin + location.pathname; }
   static b64url(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
-  static async beginAuth(appKey){
+  static standalone(){ return navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches); }
+  static async beginAuth(appKey, manual){
     const verifier = DropboxStore.b64url(crypto.getRandomValues(new Uint8Array(48)));
     const challenge = DropboxStore.b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
     const state = uid();
-    sessionStorage.setItem("cm.pkce", JSON.stringify({verifier, state, appKey}));
-    const q = new URLSearchParams({client_id:appKey, response_type:"code", code_challenge:challenge, code_challenge_method:"S256",
-      redirect_uri:DropboxStore.redirectUri(), token_access_type:"offline", state});
+    LS.set("cm.pkce", {verifier, state, appKey, manual:!!manual});
+    const q = new URLSearchParams({client_id:appKey, response_type:"code", code_challenge:challenge, code_challenge_method:"S256", token_access_type:"offline"});
+    if(manual){ window.open("https://www.dropbox.com/oauth2/authorize?" + q, "_blank"); return; }
+    q.set("redirect_uri", DropboxStore.redirectUri()); q.set("state", state);
     location.href = "https://www.dropbox.com/oauth2/authorize?" + q;
+  }
+  static async exchange(code, saved, withRedirect){
+    const body = {code, grant_type:"authorization_code", code_verifier:saved.verifier, client_id:saved.appKey};
+    if(withRedirect) body.redirect_uri = DropboxStore.redirectUri();
+    const r = await fetch("https://api.dropboxapi.com/oauth2/token", {method:"POST", body:new URLSearchParams(body)});
+    if(!r.ok){ const t = await r.text().catch(()=> ""); authLog("sign-in exchange failed " + r.status + " " + t.slice(0,120)); throw new Error("Dropbox sign-in failed (" + r.status + "). Please try again."); }
+    const j = await r.json();
+    LS.set("cm.dropbox", {appKey:saved.appKey, refresh:j.refresh_token, access:j.access_token, exp:Date.now()+(j.expires_in-60)*1000, since:new Date().toISOString()});
+    LS.set("cm.mode","dropbox"); LS.del("cm.pkce");
+    authLog("connected" + (DropboxStore.standalone() ? " (home-screen app)" : " (browser)"));
+  }
+  static async finishManual(code){
+    const saved = LS.get("cm.pkce", null);
+    if(!saved) throw new Error("Please tap “Connect Dropbox” again first.");
+    await DropboxStore.exchange(code.trim(), saved, false);
   }
   static async finishAuth(){
     const p = new URLSearchParams(location.search);
     if(!p.has("code") && !p.has("error")) return false;
     history.replaceState(null, "", location.pathname + location.hash);
     if(p.has("error")) throw new Error("Dropbox sign-in was cancelled.");
-    const saved = JSON.parse(sessionStorage.getItem("cm.pkce") || "null");
-    if(!saved || saved.state !== p.get("state")) throw new Error("Dropbox sign-in could not be verified. Please try again.");
-    const r = await fetch("https://api.dropboxapi.com/oauth2/token", {method:"POST", body:new URLSearchParams({
-      code:p.get("code"), grant_type:"authorization_code", code_verifier:saved.verifier, client_id:saved.appKey, redirect_uri:DropboxStore.redirectUri()})});
-    if(!r.ok) throw new Error("Dropbox sign-in failed (" + r.status + ").");
-    const j = await r.json();
-    LS.set("cm.dropbox", {appKey:saved.appKey, refresh:j.refresh_token, access:j.access_token, exp:Date.now()+(j.expires_in-60)*1000});
-    LS.set("cm.mode","dropbox");
-    sessionStorage.removeItem("cm.pkce");
+    const saved = LS.get("cm.pkce", null);
+    if(!saved || saved.state !== p.get("state")){ authLog("sign-in state mismatch"); throw new Error("Dropbox sign-in could not be verified. Please try again."); }
+    await DropboxStore.exchange(p.get("code"), saved, true);
     return true;
   }
   async token(){
     const a = LS.get("cm.dropbox", null);
     if(!a) throw new Error("Not connected to Dropbox.");
     if(a.access && a.exp > Date.now()) return a.access;
-    const r = await fetch("https://api.dropboxapi.com/oauth2/token", {method:"POST", body:new URLSearchParams({grant_type:"refresh_token", refresh_token:a.refresh, client_id:a.appKey})});
-    if(!r.ok){ if(r.status===400||r.status===401){ LS.del("cm.dropbox"); } throw new Error("Dropbox session expired. Please reconnect in Settings."); }
-    const j = await r.json(); a.access=j.access_token; a.exp=Date.now()+(j.expires_in-60)*1000; LS.set("cm.dropbox",a); return a.access;
+    if(this._refreshing) return this._refreshing;
+    this._refreshing = (async () => {
+      let r;
+      try{ r = await fetch("https://api.dropboxapi.com/oauth2/token", {method:"POST", body:new URLSearchParams({grant_type:"refresh_token", refresh_token:a.refresh, client_id:a.appKey})}); }
+      catch(e){ throw new Error("Couldn't reach Dropbox. Check your connection and try again."); }
+      if(!r.ok){
+        const j = await r.json().catch(()=>({}));
+        authLog("refresh failed " + r.status + " " + (j.error || "") + " " + (j.error_description || ""));
+        if(j.error === "invalid_grant"){ LS.del("cm.dropbox"); const e = new Error("Dropbox sign-in expired or was revoked. Please reconnect in Settings."); e.signedOut = true; throw e; }
+        throw new Error("Dropbox is having trouble right now (" + r.status + "). Please try again in a minute.");
+      }
+      const j = await r.json(); a.access=j.access_token; a.exp=Date.now()+(j.expires_in-60)*1000; LS.set("cm.dropbox",a); return a.access;
+    })();
+    try{ return await this._refreshing; } finally{ this._refreshing = null; }
   }
   static arg(o){ return JSON.stringify(o).replace(/[\u007f-￿]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4,"0")); }
   async rpc(endpoint, body){
@@ -355,6 +377,7 @@ class DropboxStore {
 /* ============================================================
    App state
    ============================================================ */
+function authLog(msg){ const l = LS.get("cm.authlog", []); l.unshift(new Date().toLocaleString() + ": " + msg); LS.set("cm.authlog", l.slice(0,8)); }
 let store, cat, priv = LS.get("cm.private", true);
 const coll = id => cat.collections.find(c => c.id === id) || {id, name:"Uncategorized", icon:"📦", maker:"Maker", fields:[]};
 const item = id => cat.items.find(i => i.id === id);
@@ -952,7 +975,7 @@ function viewSettings(){
   <h1 style="font-size:1.8rem;margin:4px 0 16px">Settings</h1>
   <div class="panel"><h2>Where your catalog lives</h2>
     ${store.kind === "dropbox"
-      ? `<p>✅ Connected to <b>Dropbox</b>. Everything is in <code>Dropbox/Apps/&lt;your app name&gt;/</code>: <code>catalog.json</code> plus a <code>media</code> folder of photos and documents.</p>
+      ? `<p>✅ Connected to <b>Dropbox</b>${dbx && dbx.since ? " on this device since " + esc(new Date(dbx.since).toLocaleDateString()) : ""}. Everything is in <code>Dropbox/Apps/&lt;your app name&gt;/</code>: <code>catalog.json</code> plus a <code>media</code> folder of photos and documents.</p>
          <div class="actions"><button class="iconbtn" id="disc">Disconnect on this device</button></div>`
       : `<p>Right now your catalog is saved <b>on this device only</b>. Connect Dropbox to keep it in your own Dropbox, so it's backed up and shows up on your phone and computer.</p>
          <ol class="steps"><li>Go to <a href="https://www.dropbox.com/developers/apps/create" target="_blank" rel="noopener">dropbox.com/developers/apps/create</a> → <b>Scoped access</b> → <b>App folder</b> → give it a name (e.g. “Eric Museum”).</li>
@@ -961,7 +984,12 @@ function viewSettings(){
          <li>Copy the <b>App key</b> into the box below and press Connect.</li></ol>
          <div class="fgrid" style="margin-top:8px"><div class="f"><label for="ak">Dropbox App key</label><input id="ak" value="${esc(key)}" placeholder="e.g. a1b2c3d4e5f6g7h"></div></div>
          ${cat.items.length ? `<label class="check" style="margin-top:10px"><input type="checkbox" id="carry" checked> Copy the ${cat.items.length} piece${cat.items.length===1?"":"s"} on this device into Dropbox</label>` : ""}
-         <div class="actions"><button class="iconbtn primary" id="conn">Connect Dropbox</button></div>`}
+         <div class="actions"><button class="iconbtn primary" id="conn">Connect Dropbox</button></div>
+         <div id="manualBox" style="display:${LS.get("cm.pkce",null)&&LS.get("cm.pkce",{}).manual?"block":"none"};margin-top:12px">
+           <p><b>Almost done:</b> after you tap <b>Allow</b>, Dropbox shows a code. Copy it, come back here, and paste it below.</p>
+           <div class="actions" style="margin-top:4px"><input id="mcode" placeholder="Paste the code from Dropbox" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn primary" id="mfinish">Finish</button></div></div>
+         ${DropboxStore.standalone() ? `<p style="font-size:.82rem">You're using the home-screen app, which keeps its own sign-in separate from your browser. That's why it asks once here.</p>` : ""}`}
+    ${LS.get("cm.authlog",[]).length ? `<details style="margin-top:10px"><summary style="cursor:pointer;color:var(--muted);font-size:.82rem">Sign-in history on this device</summary><pre style="white-space:pre-wrap;font-size:.75rem;color:var(--muted)">${esc(LS.get("cm.authlog",[]).join("\n"))}</pre></details>` : ""}
   </div>
   <div class="panel"><h2>Museum name</h2>
     <div class="actions" style="margin-top:4px"><input id="mname" value="${esc(cat.title||"")}" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn" id="mnameSave">Save</button></div></div>
@@ -987,7 +1015,13 @@ function viewSettings(){
     const k = $("ak").value.trim(); if(!k) return toast("Paste your Dropbox App key first.");
     if(/^sl\./.test(k) || k.length > 40) return alert("That looks like an access token, not an App key. Use the short App key from the top of your app's Settings tab in the Dropbox App Console (about 15 characters). Don't share access tokens with anyone.");
     LS.set("cm.appKey", k); LS.set("cm.carry", !!($("carry") && $("carry").checked));
-    await DropboxStore.beginAuth(k);
+    const manual = DropboxStore.standalone();
+    await DropboxStore.beginAuth(k, manual);
+    if(manual){ $("manualBox").style.display = "block"; $("mcode").focus(); }
+  };
+  if($("mfinish")) $("mfinish").onclick = async () => {
+    const code = $("mcode").value.trim(); if(!code) return toast("Paste the code from Dropbox first.");
+    try{ await DropboxStore.finishManual(code); LS.set("cm.justConnected", true); location.hash = "#/"; location.reload(); }catch(e){ alert(e.message); }
   };
   if($("disc")) $("disc").onclick = () => { if(!confirm("Disconnect Dropbox on this device? Your catalog stays safe in Dropbox.")) return; LS.del("cm.dropbox"); LS.del("cm.links"); LS.set("cm.mode","local"); location.reload(); };
   $("mnameSave").onclick = async () => { cat.title = $("mname").value.trim() || "The Collection"; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); setBrand(); };
@@ -1133,6 +1167,7 @@ async function boot(){
   app.innerHTML = `<div class="empty">Opening the museum…</div>`;
   let justConnected = false;
   try{ justConnected = await DropboxStore.finishAuth(); }catch(e){ alert(e.message); }
+  if(LS.get("cm.justConnected", false)){ justConnected = true; LS.del("cm.justConnected"); }
   const dbx = LS.get("cm.dropbox", null);
   const local = new LocalStore();
   if(LS.get("cm.mode","local") === "dropbox" && dbx){
@@ -1158,7 +1193,7 @@ async function boot(){
       if(justConnected) toast("Connected to Dropbox");
     }catch(e){
       app.innerHTML = `<div class="panel"><h2>Couldn't reach Dropbox</h2><p>${esc(e.message)}</p><div class="actions"><button class="iconbtn primary" onclick="location.reload()">Try again</button><a class="iconbtn" href="#/settings" onclick="setTimeout(()=>location.reload())">Settings</a></div></div>`;
-      if(/reconnect|Not connected/.test(e.message)) LS.set("cm.mode","local");
+      if(!LS.get("cm.dropbox", null)) LS.set("cm.mode","local");
       return;
     }
   }else{
