@@ -679,6 +679,7 @@ function viewSettings(){
   const $ = id => document.getElementById(id);
   if($("conn")) $("conn").onclick = async () => {
     const k = $("ak").value.trim(); if(!k) return toast("Paste your Dropbox App key first.");
+    if(/^sl\./.test(k) || k.length > 40) return alert("That looks like an access token, not an App key. Use the short App key from the top of your app's Settings tab in the Dropbox App Console (about 15 characters). Don't share access tokens with anyone.");
     LS.set("cm.appKey", k); LS.set("cm.carry", !!($("carry") && $("carry").checked));
     await DropboxStore.beginAuth(k);
   };
