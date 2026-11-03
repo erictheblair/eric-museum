@@ -272,6 +272,10 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .pe-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pe-tools .iconbtn{background:#262626;color:#fff;border-color:#444}
 .pe-hint{color:#9a958c;font-size:.8rem}
+.ccgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.ccgrid button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px;text-align:left}
+.ccgrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--mat)}
+.ccgrid span{font-size:.72rem;color:var(--muted);line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 </style>
 </head>
 <body>
@@ -285,7 +289,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.27";
+const APP_VERSION = "2026.11.03.28";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -699,7 +703,7 @@ function viewHall(id, params){
       : (!showFilters && tags.length ? `<div class="chips" style="margin-top:8px">${tags.slice(0,12).map(t=>`<a class="chip" href="${link({tag:t})}">${esc(t)}</a>`).join("")}</div>` : "")}
     ${grouped && groups.length > 3 ? `<div class="groupbar" aria-label="Jump to">${groups.map((g,n) => `<button type="button" data-jump="${n}">${esc(g.g)}</button>`).join("")}</div>` : ""}
   </section>
-  ${lookupKind(c) !== "none" && list.some(i => !isMatched(i)) && (unmatched || showFilters) ? `<div class="banner noprint"><span>🔎</span><div class="grow">${list.filter(i => !isMatched(i)).length} piece${list.filter(i => !isMatched(i)).length===1?"":"s"} here not matched to ${esc(LOOKUPS[lookupKind(c)].split(": ")[1])} yet. Go through them one by one; anything you've already typed is kept.</div><button class="iconbtn primary" id="bulkMatch">Match them</button></div>` : ""}
+  ${lookupKind(c) !== "none" && list.some(i => !isMatched(i)) && (unmatched || showFilters) ? `<div class="banner noprint"><span>🔎</span><div class="grow">${list.filter(i => !isMatched(i)).length} piece${list.filter(i => !isMatched(i)).length===1?"":"s"} here not matched to ${esc(lookupName(lookupKind(c)))} yet. Go through them one by one; anything you've already typed is kept.</div><button class="iconbtn primary" id="bulkMatch">Match them</button></div>` : ""}
   ${!list.length ? `<div class="empty">${all.length ? "Nothing matches these filters." : "This gallery is empty. Add the first piece!"}</div>`
     : grouped ? groups.map((g,n) => `<h3 class="grouphead" id="grp${n}">${esc(g.g)} <span style="color:var(--muted);font-family:var(--sans);font-size:.75rem;font-weight:400">${g.items.length}</span></h3><div class="grid">${g.items.map(plate).join("")}</div>`).join("")
     : `<div class="grid">${list.map(plate).join("")}</div>`}
@@ -835,7 +839,7 @@ function viewItem(id){
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
       ${docs.length ? `<h3 style="margin-top:20px;font-size:1.05rem">Documents</h3><div class="docs">${docs.map(d=>`<button class="doc" data-path="${esc(d.path)}" data-name="${esc(d.name||"")}"><span class="ic">${/pdf$/i.test(d.name||"")?"📄":"📜"}</span><span class="grow"><b>${esc(d.label||"Document")}</b><br><small style="color:var(--muted)">${esc(d.name||"")}</small></span><span>↗</span></button>`).join("")}</div>` : ""}
       <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${c.id}">▦ Scan</a><a class="fab" href="#/new?c=${c.id}">＋ Add</a></div>
-      <div class="actions noprint"><a class="iconbtn primary" href="#/edit/${it.id}">✎ Edit</a>${lookupKind(c) !== "none" ? `<button class="iconbtn" id="matchBtn">🔎 ${isMatched(it) ? "Re-match" : "Match to"} ${esc(LOOKUPS[lookupKind(c)].split(": ")[1])}</button>` : ""}<button class="iconbtn" id="dupBtn">Duplicate</button><button class="iconbtn" id="delBtn" style="color:var(--danger)">Delete</button></div>
+      <div class="actions noprint"><a class="iconbtn primary" href="#/edit/${it.id}">✎ Edit</a>${lookupKind(c) !== "none" ? `<button class="iconbtn" id="matchBtn">🔎 ${isMatched(it) ? "Re-match" : "Match to"} ${esc(lookupName(lookupKind(c)))}</button>` : ""}${lookupKind(c) !== "none" ? `<button class="iconbtn" id="coverBtn">🖼 Change cover</button>` : ""}<button class="iconbtn" id="dupBtn">Duplicate</button><button class="iconbtn" id="delBtn" style="color:var(--danger)">Delete</button></div>
     </div>
   </article>`;
   hydrate(app);
@@ -856,6 +860,7 @@ function viewItem(id){
     }catch(e){ cat.items.push(it); alert(e.message); } finally{ done(); }
   };
   if(document.getElementById("matchBtn")) document.getElementById("matchBtn").onclick = () => matchSaved(it);
+  if(document.getElementById("coverBtn")) document.getElementById("coverBtn").onclick = () => chooseCover(it);
   document.getElementById("dupBtn").onclick = () => { location.hash = "#/new?from=" + it.id; };
 }
 
@@ -1198,7 +1203,7 @@ const COMIC_FIELDS = [{k:"issue",l:"Issue #"},{k:"volume",l:"Volume"},{k:"varian
   {k:"grade",l:"Grade",opts:["Raw","10.0","9.9","9.8","9.6","9.4","9.2","9.0","8.5","8.0","7.5","7.0","6.5","6.0","5.5","5.0","4.5","4.0","3.5","3.0","2.5","2.0","1.8","1.5","1.0","0.5"]},
   {k:"grader",l:"Graded by",opts:["Ungraded","CGC","CBCS","PGX"]},{k:"cert",l:"Cert #",priv:true},{k:"keyNotes",l:"Key issue notes"}];
 const issueField = c => c.fields.find(f => /^issue/.test(String(f.l).toLowerCase().replace(/[^a-z]/g,"")));
-const LOOKUPS = {none:"Nothing", music:"Music: MusicBrainz", film:"Movies: Wikidata", book:"Books: Open Library", boardgame:"Board games: BoardGameGeek", comic:"Comics: Metron"};
+const LOOKUPS = {none:"Nothing", music:"Music: Discogs + MusicBrainz", film:"Movies: Wikidata", book:"Books: Open Library", boardgame:"Board games: BoardGameGeek", comic:"Comics: Metron"};
 function lookupKind(c){
   if(c.lookup) return c.lookup;
   return {records:"music", laserdiscs:"film", movies:"film", books:"book"}[c.id]
@@ -1249,7 +1254,7 @@ async function discogsSearch(q, maker, tok){
     const code = (r.barcode||[]).map(b => String(b).replace(/\s/g,"")).find(b => /^\d{8,14}$/.test(b)) || "";
     const img = r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "";
     const res = {source:"Discogs", collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "", year:r.year ? String(r.year) : "",
-      cover:img, barcode:code, fields:{label, catno, format:fm.format||"", pressing:r.country||""}, named:{"Label":label, "Catalog #":catno, "Country":r.country, "Discogs":r.uri ? "https://www.discogs.com" + r.uri : ""}};
+      cover:img, barcode:code, ref:{discogs:r.id}, fields:{label, catno, format:fm.format||"", pressing:r.country||""}, named:{"Label":label, "Catalog #":catno, "Country":r.country, "Discogs":r.uri ? "https://www.discogs.com" + r.uri : ""}};
     return {...res, thumb:r.thumb || img, sub:["Discogs", (r.format||[]).join(", "), r.country, label, catno].filter(Boolean).join(" · "), get:async()=>res};
   });
 }
@@ -1258,7 +1263,7 @@ async function musicBrainzSearch(q, maker){
     const query = 'release:"' + q.replace(/"/g,"") + '"' + (maker ? ' AND artist:"' + maker.replace(/"/g,"") + '"' : "");
     const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=12&query=" + encodeURIComponent(query));
     return (j.releases||[]).map(r => { const li = (r["label-info"]||[])[0] || {}, fmts = (r.media||[]).map(m=>m.format||""), fm = formatFrom(fmts);
-      const res = {source:"MusicBrainz", title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""), year:(r.date||"").slice(0,4),
+      const res = {source:"MusicBrainz", ref:{mb:r.id}, title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""), year:(r.date||"").slice(0,4),
         cover:"https://coverartarchive.org/release/" + r.id + "/front-500", barcode:r.barcode||"", fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""},
         named:{"Label":(li.label||{}).name, "Catalog #":li["catalog-number"], "Country":r.country}};
       return {...res, thumb:"https://coverartarchive.org/release/" + r.id + "/front-250", sub:["MusicBrainz", fmts.join(" + "), r.country, (li.label||{}).name, li["catalog-number"]].filter(Boolean).join(" · "), get:async()=>res}; });
@@ -1430,8 +1435,9 @@ function mergeResult(it, r, overwrite){
     if(ex){ if(overwrite) ex.v = v; } else it.extra.push({l:label, v});
   });
   (r.extra||[]).forEach(x => { if(x.v && !it.extra.some(e=>e.l.toLowerCase()===x.l.toLowerCase())) it.extra.push(x); });
-  it.matched = {source:r.source || "", at:new Date().toISOString()};
+  it.matched = {source:r.source || "", at:new Date().toISOString(), ...(r.ref ? {ref:r.ref} : {})};
 }
+const lookupName = kind => kind === "music" ? (((cat && cat.settings)||{}).discogsToken ? "Discogs & MusicBrainz" : "MusicBrainz") : (LOOKUPS[kind]||"").split(": ")[1] || "";
 const isMatched = it => !!(it.matched || it.bggId);
 /* Match a saved piece to a database later: fills in blanks and adds a cover if it has no photo. */
 function matchSaved(it, opts){
@@ -1457,12 +1463,66 @@ function matchSaved(it, opts){
   }, opts);
 }
 
+
+/* ---------- Change cover: pick from every image the databases have ---------- */
+async function releaseImages(ref){
+  const out = [];
+  if(ref && ref.discogs){ const tok = (cat.settings||{}).discogsToken;
+    if(tok){ const j = await getJSON("https://api.discogs.com/releases/" + ref.discogs + "?token=" + encodeURIComponent(tok));
+      (j.images||[]).forEach(i => out.push({url:i.uri, thumb:i.uri150 || i.uri, label:i.type === "primary" ? "Front (Discogs)" : "Discogs"})); } }
+  if(ref && ref.mb){
+    try{ const j = await getJSON("https://coverartarchive.org/release/" + ref.mb);
+      (j.images||[]).forEach(i => out.push({url:(i.thumbnails||{}).large || i.image, thumb:(i.thumbnails||{}).small || (i.thumbnails||{})["250"] || i.image, label:(i.types||[]).join(", ") || "Image"})); }
+    catch(e){ /* no art for this release */ }
+  }
+  return out;
+}
+function chooseCover(it){
+  const c = coll(it.collectionId), kind = lookupKind(c), L = document.getElementById("layer");
+  const ref = (it.matched||{}).ref;
+  L.innerHTML = `<div class="lightbox" id="cc" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" style="width:100%;max-width:680px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Choose a cover</h2><button class="iconbtn" id="ccX" aria-label="Close">✕</button></div>
+    <label class="check" style="margin:6px 0 4px"><input type="checkbox" id="ccRep" ${cover(it) ? "checked" : ""}> Replace the current cover (otherwise it's kept as an extra photo)</label>
+    <div id="ccThis"></div><div id="ccOther"><p>Searching ${esc(lookupName(kind))}…</p></div></div></div>`;
+  const close = () => L.innerHTML = "";
+  document.getElementById("ccX").onclick = close;
+  document.getElementById("cc").onclick = e => { if(e.target.id === "cc") close(); };
+  const grid = imgs => `<div class="ccgrid">${imgs.map((im,n) => `<button type="button" data-u="${esc(im.url)}" data-t="${esc(im.thumb||im.url)}"><img src="${esc(im.thumb||im.url)}" alt="" loading="lazy" onerror="this.parentNode.remove()"><span>${esc(im.label||"")}</span></button>`).join("")}</div>`;
+  const wire = root => root.querySelectorAll("[data-u]").forEach(b => b.onclick = () => useCover(it, b.dataset.u, b.dataset.t, document.getElementById("ccRep").checked));
+  if(ref) releaseImages(ref).then(imgs => { const el = document.getElementById("ccThis"); if(!el || !imgs.length) return;
+    el.innerHTML = `<h3 style="font-size:1rem;margin:12px 0 6px">From the release you matched</h3>` + grid(imgs); wire(el); }).catch(()=>{});
+  const isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
+  searchCandidates(kind, kind === "comic" && iss && !/#/.test(it.title) ? it.title + " #" + iss : it.title, it.maker).then(list => {
+    const el = document.getElementById("ccOther"); if(!el) return;
+    const imgs = list.filter(x => x.thumb || x.cover).map(x => ({url:x.cover || x.thumb, thumb:x.thumb || x.cover, label:[x.year, x.sub].filter(Boolean).join(" · ")}));
+    el.innerHTML = imgs.length ? `<h3 style="font-size:1rem;margin:14px 0 6px">Other releases and editions</h3>` + grid(imgs) : `<p>No other images found.</p>`; wire(el);
+  }).catch(e => { const el = document.getElementById("ccOther"); if(el) el.innerHTML = `<p style="color:var(--danger)">${esc(e.message)}</p>`; });
+}
+async function useCover(it, url, thumb, replace){
+  const done = busy("Saving the new cover…"), before = JSON.stringify(it), old = cover(it);
+  try{
+    let m;
+    try{
+      const resp = await fetchT(url, {}, 25000), blob = await resp.blob();
+      if(!resp.ok || !/^image\//.test(blob.type)) throw new Error("not an image");
+      const base = "media/" + it.id + "/" + uid();
+      await store.putFile(base + ".jpg", await shrink(blob, 2400, .88)); await store.putFile(base + "_t.jpg", await shrink(blob, 520, .8));
+      m = {id:uid(), kind:"photo", name:"cover.jpg", path:base + ".jpg", thumb:base + "_t.jpg"};
+    }catch(e){ m = {id:uid(), kind:"photo", remote:true, name:"cover", path:url, thumb:thumb || url}; }
+    it.media = it.media || [];
+    if(replace && old) it.media = it.media.filter(x => x !== old);
+    it.media.unshift(m); it.updated = new Date().toISOString();
+    await persist();
+    if(replace && old && !old.remote){ store.deleteFile(old.path).catch(()=>{}); if(old.thumb) store.deleteFile(old.thumb).catch(()=>{}); }
+    done(); document.getElementById("layer").innerHTML = ""; toast("Cover updated"); route();
+  }catch(e){ Object.assign(it, JSON.parse(before)); done(); alert("Couldn't save the cover: " + e.message); }
+}
 /* Search-and-pick sheet */
 function pickResult(kind, q, maker, onPick, opts){
   opts = opts || {};
   const L = document.getElementById("layer");
   L.innerHTML = `<div class="lightbox" id="pk" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" style="width:100%;max-width:640px;max-height:88vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>${opts.label ? esc(opts.label) : "Find it in " + esc(LOOKUPS[kind].split(": ")[1]||"")}</h2><span style="display:flex;gap:6px">${opts.onSkip ? `<button class="iconbtn" id="pkS">Skip</button>` : ""}<button class="iconbtn" id="pkX" aria-label="Close">✕</button></span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>${opts.label ? esc(opts.label) : "Find it in " + esc(lookupName(kind))}</h2><span style="display:flex;gap:6px">${opts.onSkip ? `<button class="iconbtn" id="pkS">Skip</button>` : ""}<button class="iconbtn" id="pkX" aria-label="Close">✕</button></span></div>
     <form id="pkF" class="search" style="margin:8px 0"><input name="q" value="${esc(q)}" placeholder="${kind==="comic" ? "Series #issue, e.g. Batman #423" : "Title"}" aria-label="Search">${kind==="music"||kind==="book" ? `<input name="m" value="${esc(maker||"")}" placeholder="${kind==="music"?"Artist":"Author"} (optional)" aria-label="Maker" style="flex:1 1 100%">` : ""}<button class="iconbtn primary" type="submit" style="height:42px">Search</button></form>
     ${kind === "music" && !((cat.settings||{}).discogsToken) ? `<p style="font-size:.82rem;margin:0 0 8px">Searching MusicBrainz only. <a href="#/settings">Add a free Discogs token</a> in Settings → Lookups to search Discogs too.</p>` : ""}
     <div id="pkR" class="docs"></div></div></div>`;
@@ -1541,7 +1601,7 @@ async function lookupDiscogs(code, tok){
   const r = list.find(x => /vinyl|laserdisc/i.test((x.format||[]).join(" "))) || list[0];
   const [artist, ...rest] = (r.title||"").split(" - ");
   const fm = formatFrom(r.format||[]);
-  return {source:"Discogs", collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "",
+  return {source:"Discogs", ref:{discogs:r.id}, collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "",
     year:r.year||"", cover:r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "",
     fields:{label:(r.label||[])[0]||"", catno:r.catno && r.catno!=="none" ? r.catno : "", format:fm.format||"", pressing:r.country||""}};
 }
@@ -1553,7 +1613,7 @@ async function lookupMusicBrainz(code){
   const fmts = r => (r.media||[]).map(m=>m.format||"");
   const r = list.find(x => /vinyl|laserdisc/i.test(fmts(x).join(" "))) || list[0];
   const fm = formatFrom(fmts(r)), li = (r["label-info"]||[])[0] || {};
-  return {source:"MusicBrainz", collectionId:fm.collectionId, title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""),
+  return {source:"MusicBrainz", ref:{mb:r.id}, collectionId:fm.collectionId, title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""),
     year:(r.date||"").slice(0,4), cover:"https://coverartarchive.org/release/" + r.id + "/front-500",
     fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""}};
 }
