@@ -229,12 +229,6 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 @media (min-width:900px){.bay{flex-basis:50%}}
 .pframe{display:inline-block;padding:clamp(10px,1.6vw,18px);border:none;cursor:zoom-in;border-radius:2px;line-height:0;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.45),inset 0 0 0 4px rgba(255,255,255,.08),inset 0 0 10px rgba(0,0,0,.55),0 24px 50px rgba(0,0,0,.7),0 6px 14px rgba(0,0,0,.5)}
-.wall.f-gilt .pframe{background:linear-gradient(135deg,#7d5716 0%,#e9c46e 18%,#a87a26 36%,#f6dc93 52%,#9c6f20 70%,#dcb45d 86%,#6f4c12 100%)}
-.wall.f-black .pframe{background:linear-gradient(135deg,#0b0b0b,#2a2a2a 45%,#0e0e0e 55%,#232323)}
-.wall.f-walnut .pframe{background:repeating-linear-gradient(100deg,#4a2f1b 0 3px,#5a3a22 3px 7px,#45291a 7px 9px),#4f321e}
-.wall.f-white .pframe{background:linear-gradient(135deg,#f7f4ee,#e3ddd2 50%,#fbfaf6)}
-.wall.f-none .pframe{padding:0;background:none;box-shadow:0 24px 50px rgba(0,0,0,.7),0 6px 14px rgba(0,0,0,.5)}
-.wall.f-none .pmat{padding:0;box-shadow:none}
 .pmat{display:inline-block;padding:clamp(14px,3.2vw,40px);background:#f2ecdf;box-shadow:inset 0 2px 6px rgba(0,0,0,.28),inset 0 0 0 1px rgba(0,0,0,.12)}
 .pmat img{display:block;max-width:min(78vw,640px);max-height:calc(100svh - 64px - 13vh - 210px);min-width:60px;min-height:60px;object-fit:contain;box-shadow:0 0 0 2px #fbf8f1,0 0 0 3px rgba(0,0,0,.18),1px 2px 5px rgba(0,0,0,.25)}
 @supports not (height:100svh){.pmat img{max-height:calc(100vh - 64px - 13vh - 210px)}}
@@ -296,6 +290,80 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
   .placard{flex:0 0 auto;width:clamp(150px,24vw,240px)}
   .wnav{width:40px;height:40px}
 }
+
+/* ---- Gallery mode rooms ---- */
+.bay::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0}
+.bay>*{position:relative;z-index:1}
+@keyframes flicker{0%,100%{opacity:1}18%{opacity:.82}22%{opacity:.95}47%{opacity:.78}52%{opacity:.97}75%{opacity:.86}}
+@keyframes hum{0%,100%{opacity:.75}50%{opacity:1}}
+/* Museum (default) */
+.wall.r-museum .pframe{background:linear-gradient(135deg,#7d5716 0%,#e9c46e 18%,#a87a26 36%,#f6dc93 52%,#9c6f20 70%,#dcb45d 86%,#6f4c12 100%)}
+.wall.r-museum{background:radial-gradient(ellipse at 50% 40%,#3a1f1f,#200f10 70%),#200f10}
+.wall.r-museum .bay{background:radial-gradient(ellipse 42% 58% at 50% 34%,rgba(255,226,170,.2),rgba(255,226,170,.05) 55%,transparent 75%)}
+.wall.r-museum .floor{background:repeating-linear-gradient(90deg,rgba(0,0,0,.25) 0 2px,transparent 2px 90px),linear-gradient(180deg,#0e0a08 0,#0e0a08 6px,#4a3220 6px,#2e1f13 45%,#1a110a)}
+/* Modern white gallery */
+.wall.r-modern{background:linear-gradient(180deg,#e4e1dc,#f3f1ed 45%,#e7e4df);color:#222}
+.wall.r-modern .bay{background:radial-gradient(ellipse 40% 55% at 50% 32%,rgba(255,255,255,.95),rgba(255,255,255,.3) 55%,transparent 75%)}
+.wall.r-modern .floor{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.05' numOctaves='4' seed='2' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff' surfaceScale='2.5'%3E%3CfeDistantLight azimuth='225' elevation='50'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23n%29'/%3E%3C/svg%3E"),linear-gradient(180deg,#fdfdfc 0,#fdfdfc 8px,#9f9b94 8px,#bdb8b0 30%,#a7a29a);background-blend-mode:multiply}
+.wall.r-modern .floor::before{background:#d6d2cc}
+.wall.r-modern .pframe{background:#111;padding:clamp(5px,.8vw,8px);box-shadow:0 22px 40px rgba(0,0,0,.22),0 4px 10px rgba(0,0,0,.18)}
+.wall.r-modern .pmat{background:#fff;box-shadow:inset 0 1px 4px rgba(0,0,0,.18)}
+.wall.r-modern .pmat img{box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.wall.r-modern .placard{background:#fff;font-family:var(--sans);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.wall.r-modern .placard .pt{font-weight:700}
+.wall.r-modern .wbar{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0))}
+.wall.r-modern .wbtn,.wall.r-modern .wbar select,.wall.r-modern .wnav{background:rgba(255,255,255,.85);color:#222;border-color:rgba(0,0,0,.18)}
+.wall.r-modern .wtitle{color:#222} .wall.r-modern .wcount{color:#555}
+/* Cave */
+.wall.r-cave{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011' numOctaves='5' seed='7' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff' surfaceScale='7'%3E%3CfeDistantLight azimuth='235' elevation='38'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23f%29'/%3E%3C/svg%3E"),radial-gradient(ellipse 60% 70% at 50% 40%,#6b5139,#2a1d12 80%);background-size:420px 420px,cover;background-blend-mode:multiply}
+.wall.r-cave .bay::before{background:radial-gradient(ellipse 48% 62% at 50% 40%,rgba(255,140,50,.38),rgba(255,110,30,.12) 50%,transparent 75%);animation:flicker 2.6s infinite}
+.wall.r-cave .floor{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011' numOctaves='5' seed='7' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff' surfaceScale='7'%3E%3CfeDistantLight azimuth='235' elevation='38'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23f%29'/%3E%3C/svg%3E"),linear-gradient(180deg,#24180f,#0c0805);background-size:300px 300px,cover;background-blend-mode:multiply}
+.wall.r-cave .floor::before{display:none}
+.wall.r-cave .pframe{background:repeating-linear-gradient(97deg,#3b2614 0 4px,#4d331c 4px 9px,#2e1d0f 9px 11px);padding:clamp(8px,1.3vw,14px);box-shadow:inset 0 0 6px rgba(0,0,0,.7),0 20px 40px rgba(0,0,0,.75)}
+.wall.r-cave .pmat{background:#d9c9a3;box-shadow:inset 0 0 18px rgba(90,60,20,.45)}
+.wall.r-cave .placard{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.05' numOctaves='4' seed='2' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff' surfaceScale='2.5'%3E%3CfeDistantLight azimuth='225' elevation='50'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23n%29'/%3E%3C/svg%3E"),#9a9183;background-blend-mode:multiply;color:#1c1712;border-radius:6px 9px 5px 8px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),0 8px 18px rgba(0,0,0,.6)}
+.wall.r-cave .placard .pm,.wall.r-cave .placard .pf{color:#2e271f} .wall.r-cave .placard .pmore{color:#5a2a10}
+/* Castle */
+.wall.r-castle{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.05' numOctaves='4' seed='2' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff' surfaceScale='2.5'%3E%3CfeDistantLight azimuth='225' elevation='50'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23n%29'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='132'%3E%3Crect width='220' height='132' fill='%2324201c'/%3E%3Cg%3E%3Crect x='3' y='3' width='104' height='60' rx='5' fill='%236e675d'/%3E%3Crect x='113' y='3' width='104' height='60' rx='5' fill='%23625c53'/%3E%3Crect x='-52' y='69' width='104' height='60' rx='5' fill='%235d574e'/%3E%3Crect x='58' y='69' width='104' height='60' rx='5' fill='%23716a5f'/%3E%3Crect x='168' y='69' width='104' height='60' rx='5' fill='%235d574e'/%3E%3C/g%3E%3C/svg%3E"),#3a352f;background-size:200px 200px,220px 132px;background-blend-mode:multiply}
+.wall.r-castle .bay::before{background:radial-gradient(circle at 9% 30%,rgba(255,170,60,.5),rgba(255,120,30,.12) 14%,transparent 26%),radial-gradient(circle at 91% 30%,rgba(255,170,60,.5),rgba(255,120,30,.12) 14%,transparent 26%),radial-gradient(ellipse 50% 60% at 50% 40%,rgba(255,190,110,.16),transparent 70%);animation:flicker 3.1s infinite}
+.wall.r-castle .floor{background:repeating-linear-gradient(90deg,rgba(0,0,0,.45) 0 3px,transparent 3px 120px),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.05' numOctaves='4' seed='2' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff' surfaceScale='2.5'%3E%3CfeDistantLight azimuth='225' elevation='50'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23n%29'/%3E%3C/svg%3E"),linear-gradient(180deg,#1b1815,#3b352e 30%,#25211c);background-blend-mode:normal,multiply,normal}
+.wall.r-castle .pframe{background:linear-gradient(135deg,#4a3410 0%,#b8913f 20%,#5e4314 40%,#c9a24c 55%,#5a3f12 75%,#a2802f 90%,#3b290c);padding:clamp(12px,2vw,22px);box-shadow:inset 0 0 0 3px rgba(0,0,0,.35),inset 0 0 0 7px rgba(255,220,140,.18),inset 0 0 14px rgba(0,0,0,.6),0 24px 50px rgba(0,0,0,.75)}
+.wall.r-castle .pmat{background:radial-gradient(ellipse at 50% 40%,#6e1f22,#3e0d10);box-shadow:inset 0 3px 10px rgba(0,0,0,.6)}
+.wall.r-castle .pmat img{box-shadow:0 0 0 2px #c9a24c,0 0 0 3px rgba(0,0,0,.5)}
+.wall.r-castle .placard{background:radial-gradient(ellipse at 50% 50%,#f1e2bf,#d8c08e);color:#2a1a0c;font-style:normal;border-radius:2px;box-shadow:0 0 0 1px #8b6a35,0 8px 18px rgba(0,0,0,.6)}
+.wall.r-castle .placard .pt{font-family:"Palatino Linotype",Palatino,Georgia,serif;font-variant:small-caps;letter-spacing:.04em}
+.wall.r-castle .placard .pmore{color:#6e1f22}
+/* Starship */
+.wall.r-ship{background:repeating-linear-gradient(90deg,rgba(120,210,255,.07) 0 1px,transparent 1px 180px),repeating-linear-gradient(0deg,rgba(120,210,255,.06) 0 1px,transparent 1px 130px),linear-gradient(180deg,#05070d,#0d1424 45%,#070a12);color:#cdeeff}
+.wall.r-ship .bay::before{background:radial-gradient(ellipse 46% 60% at 50% 40%,rgba(60,190,255,.18),rgba(60,120,255,.05) 55%,transparent 75%);animation:hum 4s ease-in-out infinite}
+.wall.r-ship .floor{background:linear-gradient(180deg,#3fd7ff 0,#3fd7ff 2px,rgba(63,215,255,.25) 2px,transparent 14px),repeating-linear-gradient(90deg,#0b111d 0 60px,#0e1626 60px 120px);box-shadow:0 -6px 24px rgba(63,215,255,.35)}
+.wall.r-ship .floor::before{display:none}
+.wall.r-ship .pframe{background:linear-gradient(135deg,#1a2233,#2b3750 50%,#151c2a);padding:clamp(8px,1.2vw,12px);border-radius:10px;box-shadow:0 0 0 1px #3fd7ff,0 0 22px rgba(63,215,255,.45),inset 0 0 10px rgba(0,0,0,.6),0 24px 50px rgba(0,0,0,.8)}
+.wall.r-ship .pmat{background:#0a0f1a;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(63,215,255,.3)}
+.wall.r-ship .pmat img{box-shadow:0 0 0 1px rgba(63,215,255,.5)}
+.wall.r-ship .placard{background:rgba(16,36,64,.55);color:#d4f4ff;border:1px solid rgba(63,215,255,.6);border-radius:8px;box-shadow:0 0 18px rgba(63,215,255,.25);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.wall.r-ship .placard .pt{font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:.92rem}
+.wall.r-ship .placard .pm,.wall.r-ship .placard .pf{color:#8fd0ea;font-style:normal;font-family:inherit} .wall.r-ship .placard .pmore{color:#3fd7ff;font-family:inherit}
+/* Cozy cabin */
+.wall.r-cabin{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .18' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5  0 0 0 0 .35  0 0 0 0 .2  0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23g%29'/%3E%3C/svg%3E"),repeating-linear-gradient(180deg,#3a2213 0,#6e4426 5px,#93613a 20px,#6e4426 36px,#3a2213 42px,#24150b 44px);background-size:400px 160px,auto;background-blend-mode:multiply}
+.wall.r-cabin .bay::before{background:radial-gradient(ellipse 50% 62% at 50% 38%,rgba(255,196,120,.32),rgba(255,160,80,.1) 55%,transparent 78%)}
+.wall.r-cabin .floor{background:linear-gradient(180deg,transparent 0,transparent 30%,#7a2a22 30%,#8e352b 34%,#7a2a22 36%,#6a221b 64%,#8e352b 66%,#7a2a22 70%,transparent 70%),repeating-linear-gradient(90deg,#3d2616 0 2px,#5a3a22 2px 70px),#4a2f1b}
+.wall.r-cabin .pframe{background:repeating-linear-gradient(100deg,#8a5f36 0 3px,#a0703f 3px 8px,#7a5230 8px 10px),#94673b;padding:clamp(10px,1.5vw,16px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),inset 0 0 8px rgba(0,0,0,.4),0 18px 36px rgba(0,0,0,.6)}
+.wall.r-cabin .pmat{background:#f1e6cf}
+.wall.r-cabin .placard{background:#c9a676;color:#2b1d10;transform:rotate(-1.2deg);box-shadow:0 6px 14px rgba(0,0,0,.5)}
+.wall.r-cabin .placard::before{content:"";position:absolute;top:-6px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e66,#922);box-shadow:0 2px 3px rgba(0,0,0,.5)}
+.wall.r-cabin .placard{position:relative}
+.wall.r-cabin .placard .pm,.wall.r-cabin .placard .pf{color:#4a3520} .wall.r-cabin .placard .pmore{color:#7a2a22}
+/* Neon arcade (synthwave) */
+.wall.r-neon{background:radial-gradient(ellipse 70% 40% at 50% 100%,rgba(255,80,160,.35),transparent 70%),repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 2px,transparent 2px 4px),linear-gradient(180deg,#0b0420,#1d0a3d 55%,#3a0f4f);color:#ffd9f4}
+.wall.r-neon .bay::before{background:radial-gradient(ellipse 44% 58% at 50% 38%,rgba(255,60,200,.16),transparent 72%);animation:hum 3s ease-in-out infinite}
+.wall.r-neon .floor{height:14vh;background:repeating-linear-gradient(90deg,rgba(255,60,200,.75) 0 2px,transparent 2px 48px),repeating-linear-gradient(0deg,rgba(255,60,200,.75) 0 2px,transparent 2px 22px),#12051f;transform:perspective(160px) rotateX(48deg);transform-origin:top;box-shadow:0 -8px 30px rgba(255,60,200,.45)}
+.wall.r-neon .floor::before{display:none}
+.wall.r-neon .pframe{background:#0d0618;padding:clamp(6px,1vw,10px);border-radius:6px;box-shadow:0 0 0 2px #ff3cc8,0 0 18px #ff3cc8,0 0 40px rgba(255,60,200,.5),inset 0 0 0 2px #2ee6ff}
+.wall.r-neon .pmat{background:#140a24;box-shadow:inset 0 0 0 1px rgba(46,230,255,.4)}
+.wall.r-neon .placard{background:rgba(15,5,30,.8);color:#ffe3f7;border:1px solid #2ee6ff;border-radius:6px;box-shadow:0 0 14px rgba(46,230,255,.4)}
+.wall.r-neon .placard .pt{color:#ff7ad9;text-shadow:0 0 8px rgba(255,60,200,.8);letter-spacing:.03em}
+.wall.r-neon .placard .pm,.wall.r-neon .placard .pf{color:#9fefff} .wall.r-neon .placard .pmore{color:#2ee6ff}
 </style>
 </head>
 <body>
@@ -309,7 +377,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.32";
+const APP_VERSION = "2026.11.03.33";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -749,7 +817,7 @@ function viewHall(id, params){
 /* ---------- Gallery mode: the pieces hung on a dark, spotlit wall ---------- */
 const hallOrder = {};
 const tourSecs = () => { const v = +LS.get("cm.tourSecs", 8); return [3,5,8,12,20,30,60].includes(v) ? v : 8; };
-const FRAMES = [["gilt","Gilt"],["black","Black"],["walnut","Walnut"],["white","White"],["none","No frame"]];
+const ROOMS = [["museum","🏛 Museum"],["modern","⬜ Modern gallery"],["cave","🔥 Cave"],["castle","🏰 Castle"],["ship","🚀 Starship"],["neon","🌃 Neon arcade"],["cabin","🪵 Cabin"]];
 function viewWall(id, params){
   const c = coll(id); if(!c) return notFound();
   document.title = c.name + " · Gallery mode";
@@ -762,7 +830,7 @@ function viewWall(id, params){
   let seed = shuffle ? (parseInt(params.get("s"), 10) || Math.floor(Math.random() * 1e9) + 1) : 0;
   if(seed){ let x = seed; const rnd = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
     pieces = pieces.slice(); for(let i = pieces.length - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); [pieces[i], pieces[j]] = [pieces[j], pieces[i]]; } }
-  const frame = FRAMES.some(f => f[0] === c.frame) ? c.frame : "gilt";
+  const room = ROOMS.some(r => r[0] === c.room) ? c.room : "museum";
   const isf = issueField(c);
   const placard = it => {
     const iss = isf && (it.fields||{})[isf.k];
@@ -772,7 +840,7 @@ function viewWall(id, params){
       ${[it.maker, it.year].filter(Boolean).length ? `<div class="pm">${esc([it.maker, it.year].filter(Boolean).join(", "))}</div>` : ""}
       ${facts.length ? `<div class="pf">${esc(facts.join(" · "))}</div>` : ""}<div class="pmore">Details ›</div></a>`;
   };
-  app.innerHTML = `<div class="wall f-${frame}" id="wall">
+  app.innerHTML = `<div class="wall r-${room}" id="wall">
     <div class="floor"></div>
     <div class="wtrack" id="wtrack">${pieces.map((it,n) => `<section class="bay" data-n="${n}" aria-label="${esc(it.title||"")}">
       <button type="button" class="pframe" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
@@ -780,7 +848,7 @@ function viewWall(id, params){
     ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
     <div class="wbar"><a class="wbtn" href="#/c/${id}" aria-label="Leave gallery mode" title="Leave gallery mode">✕</a>
       <div class="wtitle">${c.icon} ${esc(c.name)}</div>
-      ${pieces.length ? `<select id="wframe" aria-label="Frame style">${FRAMES.map(([k,l]) => `<option value="${k}" ${k===frame?"selected":""}>${l}</option>`).join("")}</select>
+      ${pieces.length ? `<select id="wroom" aria-label="Room">${ROOMS.map(([k,l]) => `<option value="${k}" ${k===room?"selected":""}>${l}</option>`).join("")}</select>
       ${pieces.length > 1 ? `<button type="button" class="wbtn${shuffle ? " on" : ""}" id="wshuf" title="${shuffle ? "Shuffle again" : "Shuffle the order"}">🔀</button>${shuffle ? `<button type="button" class="wbtn" id="worder" title="Back to your gallery's order">In order</button>` : ""}` : ""}
       ${pieces.length > 1 ? `<select id="wspeed" aria-label="Tour speed" title="How long the Tour stays on each piece">${[3,5,8,12,20,30,60].map(n => `<option value="${n}" ${n===tourSecs()?"selected":""}>⏱ ${n<60 ? n + "s" : "1 min"}</option>`).join("")}</select>` : ""}
       ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
@@ -840,9 +908,9 @@ function viewWall(id, params){
   if(sh) sh.onclick = newShuffle;
   if(document.getElementById("worder")) document.getElementById("worder").onclick = () => { LS.set("cm.wallShuffle", false); location.hash = "#/wall/" + id; };
   if(document.getElementById("wprev")){ document.getElementById("wprev").onclick = () => step(-1); document.getElementById("wnext").onclick = () => step(1); }
-  document.getElementById("wframe").onchange = e => {
-    const v = e.target.value; FRAMES.forEach(([k]) => wall.classList.remove("f-" + k)); wall.classList.add("f-" + v);
-    c.frame = v; persist().catch(err => toast("Couldn't save the frame choice: " + err.message));
+  document.getElementById("wroom").onchange = e => {
+    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v);
+    c.room = v; delete c.frame; persist().catch(err => toast("Couldn't save the room choice: " + err.message));
   };
   track.addEventListener("click", e => {
     const b = e.target.closest("[data-open]"); if(!b) return;
