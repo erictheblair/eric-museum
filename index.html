@@ -190,6 +190,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
+const APP_VERSION = "2026.11.03.8";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1013,7 +1014,8 @@ function viewSettings(){
     <p>The insurance report lists every piece with values, serials and certificate numbers. Print it or save as PDF.</p>
     <div class="actions"><a class="iconbtn" href="#/report">🧾 Insurance report</a><button class="iconbtn" id="csv">⬇ Spreadsheet (CSV)</button><button class="iconbtn" id="json">⬇ Full backup (JSON)</button>
       <label class="iconbtn filebtn">⬆ Restore backup<input type="file" accept=".json,application/json" id="imp"></label></div></div>
-  <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p></div>
+  <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p>
+    <p style="font-size:.8rem">App version ${APP_VERSION} · <a href="#" id="forceUpd">Check for updates</a></p></div>
   ${store.kind==="local" && !cat.items.length ? `<div class="panel"><h2>Try it out</h2><p>Load a few sample pieces to see how the museum looks. You can delete them anytime.</p><div class="actions"><button class="iconbtn" id="demo">Load samples</button></div></div>` : ""}`;
 
   const $ = id => document.getElementById(id);
@@ -1044,6 +1046,7 @@ function viewSettings(){
     try{ await DropboxStore.finishManual(code); LS.set("cm.justConnected", true); location.hash = "#/"; location.reload(); }catch(e){ alert(e.message); }
   };
   if($("disc")) $("disc").onclick = () => { if(!confirm("Disconnect Dropbox on this device? Your catalog stays safe in Dropbox.")) return; LS.del("cm.dropbox"); LS.del("cm.links"); LS.set("cm.mode","local"); location.reload(); };
+  $("forceUpd").onclick = e => { e.preventDefault(); checkUpdate(true); };
   $("mnameSave").onclick = async () => { cat.title = $("mname").value.trim() || "The Collection"; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); setBrand(); };
   $("addc").onclick = async () => {
     const name = $("nc").value.trim(); if(!name) return toast("Name the gallery first.");
@@ -1182,6 +1185,18 @@ function route(){
   notFound();
 }
 
+/* Phones (especially home-screen apps) can keep an old copy of the app; check for a newer one. */
+async function checkUpdate(manual){
+  try{
+    const t = await (await fetch(location.pathname + "?check=" + Date.now(), {cache:"no-store"})).text();
+    const v = (t.match(/APP_VERSION = "([^"]+)"/)||[])[1];
+    if(v && v !== APP_VERSION){
+      if(manual || confirm("A newer version of the museum is available. Update now?")) location.replace(location.pathname + "?v=" + encodeURIComponent(v) + location.hash);
+    }else if(manual) toast("You're on the latest version.");
+  }catch(e){ if(manual) toast("Couldn't check for updates."); }
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") checkUpdate(false); });
+
 async function boot(){
   setPriv(priv);
   app.innerHTML = `<div class="empty">Opening the museum…</div>`;
@@ -1231,6 +1246,7 @@ async function boot(){
   route();
 }
 boot();
+setTimeout(() => checkUpdate(false), 1500);
 </script>
 </body>
 </html>
