@@ -195,7 +195,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.9";
+const APP_VERSION = "2026.11.03.10";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -453,11 +453,12 @@ function setDense(v){ document.body.classList.toggle("dense", v); LS.set("cm.den
 document.addEventListener("click", e => { const b = e.target.closest(".sizer button"); if(b) setDense(b.dataset.size === "small"); });
 document.body.classList.toggle("dense", LS.get("cm.dense", false));
 
+const mediaUrl = path => /^https?:\/\//.test(path) ? Promise.resolve(path) : store.url(path);
 /* Resolve <img data-path> after rendering */
 async function hydrate(root){
   const imgs = [...root.querySelectorAll("img[data-path]")];
   let i = 0;
-  async function worker(){ while(i < imgs.length){ const el = imgs[i++]; const u = await store.url(el.dataset.path); if(u) el.src = u; else el.replaceWith(Object.assign(document.createElement("span"),{textContent:"🖼️"})); } }
+  async function worker(){ while(i < imgs.length){ const el = imgs[i++]; const u = await mediaUrl(el.dataset.path); if(u) el.src = u; else el.replaceWith(Object.assign(document.createElement("span"),{textContent:"🖼️"})); } }
   await Promise.all(Array.from({length:6}, worker));
 }
 
@@ -588,7 +589,7 @@ function viewItem(id){
   app.querySelectorAll(".thumbs button").forEach(b => b.onclick = async () => {
     app.querySelectorAll(".thumbs button").forEach(x=>x.classList.toggle("on", x===b));
     const p = photos[+b.dataset.n], img = document.getElementById("heroImg");
-    img.dataset.path = p.path; const u = await store.url(p.path); if(u) img.src = u;
+    img.dataset.path = p.path; const u = await mediaUrl(p.path); if(u) img.src = u;
   });
   const hero = document.getElementById("hero"); if(hero) hero.onclick = () => lightbox(document.getElementById("heroImg").src);
   app.querySelectorAll(".doc").forEach(b => b.onclick = () => openDoc(b.dataset.path, b.dataset.name));
@@ -597,7 +598,7 @@ function viewItem(id){
     const done = busy("Deleting…");
     try{
       cat.items = cat.items.filter(x => x.id !== it.id); await persist();
-      for(const m of it.media||[]){ await store.deleteFile(m.path).catch(()=>{}); if(m.thumb) await store.deleteFile(m.thumb).catch(()=>{}); }
+      for(const m of it.media||[]){ if(m.remote) continue; await store.deleteFile(m.path).catch(()=>{}); if(m.thumb) await store.deleteFile(m.thumb).catch(()=>{}); }
       location.hash = "#/c/" + c.id;
     }catch(e){ cat.items.push(it); alert(e.message); } finally{ done(); }
   };
@@ -606,7 +607,7 @@ function viewItem(id){
 
 async function openDoc(path, name){
   const w = store.kind === "local" ? null : window.open("", "_blank");
-  const u = await store.url(path);
+  const u = await mediaUrl(path);
   if(!u){ w && w.close(); return toast("Couldn't open that document."); }
   if(w) w.location = u;
   else if(/\.pdf$/i.test(name||"")) window.open(u, "_blank");
@@ -845,6 +846,89 @@ async function filmCandidates(title){
         fields:{runtime: dur ? Math.round(+dur.amount) + " min" : "", cast:nm(cast), studio:nm(studios)},
         named:{"Runtime":dur ? Math.round(+dur.amount) + " min" : "", "Starring":nm(cast), "Studio":nm(studios)}};
     }}));
+}
+
+/* ---------- BoardGameGeek collection sync ---------- */
+function bggGallery(){
+  const id = (cat.settings||{}).bggGallery;
+  return cat.collections.find(c => c.id === id) || cat.collections.find(c => lookupKind(c) === "boardgame");
+}
+let bggRun = null;
+function syncBGG(opts){
+  if(bggRun) return bggRun; // one sync at a time (manual and automatic can overlap)
+  bggRun = syncBGGOnce(opts).finally(() => { bggRun = null; });
+  return bggRun;
+}
+async function syncBGGOnce(opts){
+  opts = opts || {};
+  const user = ((cat.settings||{}).bggUser||"").trim();
+  if(!user) throw new Error("Add your BoardGameGeek username in Settings → Lookups first.");
+  let g = bggGallery();
+  if(!g){ g = {id:"c_" + uid(), name:"Board Games", icon:"🎲", maker:"Designer", lookup:"boardgame", fields:[{k:"publisher",l:"Publisher"},{k:"players",l:"Players"},{k:"playtime",l:"Playing time"}]}; cat.collections.push(g); }
+  const progress = opts.progress || (()=>{});
+  progress("Reading your BoardGameGeek collection…");
+  let d = null;
+  for(let i = 0; i < 6; i++){ // BGG answers 202 while it prepares a collection
+    const tok = (cat.settings||{}).bggToken; if(!tok) throw new Error("Add your BoardGameGeek token in Settings → Lookups first.");
+    let r;
+    try{ r = await fetch("https://boardgamegeek.com/xmlapi2/collection?own=1&username=" + encodeURIComponent(user), {headers:{Authorization:"Bearer " + tok}}); }
+    catch(e){ throw new Error("Couldn't reach BoardGameGeek from this page (the service may be blocking browser access)."); }
+    if(r.status === 202){ progress("BoardGameGeek is preparing your collection…"); await new Promise(res => setTimeout(res, 2500)); continue; }
+    if(r.status === 401 || r.status === 403) throw new Error("BoardGameGeek didn't accept your token. Check it in Settings → Lookups.");
+    if(!r.ok) throw new Error("BoardGameGeek error " + r.status);
+    d = xml(await r.text()); break;
+  }
+  if(!d) throw new Error("BoardGameGeek is still preparing your collection. Try again in a minute.");
+  const err = d.querySelector("errors error message, error message"); if(err) throw new Error("BoardGameGeek: " + err.textContent);
+  const norm = t => String(t||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+  const owned = [...d.querySelectorAll("item")].map(i => ({id:i.getAttribute("objectid"), sub:i.getAttribute("subtype"),
+    title:((i.querySelector("name")||{}).textContent||"").trim(), year:((i.querySelector("yearpublished")||{}).textContent||"").trim(),
+    image:((i.querySelector("image")||{}).textContent||"").trim(), thumb:((i.querySelector("thumbnail")||{}).textContent||"").trim(),
+    plays:((i.querySelector("numplays")||{}).textContent||"").trim(), comment:((i.querySelector("comment")||{}).textContent||"").trim()}));
+  const have = new Set(cat.items.map(i => i.bggId).filter(Boolean));
+  const fresh = [];
+  for(const o of owned){
+    if(have.has(o.id)) continue;
+    const match = cat.items.find(i => !i.bggId && i.collectionId === g.id && norm(i.title) === norm(o.title));
+    if(match){ match.bggId = o.id; have.add(o.id); continue; }
+    fresh.push(o); have.add(o.id);
+  }
+  // Fetch designer / publisher / players for new games, 20 at a time.
+  const details = {};
+  for(let k = 0; k < fresh.length; k += 20){
+    progress("Getting details for new games… " + Math.min(k + 20, fresh.length) + " of " + fresh.length);
+    try{
+      const t = await bggGet("thing?id=" + fresh.slice(k, k + 20).map(o => o.id).join(","));
+      t.querySelectorAll("item").forEach(i => {
+        const v = sel => { const e = i.querySelector(sel); return e ? (e.getAttribute("value")||"").trim() : ""; };
+        const links = type => [...i.querySelectorAll('link[type="' + type + '"]')].map(l => l.getAttribute("value"));
+        const mn = v("minplayers"), mx = v("maxplayers"), pt = v("playingtime");
+        details[i.getAttribute("id")] = {designer:links("boardgamedesigner").slice(0,3).join(", "), publisher:links("boardgamepublisher").slice(0,2).join(", "),
+          players:mn ? (mn === mx ? mn : mn + "–" + mx) : "", playtime:pt && pt !== "0" ? pt + " min" : "", expansion:i.getAttribute("type") === "boardgameexpansion"};
+      });
+    }catch(e){ console.warn(e.message); }
+    if(k + 20 < fresh.length) await new Promise(res => setTimeout(res, 1200));
+  }
+  const now = new Date().toISOString(), norml = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
+  for(const o of fresh){
+    const det = details[o.id] || {}, it = {id:uid(), collectionId:g.id, bggId:o.id, title:o.title, maker:det.designer||"", year:o.year, fields:{}, extra:[], tags:["BGG"], media:[], created:now, updated:now};
+    const named = {"Publisher":det.publisher, "Players":det.players, "Playing time":det.playtime, "Type":det.expansion ? "Expansion" : "", "Plays logged":o.plays && o.plays !== "0" ? o.plays : "", "BoardGameGeek":"https://boardgamegeek.com/boardgame/" + o.id};
+    Object.entries(named).forEach(([l,v]) => { if(!v) return; const f = g.fields.find(f => norml(f.l) === norml(l) || norml(f.l).startsWith(norml(l))); if(f) it.fields[f.k] = v; else it.extra.push({l, v}); });
+    if(o.comment) it.notes = o.comment;
+    if(o.image) it.media.push({id:uid(), kind:"photo", remote:true, name:"BoardGameGeek image", path:o.image, thumb:o.thumb || o.image});
+    cat.items.push(it);
+  }
+  const missing = cat.items.filter(i => i.bggId && i.collectionId === g.id && !owned.some(o => o.id === i.bggId)).length;
+  cat.settings = {...(cat.settings||{}), bggLastSync:now};
+  await persist();
+  return {added:fresh.length, total:owned.length, missing, gallery:g};
+}
+async function autoSyncBGG(){
+  const st = cat.settings || {};
+  if(!st.bggUser || !st.bggToken || st.bggAuto === false) return;
+  if(st.bggLastSync && Date.now() - Date.parse(st.bggLastSync) < 3600e3) return;
+  try{ const r = await syncBGG(); if(r.added){ toast("Added " + r.added + " new game" + (r.added===1?"":"s") + " from BoardGameGeek", 4000); route(); } }
+  catch(e){ console.warn("BGG auto-sync:", e.message); }
 }
 
 /* Search-and-pick sheet */
@@ -1086,7 +1170,8 @@ function viewEdit(id, params){
           const blob = await (await fetch(r.cover)).blob();
           if(/^image\//.test(blob.type)) await addFiles([new File([blob], "cover.jpg", {type:blob.type})], "photo", true);
           else found.cover = "";
-        }catch(e){ console.warn("cover fetch failed", e); found.cover = ""; }
+        }catch(e){ console.warn("cover fetch failed", e);
+          if(/^https:/.test(r.cover)) it.media.push({id:uid(), kind:"photo", remote:true, name:"cover", path:r.cover, thumb:r.thumb || r.cover}); else found.cover = ""; }
       }
   }
 
@@ -1150,7 +1235,7 @@ function viewEdit(id, params){
       const before = idx >= 0 ? cat.items[idx] : null;
       if(idx >= 0) cat.items[idx] = it; else cat.items.push(it);
       try{ await persist(); }catch(e){ if(before) cat.items[idx] = before; else cat.items.pop(); throw e; }
-      for(const m of removed){ store.deleteFile(m.path).catch(()=>{}); if(m.thumb) store.deleteFile(m.thumb).catch(()=>{}); }
+      for(const m of removed){ if(m.remote) continue; store.deleteFile(m.path).catch(()=>{}); if(m.thumb) store.deleteFile(m.thumb).catch(()=>{}); }
       pending.length = 0;
       toast("Saved");
       location.hash = "#/i/" + it.id;
@@ -1199,6 +1284,11 @@ function viewSettings(){
     <h3 style="font-size:1rem;margin-top:14px">Board games: BoardGameGeek</h3>
     <p>Sign in at <a href="https://boardgamegeek.com/applications" target="_blank" rel="noopener">boardgamegeek.com/applications</a>, register a non-commercial application (e.g. “Eric Museum”), and once it's approved create a <b>token</b> and paste it here.</p>
     <div class="actions" style="margin-top:4px"><input id="btok" type="password" value="${esc((cat.settings||{}).bggToken||"")}" placeholder="BoardGameGeek token" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
+    <p style="margin-top:12px"><b>Import your BGG collection:</b> add your BGG username and the museum brings in every game marked “Own”. It checks again each time you open the museum (at most once an hour) and adds anything new. Games are never removed automatically.</p>
+    <div class="actions" style="margin-top:4px"><input id="buser" value="${esc((cat.settings||{}).bggUser||"")}" placeholder="BoardGameGeek username" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px">
+      <select id="bgal" aria-label="Gallery for imported games" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px">${(()=>{ const cur = bggGallery(); return (cur ? "" : `<option value="">New “Board Games” gallery</option>`) + cat.collections.map(c => `<option value="${c.id}" ${cur && cur.id===c.id ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join(""); })()}</select></div>
+    <label class="check" style="margin-top:8px"><input type="checkbox" id="bauto" ${(cat.settings||{}).bggAuto === false ? "" : "checked"}> Check for new games automatically</label>
+    <div class="actions"><button class="iconbtn" id="bsync" type="button">⟳ Sync from BoardGameGeek now</button><span style="color:var(--muted);font-size:.8rem;align-self:center">${(cat.settings||{}).bggLastSync ? "Last synced " + esc(new Date(cat.settings.bggLastSync).toLocaleString()) : ""}</span></div>
     <h3 style="font-size:1rem;margin-top:14px">Comics: Metron</h3>
     <p>Create a free account at <a href="https://metron.cloud/accounts/signup/" target="_blank" rel="noopener">metron.cloud</a> and enter it here. It's saved on this device only (enter it once per device), never in Dropbox.</p>
     <div class="actions" style="margin-top:4px"><input id="muser" value="${esc((metronCreds()||{}).user||"")}" placeholder="Metron username" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><input id="mpass" type="password" value="${esc((metronCreds()||{}).pass||"")}" placeholder="Metron password" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
@@ -1253,7 +1343,15 @@ function viewSettings(){
 
   $("dtokSave").onclick = async () => {
     const mu = $("muser").value.trim(); if(mu) LS.set("cm.metron", {user:mu, pass:$("mpass").value}); else LS.del("cm.metron");
-    cat.settings = {...(cat.settings||{}), discogsToken:$("dtok").value.trim(), bggToken:$("btok").value.trim()}; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); };
+    cat.settings = {...(cat.settings||{}), discogsToken:$("dtok").value.trim(), bggToken:$("btok").value.trim(), bggUser:$("buser").value.trim(), bggGallery:$("bgal").value || "", bggAuto:$("bauto").checked}; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); };
+  $("bsync").onclick = async () => {
+    cat.settings = {...(cat.settings||{}), bggToken:$("btok").value.trim(), bggUser:$("buser").value.trim(), bggGallery:$("bgal").value || "", bggAuto:$("bauto").checked};
+    const b = busy("Syncing…"), msg = document.querySelector(".busy div");
+    try{ const r = await syncBGG({progress:t => { if(msg) msg.textContent = t; }}); b();
+      alert(`BoardGameGeek sync done: ${r.added} new game${r.added===1?"":"s"} added to ${r.gallery.name} (${r.total} owned on BGG).` + (r.missing ? `\n\n${r.missing} game${r.missing===1?" is":"s are"} in the museum but no longer marked Own on BGG. They were left alone.` : ""));
+      location.hash = "#/c/" + r.gallery.id;
+    }catch(e){ b(); alert(e.message); }
+  };
   $("csv").onclick = exportCSV;
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
   $("imp").onchange = async e => {
@@ -1446,6 +1544,7 @@ async function boot(){
 }
 boot();
 setTimeout(() => checkUpdate(false), 1500);
+setTimeout(() => { if(cat) autoSyncBGG(); }, 2500);
 </script>
 </body>
 </html>
