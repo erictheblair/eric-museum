@@ -71,6 +71,29 @@ main{padding:20px 0 80px}
 .plaque .t{font-family:var(--serif);font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .plaque .s{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .star{color:#c8962c}
+/* compact view */
+.sizer{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.sizer button{border:none;background:none;padding:5px 11px;cursor:pointer;font-size:.8rem;color:var(--muted)}
+.sizer button.on{background:var(--ink);color:var(--bg)}
+.dense .grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:12px}
+.dense .frame{padding:3px;border-radius:3px}
+.dense .matte{padding:3px}
+.dense .plaque{padding-top:5px}
+.dense .plaque .t{font-size:.78rem;-webkit-line-clamp:1}
+.dense .plaque .s{font-size:.68rem}
+.dense .placeholder .em{font-size:1.5rem}
+.dense .placeholder .t{display:none}
+.dense .halls{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.dense .hall{aspect-ratio:16/9;border-radius:10px}
+.dense .hall .label{padding:8px 10px}
+.dense .hall .label h3{font-size:.95rem}
+.dense .hall .label span{font-size:.62rem}
+.dense .hall .ph{font-size:2.2rem}
+@media (max-width:520px){
+  .dense .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .dense .plaque .s{display:none}
+  .dense .halls{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+}
 .empty{border:1px dashed var(--line);border-radius:14px;padding:34px 18px;text-align:center;color:var(--muted)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:.8rem;cursor:pointer;text-decoration:none}
@@ -349,6 +372,14 @@ function setPriv(v){
 }
 document.getElementById("privBtn").onclick = () => { setPriv(!priv); route(); };
 
+/* Large / small grid toggle */
+function sizer(){ const d = document.body.classList.contains("dense");
+  return `<span class="sizer" role="group" aria-label="Grid size"><button type="button" data-size="large" class="${d?"":"on"}" aria-pressed="${!d}">Large</button><button type="button" data-size="small" class="${d?"on":""}" aria-pressed="${d}">Small</button></span>`; }
+function setDense(v){ document.body.classList.toggle("dense", v); LS.set("cm.dense", v);
+  document.querySelectorAll(".sizer button").forEach(b => { const on = (b.dataset.size === "small") === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }); }
+document.addEventListener("click", e => { const b = e.target.closest(".sizer button"); if(b) setDense(b.dataset.size === "small"); });
+document.body.classList.toggle("dense", LS.get("cm.dense", false));
+
 /* Resolve <img data-path> after rendering */
 async function hydrate(root){
   const imgs = [...root.querySelectorAll("img[data-path]")];
@@ -414,7 +445,7 @@ function viewHome(params){
   ${results ? `<div class="section-title"><h2>Results</h2><span>${results.length} found</span></div>
       ${results.length ? `<div class="grid">${results.map(plate).join("")}</div>` : `<div class="empty">Nothing matches “${esc(q)}”.</div>`}` : `
   ${favs.length ? `<div class="section-title"><h2>Highlights</h2><span>Starred pieces</span></div><div class="grid">${favs.map(plate).join("")}</div>` : ""}
-  <div class="section-title"><h2>Galleries</h2><span><a href="#/settings">Manage</a></span></div>
+  <div class="section-title"><h2>Galleries</h2><span style="display:flex;gap:10px;align-items:center">${sizer()}<a href="#/settings">Manage</a></span></div>
   <div class="halls">${halls.map(c => { const it = sortItems(cat.items.filter(i=>i.collectionId===c.id && cover(i)), "recent").sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0))[0];
     return `<a class="hall" href="#/c/${c.id}">${it ? `<img alt="" data-path="${esc(cover(it).thumb||cover(it).path)}" loading="lazy">` : `<div class="ph">${c.icon}</div>`}
       <div class="label"><h3>${c.icon} ${esc(c.name)}</h3><span>${counts[c.id]||0} ${counts[c.id]===1?"piece":"pieces"}</span></div></a>`; }).join("")}</div>
@@ -435,7 +466,7 @@ function viewHall(id, params){
   const link = (o) => { const p = new URLSearchParams({q, sort, tag, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
   app.innerHTML = `<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><a href="#/gallery/${c.id}">✎ Edit gallery</a></div>
   <section class="hero" style="padding-top:4px"><h1>${c.icon} ${esc(c.name)}</h1>
-    <div class="stats"><span><b>${all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}</div>
+    <div class="stats" style="align-items:center"><span><b>${all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto">${sizer()}</span></div>
     <form class="search" id="sf"><input type="search" name="q" placeholder="Search ${esc(c.name.toLowerCase())}…" value="${esc(q)}" aria-label="Search">
       <select name="sort" aria-label="Sort">${[["title","Title"],["maker",c.maker||"Maker"],["year","Year"],["recent","Recently added"]].concat(priv?[]:[["value","Value"]]).map(([v,l])=>`<option value="${v}" ${v===sort?"selected":""}>Sort: ${esc(l)}</option>`).join("")}</select></form>
     ${tags.length ? `<div class="chips" style="margin-top:8px">${tags.map(t=>`<a class="chip ${t===tag?"on":""}" href="${link({tag:t===tag?"":t})}">${esc(t)}</a>`).join("")}</div>` : ""}
