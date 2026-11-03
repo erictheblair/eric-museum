@@ -415,15 +415,15 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .wall.r-library .placard{background:linear-gradient(135deg,#8a6a2a,#e8cd85 30%,#b48f45 55%,#f1d995 75%,#8d6d2c);color:#2a1d08;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,240,200,.6),inset 0 0 0 3px rgba(0,0,0,.2),0 6px 14px rgba(0,0,0,.6);text-shadow:0 1px 0 rgba(255,240,200,.5)}
 .wall.r-library .placard .pm,.wall.r-library .placard .pf{color:#3d2c0e} .wall.r-library .placard .pmore{color:#3d2c0e}
 /* 1950s diner: glazed tile, chrome rail, brushed steel, worn checkerboard */
-.wall.r-diner{color:#1b1b1b;background:
+.wall.r-diner{--rail:62vh;color:#1b1b1b;background:
   radial-gradient(ellipse 40% 30% at 25% 0%,rgba(255,250,235,.45),transparent 70%),radial-gradient(ellipse 40% 30% at 75% 0%,rgba(255,250,235,.45),transparent 70%),
-  linear-gradient(180deg,transparent 0 67.5%,#5c6266 67.5%,#f6f8f9 68.3%,#b9c0c4 69.2%,#ffffff 69.8%,#7d858a 70.8%,#b3242a 70.8%,#c8323a 71.6%,#8e1a1f 72.4%,transparent 72.4%),
-  linear-gradient(180deg,transparent 72.4%,rgba(0,0,0,.18) 72.4%,rgba(255,255,255,.1) 85%,rgba(0,0,0,.25)),
-  url(rooms/steel.jpg) left bottom/100% 27.6% no-repeat,
+  linear-gradient(180deg,transparent 0 var(--rail),#5c6266 var(--rail),#f6f8f9 calc(var(--rail) + 5px),#b9c0c4 calc(var(--rail) + 11px),#ffffff calc(var(--rail) + 15px),#7d858a calc(var(--rail) + 22px),#b3242a calc(var(--rail) + 22px),#c8323a calc(var(--rail) + 27px),#8e1a1f calc(var(--rail) + 34px),transparent calc(var(--rail) + 34px)),
+  linear-gradient(180deg,transparent calc(var(--rail) + 34px),rgba(0,0,0,.18) calc(var(--rail) + 34px),rgba(255,255,255,.1) 85%,rgba(0,0,0,.25)),
+  url(rooms/steel.jpg) left bottom/100% calc(100% - var(--rail) - 34px) no-repeat,
   linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.18)),
   url(rooms/diner-tile.jpg) 0 0/240px auto,#8fd0bd}
 .wall.r-diner .bay::before{background:radial-gradient(ellipse 44% 46% at 50% 32%,rgba(255,252,240,.28),transparent 72%)}
-.wall.r-diner .floor{height:14vh;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(0,0,0,.1) 40%,rgba(0,0,0,.35)),url(rooms/checker.jpg) 0 0/128px;transform:perspective(220px) rotateX(40deg);transform-origin:top;box-shadow:0 -4px 12px rgba(0,0,0,.3)}
+.wall.r-diner .floor{height:8vh;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(0,0,0,.1) 40%,rgba(0,0,0,.35)),url(rooms/checker.jpg) 0 0/128px;transform:perspective(220px) rotateX(40deg);transform-origin:top;box-shadow:0 -4px 12px rgba(0,0,0,.3)}
 .wall.r-diner .floor::before{display:none}
 .wall.r-diner .pframe{background:linear-gradient(160deg,#6f777c 0%,#f4f7f8 14%,#9aa2a7 30%,#ffffff 46%,#7c8489 62%,#d9dee1 80%,#5d6569);padding:clamp(7px,1vw,10px);border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),inset 0 0 0 2px rgba(0,0,0,.25),0 16px 30px rgba(0,0,0,.35),0 2px 4px rgba(0,0,0,.3)}
 .wall.r-diner .pmat{background:#fbfaf6;box-shadow:inset 0 1px 4px rgba(0,0,0,.2)}
@@ -443,7 +443,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.35";
+const APP_VERSION = "2026.11.03.36";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -968,6 +968,16 @@ function viewWall(id, params){
   }, true);
   wall.addEventListener("pointerdown", () => { if(wall.classList.contains("peek")){ clearTimeout(peekT); peekT = setTimeout(hidePeek, 3000); } });
   const step = d => { go(current() + d * perView()); restartTimer(); };
+  // Diner: the chrome rail sits just above the placards so they never straddle it.
+  const placeRail = () => {
+    if(!wall.classList.contains("r-diner")) return;
+    const top = wall.getBoundingClientRect().top, cards = [...wall.querySelectorAll(".placard")];
+    if(!cards.length) return;
+    const y = Math.min(...cards.map(p => p.getBoundingClientRect().top - top));
+    wall.style.setProperty("--rail", Math.max(80, Math.round(y - 52)) + "px");
+  };
+  placeRail(); wall.addEventListener("load", placeRail, true);
+  window.addEventListener("resize", function pr(){ if(!wall.isConnected) return window.removeEventListener("resize", pr); placeRail(); });
   const sp = document.getElementById("wspeed"); if(sp) sp.onchange = () => LS.set("cm.tourSecs", +sp.value);
   const sh = document.getElementById("wshuf");
   const newShuffle = () => { LS.set("cm.wallShuffle", true); location.hash = "#/wall/" + id + "?s=" + (Math.floor(Math.random() * 1e9) + 1); };
@@ -975,7 +985,7 @@ function viewWall(id, params){
   if(document.getElementById("worder")) document.getElementById("worder").onclick = () => { LS.set("cm.wallShuffle", false); location.hash = "#/wall/" + id; };
   if(document.getElementById("wprev")){ document.getElementById("wprev").onclick = () => step(-1); document.getElementById("wnext").onclick = () => step(1); }
   document.getElementById("wroom").onchange = e => {
-    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v);
+    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v); placeRail();
     c.room = v; delete c.frame; persist().catch(err => toast("Couldn't save the room choice: " + err.message));
   };
   track.addEventListener("click", e => {
