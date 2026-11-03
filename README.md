@@ -1,0 +1,28 @@
+# The Collection: a private museum for your collections
+
+A small web app (no server, no database). The app files hold none of your data.
+Your catalog (`catalog.json`) and every photo and COA scan live in your own Dropbox,
+in `Dropbox/Apps/<your app name>/`. Sign in with Dropbox on each device.
+
+## Put it online (free, about 5 minutes)
+Pick one:
+- **GitHub Pages:** create an empty repository, upload these files, then Settings → Pages →
+  "Deploy from a branch" → `main` / root. Your address will be `https://<you>.github.io/<repo>/`.
+- **Netlify Drop:** sign in at app.netlify.com/drop and drag this folder onto the page.
+- **Cloudflare Pages:** Workers & Pages → Create → Pages → Upload assets → drop this folder.
+
+## Connect Dropbox (one time)
+1. dropbox.com/developers/apps/create → Scoped access → App folder → name it (e.g. "Eric Museum").
+2. Permissions tab: tick `files.content.write` and `files.content.read`, then Submit.
+3. Settings tab → Redirect URIs: add your site's exact address (e.g. `https://you.github.io/museum/`).
+   The app's Settings page shows the exact address to paste.
+4. Open the site → ⚙︎ Settings → paste the App key → Connect Dropbox. Repeat the sign-in on your phone.
+5. On your phone: Share → Add to Home Screen.
+
+You can also try it without Dropbox: it saves on that device only until you connect.
+
+## Privacy
+- "Show values" is off by default: prices, values, serial numbers and cert numbers are hidden,
+  so you can hand someone your phone.
+- The app can only see its own folder in your Dropbox, nothing else.
+- Back up anytime from Settings (CSV spreadsheet or JSON). Photos are already in Dropbox.
