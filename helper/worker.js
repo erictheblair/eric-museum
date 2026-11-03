@@ -1,6 +1,6 @@
 // Museum lookup helper — a tiny Cloudflare Worker.
 // Metron and BoardGameGeek don't allow web pages to call them directly, so the museum
-// asks this helper, which adds your login/token (stored as Cloudflare secrets) and passes
+// asks this helper, which adds your API tokens (stored as Cloudflare secrets) and passes
 // the answer back. It only answers requests coming from your museum's address.
 
 export default {
@@ -22,9 +22,9 @@ export default {
     const headers = { "User-Agent": "MuseumLookupHelper/1.0" };
     let target;
     if (url.pathname.startsWith("/metron/")) {
-      if (!env.METRON_USER || !env.METRON_PASS) return new Response("Metron login not set", { status: 401, headers: cors });
+      if (!env.METRON_TOKEN) return new Response("Metron token not set", { status: 401, headers: cors });
       target = "https://metron.cloud/api/" + url.pathname.slice("/metron/".length) + url.search;
-      headers.Authorization = "Basic " + btoa(env.METRON_USER + ":" + env.METRON_PASS);
+      headers.Authorization = "Bearer " + env.METRON_TOKEN;
       headers.Accept = "application/json";
     } else if (url.pathname.startsWith("/bgg/")) {
       if (!env.BGG_TOKEN) return new Response("BGG token not set", { status: 401, headers: cors });

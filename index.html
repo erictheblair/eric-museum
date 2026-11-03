@@ -219,7 +219,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.16";
+const APP_VERSION = "2026.11.03.17";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -789,8 +789,8 @@ async function serviceFetch(service, path){
   let url, headers = {};
   if(px){ url = px + "/" + service + "/" + path; }
   else if(service === "metron"){
-    const m = metronCreds(); if(!m || !m.user) throw new Error("Set up the lookup helper (or your Metron login) in Settings → Lookups first.");
-    url = "https://metron.cloud/api/" + path; headers.Authorization = "Basic " + btoa(unescape(encodeURIComponent(m.user + ":" + m.pass)));
+    const m = metronCreds(); if(!m || !m.token) throw new Error("Add your Metron API token in Settings → Lookups first.");
+    url = "https://metron.cloud/api/" + path; headers.Authorization = "Bearer " + m.token;
   }else{
     const tok = (cat.settings||{}).bggToken; if(!tok) throw new Error("Set up the lookup helper (or your BoardGameGeek token) in Settings → Lookups first.");
     url = "https://boardgamegeek.com/xmlapi2/" + path; headers.Authorization = "Bearer " + tok;
@@ -865,7 +865,8 @@ function lookupKind(c){
 }
 const xml = t => new DOMParser().parseFromString(t, "text/xml");
 // Kept in the private catalog (so every device has it) with a per-device copy as backup.
-const metronCreds = () => { const c = ((cat && cat.settings)||{}).metron; return c && c.user ? c : LS.get("cm.metron", null); };
+// Metron uses API tokens (username/password logins were retired). Stored with the private catalog so every device has it.
+const metronCreds = () => { const c = ((cat && cat.settings)||{}).metron; return c && c.token ? c : null; };
 async function metronGet(path){
   const r = await serviceFetch("metron", path);
   if(!r.ok) throw new Error("Metron error " + r.status);
@@ -1411,7 +1412,7 @@ function viewSettings(){
   <div class="panel"><h2>Lookups</h2>
     <p>Records, books, movies and laserdiscs work with no setup. Each gallery's source can be changed in its <b>✎ Edit gallery</b> page. The sources below need a free sign-up first.</p>
     <h3 style="font-size:1rem;margin-top:14px">Lookup helper (needed for comics and board games)</h3>
-    <p>Metron and BoardGameGeek don't let web pages talk to them directly, so they go through a tiny free “helper” you run on Cloudflare. It also keeps your Metron login and BGG token off your devices. <a href="https://github.com/erictheblair/eric-museum/blob/main/helper/SETUP.md" target="_blank" rel="noopener">Setup steps (about 10 minutes)</a></p>
+    <p>If Metron or BoardGameGeek won't answer the museum directly, a tiny free “helper” you run on Cloudflare can pass searches along. Only needed if lookups fail with a “couldn't reach” message. <a href="https://github.com/erictheblair/eric-museum/blob/main/helper/SETUP.md" target="_blank" rel="noopener">Setup steps (about 10 minutes)</a></p>
     <div class="actions" style="margin-top:4px"><input id="pxurl" value="${esc((cat.settings||{}).proxyUrl||"")}" placeholder="https://museum-helper.yourname.workers.dev" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn" type="button" id="pxtest">Test</button></div>
     <h3 style="font-size:1rem;margin-top:14px">Board games: BoardGameGeek</h3>
     <p>Sign in at <a href="https://boardgamegeek.com/applications" target="_blank" rel="noopener">boardgamegeek.com/applications</a>, register a non-commercial application (e.g. “Eric Museum”), and once it's approved create a <b>token</b> and paste it here.</p>
@@ -1422,8 +1423,8 @@ function viewSettings(){
     <label class="check" style="margin-top:8px"><input type="checkbox" id="bauto" ${(cat.settings||{}).bggAuto === false ? "" : "checked"}> Check for new games automatically</label>
     <div class="actions"><button class="iconbtn" id="bsync" type="button">⟳ Sync from BoardGameGeek now</button><span style="color:var(--muted);font-size:.8rem;align-self:center">${(cat.settings||{}).bggLastSync ? "Last synced " + esc(new Date(cat.settings.bggLastSync).toLocaleString()) : ""}</span></div>
     <h3 style="font-size:1rem;margin-top:14px">Comics: Metron</h3>
-    <p>Create a free account at <a href="https://metron.cloud/accounts/signup/" target="_blank" rel="noopener">metron.cloud</a> and enter it here. It's saved with your private catalog in your Dropbox, so you only enter it once for all your devices.</p>
-    <div class="actions" style="margin-top:4px"><input id="muser" value="${esc((metronCreds()||{}).user||"")}" placeholder="Metron username" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><input id="mpass" type="password" value="${esc((metronCreds()||{}).pass||"")}" placeholder="Metron password" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
+    <p>Create a free account at <a href="https://metron.cloud/accounts/signup/" target="_blank" rel="noopener">metron.cloud</a> then on your Metron account page generate an <b>API token</b> and paste it here. It's saved with your private catalog in your Dropbox, so you only enter it once for all your devices.</p>
+    <div class="actions" style="margin-top:4px"><input id="mtok" type="password" value="${esc((metronCreds()||{}).token||"")}" placeholder="Metron API token" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
     <h3 style="font-size:1rem;margin-top:14px">Records: Discogs (optional)</h3>
     <p>For better record and laserdisc barcode matches: <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener">discogs.com/settings/developers</a> → <b>Generate new token</b>.</p>
     <div class="actions" style="margin-top:4px"><input id="dtok" type="password" value="${esc((cat.settings||{}).discogsToken||"")}" placeholder="Discogs personal token (optional)" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
@@ -1474,14 +1475,13 @@ function viewSettings(){
   };
 
   const saveLookups = async quiet => {
-    const mu = $("muser").value.trim(), metron = mu ? {user:mu, pass:$("mpass").value} : null;
-    if(metron) LS.set("cm.metron", metron); else LS.del("cm.metron");
+    const mt = $("mtok").value.trim(), metron = mt ? {token:mt} : null; LS.del("cm.metron");
     cat.settings = {...(cat.settings||{}), metron, proxyUrl:$("pxurl").value.trim(), discogsToken:$("dtok").value.trim(), bggToken:$("btok").value.trim(), bggUser:$("buser").value.trim(), bggGallery:$("bgal").value || "", bggAuto:$("bauto").checked};
     try{ await persist(); toast(quiet ? "Saved ✓" : "Lookup settings saved"); }catch(e){ alert(e.message); }
   };
   $("dtokSave").onclick = () => saveLookups(false);
   // Save as soon as a lookup field changes, so nothing is lost by leaving the page.
-  ["muser","mpass","pxurl","dtok","btok","buser","bgal","bauto"].forEach(id => $(id).addEventListener("change", () => saveLookups(true)));
+  ["mtok","pxurl","dtok","btok","buser","bgal","bauto"].forEach(id => $(id).addEventListener("change", () => saveLookups(true)));
   $("pxtest").onclick = async () => {
     const px = $("pxurl").value.trim().replace(/\/+$/,""); if(!px) return toast("Paste your helper's address first.");
     const out = [];

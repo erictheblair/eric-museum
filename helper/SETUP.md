@@ -1,8 +1,8 @@
 # Set up the museum's lookup helper (free, about 10 minutes)
 
 Metron (comics) and BoardGameGeek (board games) block web pages from talking to them directly.
-This helper runs on Cloudflare's free plan, adds your login/token, and passes results back to the museum.
-Your Metron password and BGG token are stored as Cloudflare secrets, not on your phone.
+This helper runs on Cloudflare's free plan, adds your API tokens, and passes results back to the museum.
+Your Metron and BGG tokens are stored as Cloudflare secrets, not on your phone.
 
 1. **Create a free Cloudflare account** at https://dash.cloudflare.com/sign-up (skip adding a website).
 2. In the dashboard, go to **Workers & Pages → Create → Create Worker** (start from "Hello World").
@@ -12,8 +12,7 @@ Your Metron password and BGG token are stored as Cloudflare secrets, not on your
 4. Go back to the worker → **Settings → Variables and Secrets** and add:
    | Name | Type | Value |
    |---|---|---|
-   | `METRON_USER` | Text | your Metron username |
-   | `METRON_PASS` | Secret | your Metron password |
+   | `METRON_TOKEN` | Secret | your Metron API token (Metron account page → generate API token) |
    | `BGG_TOKEN` | Secret | your BoardGameGeek token (skip until BGG approves you) |
    | `ALLOWED_ORIGIN` | Text | `https://erictheblair.github.io` (add your own domain later, comma separated) |
    Click **Deploy** / **Save** after adding them.
