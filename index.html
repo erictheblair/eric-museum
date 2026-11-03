@@ -219,7 +219,7 @@ table.report td.n,table.report th.n{text-align:right;white-space:nowrap}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.13";
+const APP_VERSION = "2026.11.03.14";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -500,10 +500,12 @@ function plate(it){
   const c = coll(it.collectionId), m = cover(it);
   const inner = m ? `<img alt="${esc(it.title)}" data-path="${esc(m.thumb||m.path)}" loading="lazy">`
     : `<div class="placeholder"><div class="em">${c.icon}</div><div class="t">${esc(it.title)}</div></div>`;
+  const isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
+  const shown = iss && !/#/.test(it.title||"") ? it.title + " #" + iss : it.title;
   const sub = [it.maker, it.year].filter(Boolean).join(" · ");
   const meta = c.fields.filter(f => !(priv && f.priv) && (it.fields||{})[f.k]).slice(0,2).map(f => it.fields[f.k]).concat(it.condition ? [it.condition] : [], !priv && it.value ? [money(it.value)] : []);
   return `<a class="card" href="#/i/${it.id}"><div class="frame"><div class="matte">${inner}</div></div>
-    <div class="plaque"><div class="t">${it.favorite?'<span class="star">★</span> ':""}${esc(it.title)}</div><div class="s">${esc(sub)||"&nbsp;"}</div></div><div class="meta">${esc(meta.join(" · "))}</div></a>`;
+    <div class="plaque"><div class="t">${it.favorite?'<span class="star">★</span> ':""}${esc(shown)}</div><div class="s">${esc(sub)||"&nbsp;"}</div></div><div class="meta">${esc(meta.join(" · "))}</div></a>`;
 }
 
 function matches(it, q){
@@ -772,12 +774,39 @@ function scanBarcode(onCode){
   })();
 }
 const sameCode = (a,b) => { const n = x => String(x).replace(/\D/g,"").replace(/^0+/,""); return n(a) && n(a) === n(b); };
-async function getJSON(url, opts){ const r = await fetch(url, opts); if(!r.ok) throw new Error(url + " " + r.status); return r.json(); }
+/* fetch with a time limit, so a silent service never leaves "Searching…" spinning forever */
+async function fetchT(url, opts, ms){
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms || 20000);
+  try{ return await fetch(url, {...(opts||{}), signal:ac.signal}); }
+  catch(e){ if(e.name === "AbortError"){ const er = new Error("took too long to answer"); er.timeout = true; throw er; } throw e; }
+  finally{ clearTimeout(t); }
+}
+async function getJSON(url, opts){ const r = await fetchT(url, opts); if(!r.ok) throw new Error(url + " " + r.status); return r.json(); }
+const proxyUrl = () => (((cat && cat.settings)||{}).proxyUrl || "").replace(/\/+$/,"");
+/* Metron and BoardGameGeek don't allow direct browser access, so they go through the owner's lookup helper when one is set. */
+async function serviceFetch(service, path){
+  const px = proxyUrl(), name = service === "metron" ? "Metron" : "BoardGameGeek";
+  let url, headers = {};
+  if(px){ url = px + "/" + service + "/" + path; }
+  else if(service === "metron"){
+    const m = metronCreds(); if(!m || !m.user) throw new Error("Set up the lookup helper (or your Metron login) in Settings → Lookups first.");
+    url = "https://metron.cloud/api/" + path; headers.Authorization = "Basic " + btoa(unescape(encodeURIComponent(m.user + ":" + m.pass)));
+  }else{
+    const tok = (cat.settings||{}).bggToken; if(!tok) throw new Error("Set up the lookup helper (or your BoardGameGeek token) in Settings → Lookups first.");
+    url = "https://boardgamegeek.com/xmlapi2/" + path; headers.Authorization = "Bearer " + tok;
+  }
+  let r;
+  try{ r = await fetchT(url, {headers}, 25000); }
+  catch(e){ throw new Error(e.timeout ? name + " took too long to answer. Try again in a moment." : px ? "Couldn't reach your lookup helper. Check its address in Settings → Lookups." : name + " blocks direct access from web pages. Set up the free lookup helper in Settings → Lookups to use it."); }
+  if(r.status === 401 || r.status === 403) throw new Error(name + " didn't accept the login" + (px ? " stored in your lookup helper." : ". Check it in Settings → Lookups."));
+  if(r.status === 429) throw new Error(name + " says we're searching too fast. Wait a minute and try again.");
+  return r;
+}
 function isISBN(code){ return /^97[89]\d{10}$/.test(code) || /^\d{9}[\dX]$/i.test(code); }
 async function lookupBarcode(code){
   const tries = [];
   if(isISBN(code)) tries.push(lookupOpenLibrary);
-  if(metronCreds()) tries.push(async c => { const j = await metronGet("issue/?upc=" + encodeURIComponent(c)); const r = (j.results||[])[0]; return r ? {...metronIssue(await metronGet("issue/" + r.id + "/"))} : null; });
+  if(metronCreds() || proxyUrl()) tries.push(async c => { const j = await metronGet("issue/?upc=" + encodeURIComponent(c)); const r = (j.results||[])[0]; return r ? {...metronIssue(await metronGet("issue/" + r.id + "/"))} : null; });
   const tok = (cat.settings||{}).discogsToken;
   if(tok) tries.push(c => lookupDiscogs(c, tok));
   tries.push(lookupMusicBrainz);
@@ -824,6 +853,10 @@ async function lookupFilmExact(title, yearHint){
     fields:{runtime: dur ? Math.round(+dur.amount) + " min" : "", cast:nm(cast), studio:nm(studios)}};
 }
 /* ---------- Search & pick: one provider per kind of gallery ---------- */
+const COMIC_FIELDS = [{k:"issue",l:"Issue #"},{k:"volume",l:"Volume"},{k:"variant",l:"Variant / cover"},{k:"coverDate",l:"Cover date"},{k:"writer",l:"Writer"},{k:"artist",l:"Artist"},{k:"coverArtist",l:"Cover artist"},
+  {k:"grade",l:"Grade",opts:["Raw","10.0","9.9","9.8","9.6","9.4","9.2","9.0","8.5","8.0","7.5","7.0","6.5","6.0","5.5","5.0","4.5","4.0","3.5","3.0","2.5","2.0","1.8","1.5","1.0","0.5"]},
+  {k:"grader",l:"Graded by",opts:["Ungraded","CGC","CBCS","PGX"]},{k:"cert",l:"Cert #",priv:true},{k:"keyNotes",l:"Key issue notes"}];
+const issueField = c => c.fields.find(f => /^issue/.test(String(f.l).toLowerCase().replace(/[^a-z]/g,"")));
 const LOOKUPS = {none:"Nothing", music:"Music: MusicBrainz", film:"Movies: Wikidata", book:"Books: Open Library", boardgame:"Board games: BoardGameGeek", comic:"Comics: Metron"};
 function lookupKind(c){
   if(c.lookup) return c.lookup;
@@ -833,20 +866,12 @@ function lookupKind(c){
 const xml = t => new DOMParser().parseFromString(t, "text/xml");
 const metronCreds = () => LS.get("cm.metron", null);
 async function metronGet(path){
-  const m = metronCreds(); if(!m || !m.user) throw new Error("Add your Metron username and password in Settings → Lookups first.");
-  let r;
-  try{ r = await fetch("https://metron.cloud/api/" + path, {headers:{Authorization:"Basic " + btoa(unescape(encodeURIComponent(m.user + ":" + m.pass)))}}); }
-  catch(e){ throw new Error("Couldn't reach Metron from this page (the service may be blocking browser access)."); }
-  if(r.status === 401 || r.status === 403) throw new Error("Metron didn't accept your username/password. Check them in Settings → Lookups.");
+  const r = await serviceFetch("metron", path);
   if(!r.ok) throw new Error("Metron error " + r.status);
   return r.json();
 }
 async function bggGet(path){
-  const tok = (cat.settings||{}).bggToken; if(!tok) throw new Error("Add your BoardGameGeek token in Settings → Lookups first.");
-  let r;
-  try{ r = await fetch("https://boardgamegeek.com/xmlapi2/" + path, {headers:{Authorization:"Bearer " + tok}}); }
-  catch(e){ throw new Error("Couldn't reach BoardGameGeek from this page (the service may be blocking browser access)."); }
-  if(r.status === 401 || r.status === 403) throw new Error("BoardGameGeek didn't accept your token. Check it in Settings → Lookups.");
+  const r = await serviceFetch("bgg", path);
   if(r.status === 202){ await new Promise(res => setTimeout(res, 1500)); return bggGet(path); }
   if(!r.ok) throw new Error("BoardGameGeek error " + r.status);
   return xml(await r.text());
@@ -855,9 +880,9 @@ function metronIssue(d){
   const roles = {}; (d.credits||[]).forEach(c => (c.role||[]).forEach(ro => { (roles[ro.name] = roles[ro.name] || []).push(c.creator); }));
   const pick = (...names) => [...new Set(names.flatMap(n => roles[n]||[]))].join(", ");
   const series = d.series || {};
-  return {source:"Metron", title:(d.issue || ((series.name||"") + " #" + (d.number||""))), maker:(d.publisher||{}).name || "", year:(d.cover_date||"").slice(0,4), cover:d.image || "",
-    named:{"Publisher":(d.publisher||{}).name, "Series":series.name ? series.name + (series.volume ? " (vol. " + series.volume + ")" : "") : "", "Issue":d.number, "Cover date":d.cover_date, "Writer":pick("Writer","Script","Plot"),
-      "Artist":pick("Artist","Penciller","Inker"), "Cover artist":pick("Cover","Cover Artist"), "UPC":d.upc, "Cover price":d.price ? "$" + d.price : "", "Pages":d.page, "Metron":d.resource_url}};
+  return {source:"Metron", title:series.name || d.issue || "", maker:(d.publisher||{}).name || "", year:(d.cover_date||"").slice(0,4), cover:d.image || "", barcode:d.upc || "",
+    named:{"Issue":d.number, "Volume":series.volume ? String(series.volume) + (series.year_began ? " (" + series.year_began + ")" : "") : "", "Cover date":d.cover_date, "Writer":pick("Writer","Script","Plot"),
+      "Artist":pick("Artist","Penciller","Inker"), "Cover artist":pick("Cover","Cover Artist"), "Cover price":d.price ? "$" + d.price : "", "Pages":d.page, "Metron":d.resource_url}};
 }
 async function searchCandidates(kind, q, maker){
   q = (q||"").trim(); if(!q) return [];
@@ -948,12 +973,8 @@ async function syncBGGOnce(opts){
   progress("Reading your BoardGameGeek collection…");
   let d = null;
   for(let i = 0; i < 6; i++){ // BGG answers 202 while it prepares a collection
-    const tok = (cat.settings||{}).bggToken; if(!tok) throw new Error("Add your BoardGameGeek token in Settings → Lookups first.");
-    let r;
-    try{ r = await fetch("https://boardgamegeek.com/xmlapi2/collection?own=1&username=" + encodeURIComponent(user), {headers:{Authorization:"Bearer " + tok}}); }
-    catch(e){ throw new Error("Couldn't reach BoardGameGeek from this page (the service may be blocking browser access)."); }
+    const r = await serviceFetch("bgg", "collection?own=1&username=" + encodeURIComponent(user));
     if(r.status === 202){ progress("BoardGameGeek is preparing your collection…"); await new Promise(res => setTimeout(res, 2500)); continue; }
-    if(r.status === 401 || r.status === 403) throw new Error("BoardGameGeek didn't accept your token. Check it in Settings → Lookups.");
     if(!r.ok) throw new Error("BoardGameGeek error " + r.status);
     d = xml(await r.text()); break;
   }
@@ -1004,7 +1025,7 @@ async function syncBGGOnce(opts){
 }
 async function autoSyncBGG(){
   const st = cat.settings || {};
-  if(!st.bggUser || !st.bggToken || st.bggAuto === false) return;
+  if(!st.bggUser || !(st.bggToken || st.proxyUrl) || st.bggAuto === false) return;
   if(st.bggLastSync && Date.now() - Date.parse(st.bggLastSync) < 3600e3) return;
   try{ const r = await syncBGG(); if(r.added){ toast("Added " + r.added + " new game" + (r.added===1?"":"s") + " from BoardGameGeek", 4000); route(); } }
   catch(e){ console.warn("BGG auto-sync:", e.message); }
@@ -1246,7 +1267,8 @@ function viewEdit(id, params){
 
   async function lookupTitle(){
     collect();
-    pickResult(lookupKind(coll(it.collectionId)), it.title, it.maker, async r => {
+    const gc = coll(it.collectionId), kind = lookupKind(gc), isf = issueField(gc), iss = isf && (it.fields||{})[isf.k];
+    pickResult(kind, kind === "comic" && iss && !/#/.test(it.title) ? it.title + " #" + iss : it.title, it.maker, async r => {
       found = {...r};
       await applyResult(r, true);
       render();
@@ -1387,6 +1409,9 @@ function viewSettings(){
     <div class="actions"><button class="iconbtn" id="addc">Add gallery</button></div></div>
   <div class="panel"><h2>Lookups</h2>
     <p>Records, books, movies and laserdiscs work with no setup. Each gallery's source can be changed in its <b>✎ Edit gallery</b> page. The sources below need a free sign-up first.</p>
+    <h3 style="font-size:1rem;margin-top:14px">Lookup helper (needed for comics and board games)</h3>
+    <p>Metron and BoardGameGeek don't let web pages talk to them directly, so they go through a tiny free “helper” you run on Cloudflare. It also keeps your Metron login and BGG token off your devices. <a href="https://github.com/erictheblair/eric-museum/blob/main/helper/SETUP.md" target="_blank" rel="noopener">Setup steps (about 10 minutes)</a></p>
+    <div class="actions" style="margin-top:4px"><input id="pxurl" value="${esc((cat.settings||{}).proxyUrl||"")}" placeholder="https://museum-helper.yourname.workers.dev" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn" type="button" id="pxtest">Test</button></div>
     <h3 style="font-size:1rem;margin-top:14px">Board games: BoardGameGeek</h3>
     <p>Sign in at <a href="https://boardgamegeek.com/applications" target="_blank" rel="noopener">boardgamegeek.com/applications</a>, register a non-commercial application (e.g. “Eric Museum”), and once it's approved create a <b>token</b> and paste it here.</p>
     <div class="actions" style="margin-top:4px"><input id="btok" type="password" value="${esc((cat.settings||{}).bggToken||"")}" placeholder="BoardGameGeek token" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
@@ -1449,9 +1474,18 @@ function viewSettings(){
 
   $("dtokSave").onclick = async () => {
     const mu = $("muser").value.trim(); if(mu) LS.set("cm.metron", {user:mu, pass:$("mpass").value}); else LS.del("cm.metron");
-    cat.settings = {...(cat.settings||{}), discogsToken:$("dtok").value.trim(), bggToken:$("btok").value.trim(), bggUser:$("buser").value.trim(), bggGallery:$("bgal").value || "", bggAuto:$("bauto").checked}; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); };
+    cat.settings = {...(cat.settings||{}), proxyUrl:$("pxurl").value.trim(), discogsToken:$("dtok").value.trim(), bggToken:$("btok").value.trim(), bggUser:$("buser").value.trim(), bggGallery:$("bgal").value || "", bggAuto:$("bauto").checked}; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); };
+  $("pxtest").onclick = async () => {
+    const px = $("pxurl").value.trim().replace(/\/+$/,""); if(!px) return toast("Paste your helper's address first.");
+    const out = [];
+    for(const [svc, path, name] of [["metron","publisher/?name=marvel","Metron"],["bgg","thing?id=13","BoardGameGeek"]]){
+      try{ const r = await fetchT(px + "/" + svc + "/" + path, {}, 20000); out.push(name + ": " + (r.ok || r.status === 202 ? "✅ working" : r.status === 401 || r.status === 403 ? "❌ login/token not accepted (" + r.status + ")" : "❌ error " + r.status)); }
+      catch(e){ out.push(name + ": ❌ couldn't reach the helper (" + e.message + ")"); }
+    }
+    alert(out.join("\n") + "\n\nRemember to tap “Save lookup settings”.");
+  };
   $("bsync").onclick = async () => {
-    cat.settings = {...(cat.settings||{}), bggToken:$("btok").value.trim(), bggUser:$("buser").value.trim(), bggGallery:$("bgal").value || "", bggAuto:$("bauto").checked};
+    cat.settings = {...(cat.settings||{}), proxyUrl:$("pxurl").value.trim(), bggToken:$("btok").value.trim(), bggUser:$("buser").value.trim(), bggGallery:$("bgal").value || "", bggAuto:$("bauto").checked};
     const b = busy("Syncing…"), msg = document.querySelector(".busy div");
     try{ const r = await syncBGG({progress:t => { if(msg) msg.textContent = t; }}); b();
       alert(`BoardGameGeek sync done: ${r.added} new game${r.added===1?"":"s"} added to ${r.gallery.name} (${r.total} owned on BGG).` + (r.missing ? `\n\n${r.missing} game${r.missing===1?" is":"s are"} in the museum but no longer marked Own on BGG. They were left alone.` : ""));
@@ -1578,6 +1612,9 @@ function viewGallery(id){
     const backup = JSON.stringify({c:orig, items:cat.items.filter(i=>i.collectionId===id)});
     removed.forEach(f => cat.items.forEach(i => { if(i.collectionId === id && i.fields && i.fields[f.k]){ i.extra = i.extra || []; i.extra.push({l:f.l, v:i.fields[f.k]}); delete i.fields[f.k]; } }));
     Object.assign(orig, {name:document.getElementById("gname").value.trim() || g.name, icon:document.getElementById("gicon").value.trim() || "📦", maker:document.getElementById("gmaker").value.trim() || "Maker", lookup:document.getElementById("glook").value, fields});
+    if(orig.lookup === "comic" && !orig.comicSetup){ orig.comicSetup = 1; const norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
+      const add = COMIC_FIELDS.filter(f => !orig.fields.some(x => norm(x.l) === norm(f.l) || x.k === f.k)).map(f => JSON.parse(JSON.stringify(f)));
+      const iss = add.find(f => f.k === "issue"); orig.fields = (iss ? [iss] : []).concat(orig.fields, add.filter(f => f.k !== "issue")); }
     try{ await persist(); toast("Gallery saved"); location.hash = "#/c/" + id; }
     catch(er){ const b = JSON.parse(backup); Object.assign(orig, b.c); b.items.forEach(bi => { const ix = cat.items.findIndex(i=>i.id===bi.id); if(ix>=0) cat.items[ix] = bi; }); alert(er.message); }
   };
@@ -1674,6 +1711,12 @@ async function boot(){
   // Make sure newer preset galleries/fields exist in older catalogs.
   cat.presetsSeen = cat.presetsSeen || ["records","laserdiscs","books","prints","autographs","cels","pennies","memorabilia","instruments","antiques"];
   PRESETS.forEach(p => { if(!cat.presetsSeen.includes(p.id)){ cat.presetsSeen.push(p.id); if(!cat.collections.some(x=>x.id===p.id)) cat.collections.push(JSON.parse(JSON.stringify(p))); } });
+  // Comic galleries get comic fields (Issue #, grade…) once; existing same-named fields are kept.
+  cat.collections.forEach(c => { if(lookupKind(c) !== "comic" || c.comicSetup) return; c.comicSetup = 1;
+    const norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
+    const add = COMIC_FIELDS.filter(f => !c.fields.some(x => norm(x.l) === norm(f.l) || x.k === f.k)).map(f => JSON.parse(JSON.stringify(f)));
+    const iss = add.find(f => f.k === "issue"); c.fields = (iss ? [iss] : []).concat(c.fields, add.filter(f => f.k !== "issue"));
+    if(!c.maker || c.maker === "Maker") c.maker = "Publisher"; });
   // One-time: records formats moved to LP / 7" / 10" style choices.
   if(!cat.migFormats){ cat.migFormats = 1; const rc = cat.collections.find(c => c.id === "records"); const ff = rc && rc.fields.find(f => f.k === "format");
     if(ff){ const pf = PRESETS[0].fields[0].opts; ff.opts = [...new Set([...pf, ...(ff.opts||[]).filter(o => o !== '7" single')])];
