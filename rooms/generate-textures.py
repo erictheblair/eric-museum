@@ -225,3 +225,84 @@ def grime():
 
 caustics(); foliage(); grime()
 print("more ok")
+
+# ---------- Library: raised walnut wall panels ----------
+def panels():
+    W, H = 600, 720
+    yy, xx = np.mgrid[0:H, 0:W].astype(float)
+    grain = noise(H, W, 3.0, 91, aniso=(14, 1))      # vertical grain
+    fine = noise(H, W, 2.6, 92, aniso=(6, 1))
+    rings = np.sin(grain*60)*.5+.5
+    wood = np.stack([.30,.17,.09])[None,None,:]*(0.7+.3*rings[...,None])*(0.85+.3*(fine[...,None]-.5))
+    # panel layout: 2 columns x 2 rows of raised panels with stiles/rails
+    h = np.zeros((H,W))
+    for (x0,x1) in [(40,280),(320,560)]:
+        for (y0,y1) in [(40,420),(460,680)]:
+            dx = np.minimum(xx-x0, x1-xx); dy = np.minimum(yy-y0, y1-yy); d = np.minimum(dx,dy)
+            inside = (d > 0)
+            bevel = np.clip(d/22, 0, 1)
+            h = np.where(inside, -0.15 + .45*bevel, h)
+            mould = np.exp(-((d+4)/3)**2)*.25
+            h += mould
+    L = shade(h, light=(-1,-1.5,1.2), strength=14)
+    c = wood*(0.45+0.85*L[...,None])
+    save(c, "panels.jpg")
+
+# ---------- Library: tall bookcase column ----------
+def bookcase():
+    sh = np.asarray(Image.open(OUT+"library-shelves.jpg")).astype(float)/255
+    H = sh.shape[0]; inner = 190; post = 16; W = inner + 2*post
+    c = np.zeros((H, W, 3))
+    c[:, post:post+inner] = sh[:, 100:100+inner]
+    g = noise(H, post, 3.0, 95, aniso=(14,1))
+    pc = np.stack([.36,.21,.11])[None,None,:]*(0.75+.4*g[...,None])
+    prof = (0.55 + .45*np.sin(np.linspace(0, np.pi, post)))[None,:,None]
+    c[:, :post] = pc*prof; c[:, -post:] = pc*prof
+    c[:, post:post+8] *= np.linspace(.35, 1, 8)[None,:,None]
+    c[:, post+inner-8:post+inner] *= np.linspace(1, .35, 8)[None,:,None]
+    save(c, "bookcase.jpg")
+
+# ---------- Diner: glazed mint subway tile ----------
+def tile():
+    W, H = 480, 240   # tiles 120x60, 3px grout, offset rows
+    yy, xx = np.mgrid[0:H, 0:W].astype(float)
+    tw, th, g = 120, 60, 3
+    row = (yy//th).astype(int); xo = (xx + (row % 2)*tw/2) % tw; yo = yy % th
+    d = np.minimum(np.minimum(xo, tw-xo), np.minimum(yo, th-yo))
+    inside = d > g/2
+    rnd = np.random.default_rng(3); tone = rnd.uniform(-.03,.03,(H//th+1, W//tw+2))
+    col = (( xx + (row%2)*tw/2)//tw).astype(int) % (W//tw+1)
+    t = tone[row, col]
+    bevel = np.clip((d-g/2)/5, 0, 1)
+    gloss = np.exp(-((yo-th*.28)/(th*.18))**2)*.10 * np.clip(bevel,0,1)
+    base = np.stack([.58,.78,.70])[None,None,:] + t[...,None] + (noise(H,W,2.4,101)[...,None]-.5)*.04
+    c = base*(0.8+.2*bevel[...,None]) + gloss[...,None]
+    c = np.where(inside[...,None], c, np.stack([.78,.80,.76])[None,None,:]*(0.9+.15*noise(H,W,1.6,102)[...,None]))
+    save(c, "diner-tile.jpg")
+
+# ---------- Diner: brushed stainless steel ----------
+def steel():
+    W, H = 512, 256
+    n = noise(H, W, 2.2, 111, aniso=(1, 30))   # horizontal brushing
+    m = noise(H, W, 3.2, 112)
+    v = .62 + .18*(n-.5) + .12*(m-.5)
+    c = np.stack([v*.97, v*.99, v*1.02], -1)
+    save(c, "steel.jpg")
+
+# ---------- Diner: worn checkerboard floor ----------
+def checker():
+    W = H = 512; s = 64
+    yy, xx = np.mgrid[0:H, 0:W].astype(float)
+    blk = ((xx//s + yy//s) % 2).astype(bool)
+    d = np.minimum(np.minimum(xx % s, s - xx % s), np.minimum(yy % s, s - yy % s))
+    rnd = np.random.default_rng(5); tone = rnd.uniform(-.04,.04,(H//s, W//s))
+    t = tone[(yy//s).astype(int), (xx//s).astype(int)]
+    scuff = noise(H, W, 2.4, 121); dirt = noise(H, W, 3.2, 122)
+    white = np.stack([.90,.88,.82])[None,None,:]; black = np.stack([.09,.09,.10])[None,None,:]
+    c = np.where(blk[...,None], black, white) + t[...,None]
+    c = c*(0.92 + .1*(scuff[...,None]-.5)) - .06*np.clip(dirt-.6,0,1)[...,None]
+    c = np.where((d < 1.5)[...,None], c*.75, c)
+    save(c, "checker.jpg")
+
+panels(); bookcase(); tile(); steel(); checker()
+print("lib+diner ok")

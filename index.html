@@ -363,14 +363,6 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .wall.r-haunted .placard{background:url(rooms/grime.jpg) 30px 10px/240px,#d9ceb4;background-blend-mode:multiply;color:#1f1712;border-radius:1px;transform:rotate(.8deg);box-shadow:0 8px 20px rgba(0,0,0,.8)}
 .wall.r-haunted .placard .pt{font-family:"Palatino Linotype",Palatino,Georgia,serif;letter-spacing:.05em}
 .wall.r-haunted .placard .pmore{color:#5b1a1a}
-/* Library */
-.wall.r-library{background:radial-gradient(ellipse 70% 62% at 50% 38%,rgba(20,12,5,.25),rgba(8,5,2,.82)),url(rooms/library-shelves.jpg) 0 0/auto 560px,#24170c}
-.wall.r-library .bay::before{background:radial-gradient(ellipse 44% 56% at 50% 36%,rgba(255,215,140,.28),rgba(255,190,100,.06) 55%,transparent 75%)}
-.wall.r-library .pframe{background:linear-gradient(135deg,#5a3d12 0%,#c9a356 22%,#7a5718 42%,#e2c27a 56%,#6d4c15 76%,#b38f45 92%,#4d330d);box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),inset 0 0 8px rgba(0,0,0,.5),0 22px 46px rgba(0,0,0,.85)}
-.wall.r-library .pmat{background:#efe6d2}
-.wall.r-library .floor{background:linear-gradient(180deg,transparent 0 22%,#4a1414 22%,#6a1e1c 30%,#4a1414 78%,transparent 78%),linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.6)),url(rooms/boards.jpg) 0 0/200px}
-.wall.r-library .placard{background:linear-gradient(135deg,#8a6a2a,#e8cd85 30%,#b48f45 55%,#f1d995 75%,#8d6d2c);color:#2a1d08;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,240,200,.6),inset 0 0 0 3px rgba(0,0,0,.2),0 6px 14px rgba(0,0,0,.6);text-shadow:0 1px 0 rgba(255,240,200,.5)}
-.wall.r-library .placard .pm,.wall.r-library .placard .pf{color:#3d2c0e} .wall.r-library .placard .pmore{color:#3d2c0e}
 /* Cozy cabin */
 .wall.r-cabin{background:radial-gradient(ellipse 72% 64% at 50% 38%,rgba(40,20,5,0),rgba(18,8,2,.7)),url(rooms/cabin-logs.jpg) 0 0/800px auto,#4a2f1b}
 .wall.r-cabin .bay::before{background:radial-gradient(ellipse 50% 62% at 50% 38%,rgba(255,190,110,.3),rgba(255,150,70,.08) 55%,transparent 78%);mix-blend-mode:screen}
@@ -407,15 +399,36 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .wall.r-aquarium .pmat{background:#e8f3f2;border-radius:6px}
 .wall.r-aquarium .placard{background:linear-gradient(135deg,#3d6d64,#5f9a8c 40%,#2f5a52);color:#eafaf5;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 6px 16px rgba(0,0,0,.5)}
 .wall.r-aquarium .placard .pm,.wall.r-aquarium .placard .pf{color:#cdeee6} .wall.r-aquarium .placard .pmore{color:#ffe2a0}
-/* 1950s diner */
-.wall.r-diner{background:linear-gradient(180deg,transparent 0 68%,#d8dde0 68%,#ffffff 69%,#9aa3a8 70.4%,#cdd3d6 71%,transparent 71%),linear-gradient(180deg,transparent 71%,#b3242a 71%,#8e1a1f 100%),repeating-linear-gradient(90deg,rgba(255,255,255,.18) 0 1px,transparent 1px 44px),repeating-linear-gradient(0deg,rgba(255,255,255,.18) 0 1px,transparent 1px 44px),linear-gradient(180deg,#7fd3c0,#5fbfab);color:#1b1b1b}
-.wall.r-diner .bay::before{background:radial-gradient(ellipse 46% 50% at 50% 34%,rgba(255,255,255,.35),transparent 72%)}
-.wall.r-diner .floor{height:14vh;background:conic-gradient(#f2f0ea 25%,#151515 0 50%,#f2f0ea 0 75%,#151515 0) 0 0/64px 64px;transform:perspective(220px) rotateX(40deg);transform-origin:top;box-shadow:0 -4px 12px rgba(0,0,0,.25)}
+/* Library: walnut panelling, bookcases between the pieces */
+.wall.r-library{background:radial-gradient(ellipse 72% 62% at 50% 38%,rgba(30,15,5,.05),rgba(8,4,1,.78)),url(rooms/panels.jpg) 0 0/420px auto,#2a170b}
+.wall.r-library .bay::before{background:radial-gradient(ellipse 40% 54% at 50% 36%,rgba(255,215,140,.3),rgba(255,190,100,.06) 55%,transparent 75%)}
+.wall.r-library .bay::after{content:"";position:absolute;top:0;bottom:0;left:-80px;right:-80px;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05) 30%,rgba(0,0,0,.35)),url(rooms/bookcase.jpg) left top/160px auto repeat-y,url(rooms/bookcase.jpg) right top/160px auto repeat-y;
+  -webkit-mask:linear-gradient(90deg,#000 160px,transparent 160px calc(100% - 160px),#000 calc(100% - 160px));mask:linear-gradient(90deg,#000 160px,transparent 160px calc(100% - 160px),#000 calc(100% - 160px))}
+.wall.r-library .pmat img{max-width:min(66vw,520px)}
+@media (min-width:900px){.wall.r-library .pmat img{max-width:min(28vw,460px)}}
+@media (max-width:899px){.wall.r-library .bay::after{left:0;right:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05) 30%,rgba(0,0,0,.35)),url(rooms/bookcase.jpg) left -58px top/116px auto repeat-y,url(rooms/bookcase.jpg) right -58px top/116px auto repeat-y;
+  -webkit-mask:linear-gradient(90deg,#000 58px,transparent 58px calc(100% - 58px),#000 calc(100% - 58px));mask:linear-gradient(90deg,#000 58px,transparent 58px calc(100% - 58px),#000 calc(100% - 58px))}}
+.wall.r-library .pframe{background:linear-gradient(135deg,#5a3d12 0%,#c9a356 22%,#7a5718 42%,#e2c27a 56%,#6d4c15 76%,#b38f45 92%,#4d330d);box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),inset 0 0 8px rgba(0,0,0,.5),0 22px 46px rgba(0,0,0,.85)}
+.wall.r-library .pmat{background:#efe6d2}
+.wall.r-library .floor{background:linear-gradient(180deg,transparent 0 22%,#4a1414 22%,#6a1e1c 30%,#4a1414 78%,transparent 78%),linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.6)),url(rooms/boards.jpg) 0 0/200px}
+.wall.r-library .placard{background:linear-gradient(135deg,#8a6a2a,#e8cd85 30%,#b48f45 55%,#f1d995 75%,#8d6d2c);color:#2a1d08;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,240,200,.6),inset 0 0 0 3px rgba(0,0,0,.2),0 6px 14px rgba(0,0,0,.6);text-shadow:0 1px 0 rgba(255,240,200,.5)}
+.wall.r-library .placard .pm,.wall.r-library .placard .pf{color:#3d2c0e} .wall.r-library .placard .pmore{color:#3d2c0e}
+/* 1950s diner: glazed tile, chrome rail, brushed steel, worn checkerboard */
+.wall.r-diner{color:#1b1b1b;background:
+  radial-gradient(ellipse 40% 30% at 25% 0%,rgba(255,250,235,.45),transparent 70%),radial-gradient(ellipse 40% 30% at 75% 0%,rgba(255,250,235,.45),transparent 70%),
+  linear-gradient(180deg,transparent 0 67.5%,#5c6266 67.5%,#f6f8f9 68.3%,#b9c0c4 69.2%,#ffffff 69.8%,#7d858a 70.8%,#b3242a 70.8%,#c8323a 71.6%,#8e1a1f 72.4%,transparent 72.4%),
+  linear-gradient(180deg,transparent 72.4%,rgba(0,0,0,.18) 72.4%,rgba(255,255,255,.1) 85%,rgba(0,0,0,.25)),
+  url(rooms/steel.jpg) left bottom/100% 27.6% no-repeat,
+  linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.18)),
+  url(rooms/diner-tile.jpg) 0 0/240px auto,#8fd0bd}
+.wall.r-diner .bay::before{background:radial-gradient(ellipse 44% 46% at 50% 32%,rgba(255,252,240,.28),transparent 72%)}
+.wall.r-diner .floor{height:14vh;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(0,0,0,.1) 40%,rgba(0,0,0,.35)),url(rooms/checker.jpg) 0 0/128px;transform:perspective(220px) rotateX(40deg);transform-origin:top;box-shadow:0 -4px 12px rgba(0,0,0,.3)}
 .wall.r-diner .floor::before{display:none}
-.wall.r-diner .pframe{background:linear-gradient(135deg,#8d9499,#f4f7f8 22%,#a9b1b6 40%,#ffffff 55%,#8f979c 75%,#e3e8ea);padding:clamp(8px,1.2vw,12px);border-radius:8px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25),0 18px 34px rgba(0,0,0,.35)}
-.wall.r-diner .pmat{background:#fff;border-radius:3px}
-.wall.r-diner .placard{background:#fffdf5;color:#1b1b1b;border-top:6px solid #d3262e;border-radius:4px;font-family:"Arial Rounded MT Bold","Trebuchet MS",var(--sans);box-shadow:0 6px 14px rgba(0,0,0,.3)}
-.wall.r-diner .placard .pt{font-weight:800;letter-spacing:.02em} .wall.r-diner .placard .pmore{color:#d3262e}
+.wall.r-diner .pframe{background:linear-gradient(160deg,#6f777c 0%,#f4f7f8 14%,#9aa2a7 30%,#ffffff 46%,#7c8489 62%,#d9dee1 80%,#5d6569);padding:clamp(7px,1vw,10px);border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),inset 0 0 0 2px rgba(0,0,0,.25),0 16px 30px rgba(0,0,0,.35),0 2px 4px rgba(0,0,0,.3)}
+.wall.r-diner .pmat{background:#fbfaf6;box-shadow:inset 0 1px 4px rgba(0,0,0,.2)}
+.wall.r-diner .placard{background:#fbf7ec;color:#1d1d1d;border-radius:2px;box-shadow:inset 0 0 0 4px #fbf7ec,inset 0 0 0 5px #b3242a,0 5px 12px rgba(0,0,0,.3);font-family:var(--sans);padding:12px 16px}
+.wall.r-diner .placard .pt{font-weight:700;letter-spacing:.02em} .wall.r-diner .placard .pmore{color:#b3242a}
 .wall.r-diner .wbar{background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0))}
 </style>
 </head>
@@ -430,7 +443,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.03.34";
+const APP_VERSION = "2026.11.03.35";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
