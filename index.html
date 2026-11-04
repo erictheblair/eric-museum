@@ -545,6 +545,14 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .pe-crop i.ed[data-h=w],.pe-crop i.ed[data-h=e]{top:50%;margin-top:-24px;cursor:ew-resize}
 .pe-crop i.ed[data-h=w]{left:-24px}.pe-crop i.ed[data-h=e]{right:-24px}
 .pe-crop i.ed[data-h=w]::after,.pe-crop i.ed[data-h=e]::after{width:6px;height:30px}
+/* Big round drag handle for fast scrolling long pages (iPhone won't let pages restyle its own scroll bar) */
+#fsc{position:fixed;right:max(4px,env(safe-area-inset-right));top:0;z-index:18;width:46px;height:62px;border-radius:23px;background:var(--surface);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;color:var(--muted);touch-action:none;cursor:grab;opacity:0;pointer-events:none;transition:opacity .3s;user-select:none;-webkit-user-select:none}
+#fsc.on{opacity:1;pointer-events:auto}
+#fsc.drag{cursor:grabbing;background:var(--ink,#222);color:var(--bg)}
+#fsc svg{width:22px;height:22px}
+#fsc .bub{position:absolute;right:58px;top:50%;transform:translateY(-50%);background:var(--ink,#222);color:var(--bg);padding:8px 16px;min-width:52px;text-align:center;border-radius:999px;font:600 1.35rem/1.2 var(--serif,serif);white-space:nowrap;max-width:60vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 12px rgba(0,0,0,.25);display:none}
+#fsc.drag .bub:not(:empty){display:block}
+body.wallmode #fsc{display:none}
 </style>
 </head>
 <body>
@@ -558,7 +566,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.14";
+const APP_VERSION = "2026.11.04.15";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2788,6 +2796,35 @@ setTimeout(() => { if(cat) autoSyncBGG(); }, 2500);
       setTimeout(() => { const b = closeBtn(p); if(b) b.click(); }, 170);
     } else { p.style.transition = "transform .2s ease-out"; p.style.transform = ""; }
   });
+})();
+
+/* Fast-scroll handle: appears on long pages while scrolling; drag it to fly through the list. */
+(() => {
+  const h = document.createElement("div"); h.id = "fsc"; h.setAttribute("aria-hidden", "true");
+  h.innerHTML = `<span class="bub"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg>`;
+  document.body.appendChild(h);
+  const TOP = 70, BOT = 110, bub = h.querySelector(".bub");
+  let hideT = 0, drag = null;
+  const range = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
+  const track = () => innerHeight - TOP - BOT - h.offsetHeight;
+  const long = () => document.documentElement.scrollHeight > innerHeight * 3 && !document.body.classList.contains("wallmode") && !document.querySelector("#layer > *");
+  const place = () => { h.style.transform = `translateY(${TOP + track() * Math.min(1, scrollY / range())}px)`; };
+  const label = () => {
+    // Section heading (A, B, C… or year/maker groups) currently in view, else the piece under the middle of the screen.
+    let g = ""; for(const el of document.querySelectorAll(".grouphead")){ if(el.getBoundingClientRect().top < innerHeight * .45) g = el.firstChild ? el.firstChild.textContent.trim() : el.textContent.trim(); else break; }
+    if(g) return g.slice(0, 40);
+    for(const x of [.25, .5, .75]){ const el = document.elementFromPoint(innerWidth * x, innerHeight * .45), a = el && el.closest('a[href^="#/i/"]');
+      if(a){ const t = a.querySelector(".t, b, strong"); return (t ? t.textContent : a.textContent).replace(/^★\s*/, "").trim().slice(0, 40); } }
+    return ""; };
+  const show = () => { if(!long()){ h.classList.remove("on"); return; } place(); h.classList.add("on"); clearTimeout(hideT); if(!drag) hideT = setTimeout(() => h.classList.remove("on"), 1600); };
+  addEventListener("scroll", () => { if(drag){ place(); bub.textContent = label(); return; } show(); }, {passive:true});
+  addEventListener("hashchange", () => h.classList.remove("on"));
+  h.addEventListener("pointerdown", e => { e.preventDefault(); h.setPointerCapture(e.pointerId); clearTimeout(hideT);
+    const r = h.getBoundingClientRect(); drag = {off:e.clientY - r.top}; h.classList.add("drag"); bub.textContent = label(); });
+  h.addEventListener("pointermove", e => { if(!drag) return;
+    const f = Math.min(1, Math.max(0, (e.clientY - drag.off - TOP) / track())); scrollTo(0, f * range()); });
+  const end = () => { if(!drag) return; drag = null; h.classList.remove("drag"); bub.textContent = ""; show(); };
+  h.addEventListener("pointerup", end); h.addEventListener("pointercancel", end);
 })();
 </script>
 </body>
