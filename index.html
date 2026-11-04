@@ -684,7 +684,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.30";
+const APP_VERSION = "2026.11.04.31";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -990,11 +990,43 @@ function matches(it, q){
 const conditionList = () => CONDITIONS.concat(((cat && cat.settings)||{}).conditions || []);
 const condRank = c => { const i = conditionList().findIndex(x => x.toLowerCase() === String(c||"").toLowerCase()); return i < 0 ? (c ? 50 : 99) : i; };
 const sortKey = t => String(t||"").replace(/^(the|a|an)\s+/i, "").trim();
+/* Artists sort by last name ("Bowie, David"). Music galleries learn real sort names from MusicBrainz, so bands
+   like Pink Floyd stay as they are; everything else uses a careful guess that leaves anything band-like alone. */
+const GROUPISH = /(&|\+|\/|,|\d|\b(and|with|feat\.?|featuring|vs\.?|band|orchestra|philharmonic|symphony|quartet|quintet|trio|ensemble|choir|chorus|brothers|sisters|boys|girls|singers|players|group|company|club|crew|gang|kids|project|experience|collective|society|records|studios?|productions|inc\.?|ltd\.?|llc|various|unknown|soundtrack|cast|disney|pictures|entertainment|comics|press|games)\b)/i;
+const NAME_SUFFIX = /^(jr\.?|sr\.?|ii|iii|iv|esq\.?|phd)$/i;
+function guessMakerSort(m){
+  m = String(m||"").trim();
+  if(!m || /^(the|a|an)\s/i.test(m) || GROUPISH.test(m)) return sortKey(m);
+  const w = m.split(/\s+/); let last = w.length - 1;
+  while(last > 0 && NAME_SUFFIX.test(w[last].replace(/,$/, ""))) last--;
+  if(last < 1 || w.length > 4 || w.some(x => /[a-z]/.test(x[0]) && !/^(van|von|de|da|del|della|di|du|la|le|der|den|ten|ter|y)$/i.test(x))) return m;
+  return w[last] + ", " + w.slice(0, last).concat(w.slice(last + 1)).join(" ");
+}
+const makerKey = m => { const ms = (cat.makerSort || {})[String(m||"").trim()]; return ms ? sortKey(ms) : guessMakerSort(m); };
+let makerSortBusy = false;
+async function fillMakerSort(items, done){
+  if(makerSortBusy || !navigator.onLine) return;
+  const ms = cat.makerSort || (cat.makerSort = {});
+  const todo = [...new Set(items.map(i => String(i.maker||"").trim()))].filter(m => m && !(m in ms) && !/[&,\/+]|\s(and|with|feat\.?|featuring|x)\s/i.test(m) && !/^various/i.test(m));
+  if(!todo.length) return;
+  makerSortBusy = true; let changed = 0;
+  try{
+    for(const m of todo.slice(0, 80)){
+      try{
+        const j = await getJSON("https://musicbrainz.org/ws/2/artist/?fmt=json&limit=5&query=" + encodeURIComponent('artist:"' + m.replace(/"/g, "") + '"'));
+        const a = (j.artists||[]).find(a => (a.score||0) >= 90 && (a.name||"").toLowerCase() === m.toLowerCase());
+        ms[m] = a && a["sort-name"] ? a["sort-name"] : ""; changed++;
+      }catch{ break; }
+      await new Promise(r => setTimeout(r, 1100));   // MusicBrainz asks for about one request a second
+    }
+  } finally { makerSortBusy = false; }
+  if(changed){ persist().catch(()=>{}); if(done) done(); }
+}
 function sortItems(list, how){
   const by = {
     recent:(a,b)=> (b.created||"").localeCompare(a.created||""),
     title:(a,b)=> sortKey(a.title).localeCompare(sortKey(b.title), undefined, {numeric:true, sensitivity:"base"}),
-    maker:(a,b)=> (!a.maker - !b.maker) || sortKey(a.maker).localeCompare(sortKey(b.maker), undefined, {sensitivity:"base"}) || sortKey(a.title).localeCompare(sortKey(b.title), undefined, {numeric:true}),
+    maker:(a,b)=> (!a.maker - !b.maker) || makerKey(a.maker).localeCompare(makerKey(b.maker), undefined, {sensitivity:"base", numeric:true}) || sortKey(a.title).localeCompare(sortKey(b.title), undefined, {numeric:true}),
     year:(a,b)=> (parseInt(a.year)||9999) - (parseInt(b.year)||9999) || (a.title||"").localeCompare(b.title||""),
     yeard:(a,b)=> (parseInt(b.year)||0) - (parseInt(a.year)||0) || (a.title||"").localeCompare(b.title||""),
     condition:(a,b)=> condRank(a.condition) - condRank(b.condition) || (a.title||"").localeCompare(b.title||""),
@@ -1066,6 +1098,7 @@ function viewHall(id, params){
   const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
     && (!cond || (i.condition||"") === cond) && Object.entries(fsel).every(([k,v]) => ((i.fields||{})[k]||"") === v)), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
+  if(sort === "maker" && lookupKind(c) === "music"){ const h0 = location.hash; fillMakerSort(all, () => { if(location.hash === h0 && scrollY < 300) route(); }); }
   hallOrder[id] = list.map(i => i.id);
   const state = {q, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
   const link = (o) => { const p = new URLSearchParams({...state, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
@@ -1079,7 +1112,7 @@ function viewHall(id, params){
   // Group headers: letters for names, decades for years, grades for condition.
   const groupOf = it => {
     if(sort === "title"){ const ch = sortKey(it.title).charAt(0).toUpperCase(); return /[A-Z]/.test(ch) ? ch : "#"; }
-    if(sort === "maker"){ if(!it.maker) return "Unknown"; const ch = sortKey(it.maker).charAt(0).toUpperCase(); return /[A-Z]/.test(ch) ? ch : "#"; }
+    if(sort === "maker"){ if(!it.maker) return "Unknown"; const ch = makerKey(it.maker).charAt(0).toUpperCase(); return /[A-Z]/.test(ch) ? ch : "#"; }
     if(sort === "year" || sort === "yeard"){ const y = parseInt(it.year); return y ? Math.floor(y/10)*10 + "s" : "Unknown year"; }
     if(sort === "condition") return it.condition || "No condition";
     return null;
