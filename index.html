@@ -62,6 +62,17 @@ main{padding:20px 0 calc(120px + env(safe-area-inset-bottom))}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:18px}
 @media (max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
 .card{display:block;text-decoration:none;min-width:0}
+/* Quick edit: a pencil on hover (mouse only) opens a small editor without leaving the gallery */
+.card{position:relative}
+.card .qe{display:none}
+@media (hover:hover) and (pointer:fine){
+  .card .qe{display:flex;position:absolute;z-index:4;top:10px;right:10px;width:36px;height:36px;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:1rem;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transform:scale(.9);transition:opacity .15s,transform .15s}
+  .card:hover .qe,.card .qe:focus-visible{opacity:1;transform:none}
+  .card .qe:hover{background:var(--ink);color:var(--bg)}}
+#qe .fgrid{margin-top:6px}
+#qe .qbar{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin:16px -16px -18px;padding:12px 16px 14px;flex-wrap:wrap;position:sticky;bottom:-18px;background:var(--surface);border-radius:0 0 16px 16px;border-top:1px solid var(--line)}
+#layer:not(:empty) ~ #fsz{display:none}
+#qe .qbar a{margin-right:auto;font-size:.88rem}
 .frame{background:var(--frame);padding:7px;border-radius:4px;box-shadow:var(--shadow)}
 .matte{background:var(--mat);padding:8px;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .matte img{max-width:100%;max-height:100%;object-fit:contain;display:block}
@@ -684,7 +695,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.34";
+const APP_VERSION = "2026.11.04.35";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -939,6 +950,65 @@ function setView(v){ viewMode = v; LS.set("cm.view", v);
   document.body.classList.toggle("dense", v === "small"); document.body.classList.toggle("listview", v === "list");
   document.querySelectorAll(".sizer button").forEach(b => { const on = b.dataset.size === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }); }
 document.addEventListener("click", e => { const b = e.target.closest(".sizer button"); if(b) setView(b.dataset.size); });
+document.addEventListener("click", e => { const b = e.target.closest("[data-qe]"); if(!b) return; e.preventDefault(); e.stopPropagation(); quickEdit(b.dataset.qe); }, true);
+function quickEdit(id){
+  const it = cat.items.find(i => i.id === id); if(!it) return;
+  const c = coll(it.collectionId), L = document.getElementById("layer");
+  const fv = k => esc((it.fields||{})[k] || "");
+  const fields = c.fields.filter(f => !(priv && f.priv));
+  L.innerHTML = `<div class="lightbox" id="qe" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" role="dialog" aria-labelledby="qeH" style="width:100%;max-width:720px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 id="qeH">Quick edit</h2><button class="iconbtn" id="qeX" aria-label="Close">✕</button></div>
+    <form id="qeF"><div class="fgrid">
+      <div class="f full"><label for="q_title">Title *</label><input id="q_title" name="title" required autocapitalize="words" data-tc value="${esc(it.title||"")}"></div>
+      <div class="f"><label for="q_maker">${esc(c.maker||"Maker")}</label><input id="q_maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
+      <div class="f"><label for="q_ms">Sort ${esc((c.maker||"maker").toLowerCase())} as</label><div class="inrow"><input id="q_ms" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker) || msGet(cat.makerSort, it.maker) || it.maker || "")}"><button type="button" class="iconbtn" id="q_flip" title="Last name first (or back again)">⇄ <span>Flip</span></button></div></div>
+      <div class="f"><label for="q_year">Year</label><input id="q_year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
+      <div class="f"><label for="q_cond">Condition</label>${choiceSelect("q_cond", "condition", it.condition || "", conditionList())}</div>
+      ${fields.map(f => `<div class="f"><label for="q_${f.k}">${esc(f.l)}${f.priv ? " 🔒" : ""}</label>${f.opts && f.opts.length ? choiceSelect("q_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts) : `<input id="q_${f.k}" name="x_${f.k}" value="${fv(f.k)}">`}</div>`).join("")}
+      <div class="f"><label for="q_loc">Where it lives</label><input id="q_loc" name="location" value="${esc(it.location||"")}"></div>
+      ${priv ? "" : `<div class="f"><label for="q_val">Estimated value ($)</label><input id="q_val" name="value" value="${esc(it.value ?? "")}" inputmode="decimal"></div>`}
+      <div class="f full"><label for="q_tags">Tags (comma separated)</label><input id="q_tags" name="tags" value="${esc((it.tags||[]).join(", "))}"></div>
+      <label class="check"><input type="checkbox" name="favorite" ${it.favorite ? "checked" : ""}> ★ Highlight</label>
+      <label class="check"><input type="checkbox" name="bootleg" ${it.bootleg ? "checked" : ""}> Bootleg</label>
+    </div>
+    <div class="qbar"><a href="#/edit/${it.id}" id="qeFull">Full edit (photos, notes…)</a><button type="button" class="iconbtn" id="qeC">Cancel</button><button type="submit" class="iconbtn primary">Save</button></div></form></div></div>`;
+  const close = () => { L.innerHTML = ""; document.removeEventListener("keydown", esc_); };
+  const esc_ = e => { if(e.key === "Escape") close(); };
+  document.addEventListener("keydown", esc_);
+  document.getElementById("qeX").onclick = close; document.getElementById("qeC").onclick = close;
+  document.getElementById("qeFull").onclick = () => close();
+  document.getElementById("qe").onclick = e => { if(e.target.id === "qe") close(); };
+  const f = document.getElementById("qeF"), mk = document.getElementById("q_maker"), ms = document.getElementById("q_ms");
+  wireChoices(f, (name, v) => {
+    if(name === "condition"){ cat.settings = {...(cat.settings||{}), conditions:[...((cat.settings||{}).conditions||[]), v]}; return; }
+    const fld = c.fields.find(x => "x_" + x.k === name); if(fld) fld.opts = [...(fld.opts||[]), v];
+  });
+  let prev = mk.value.trim();
+  mk.addEventListener("input", () => { const now = mk.value.trim(), cur = ms.value.trim();
+    if(!cur || cur === prev) ms.value = now; else if(cur === flipName(prev)) ms.value = flipName(now); prev = now; });
+  document.getElementById("q_flip").onclick = () => { ms.value = flipName(ms.value.trim() || mk.value.trim()); };
+  setTimeout(() => document.getElementById("q_title").focus(), 50);
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const d = new FormData(f), before = JSON.stringify(it);
+    ["title","maker","year","condition","location"].forEach(k => it[k] = (d.get(k)||"").trim().replace(/^__other$/, ""));
+    const mkk = (it.maker||"").trim().toLowerCase(), msv = (d.get("makerSort")||"").trim();
+    if(mkk){ cat.makerSortManual = cat.makerSortManual || {}; const auto = msGet(cat.makerSort, it.maker) || it.maker;
+      if(msv && msv !== auto) cat.makerSortManual[mkk] = msv; else delete cat.makerSortManual[mkk]; }
+    if(!priv){ const v = (d.get("value")||"").replace(/[$,\s]/g, ""); it.value = v === "" ? "" : (isNaN(+v) ? v : +v); }
+    it.tags = (d.get("tags")||"").split(",").map(x => x.trim()).filter(Boolean);
+    it.favorite = d.get("favorite") === "on";
+    if(d.get("bootleg")) it.bootleg = true; else delete it.bootleg;
+    it.fields = it.fields || {};
+    fields.forEach(x => { const v = (d.get("x_" + x.k)||"").trim().replace(/^__other$/, ""); if(v) it.fields[x.k] = v; else delete it.fields[x.k]; });
+    it.updated = new Date().toISOString();
+    close();
+    try{ await persist(); }catch(err){ Object.assign(it, JSON.parse(before)); alert("Couldn't save: " + err.message); return; }
+    // Update just this piece's card in place, so the gallery stays exactly where it was.
+    document.querySelectorAll(`#app a.card[href="#/i/${it.id}"]`).forEach(el => { const t = document.createElement("div"); t.innerHTML = plate(it); const n = t.firstElementChild; el.replaceWith(n); hydrate(n); });
+    toast("Saved");
+  };
+}
 const floatSizer = () => {
   let f = document.getElementById("fsz");
   const src = document.querySelector("#app .sizer");
@@ -976,7 +1046,7 @@ function plate(it){
   const shown = iss && !/#/.test(it.title||"") ? it.title + " #" + iss : it.title;
   const sub = [it.maker, it.year].filter(Boolean).join(" · ");
   const meta = c.fields.filter(f => !(priv && f.priv) && (it.fields||{})[f.k]).slice(0,2).map(f => it.fields[f.k]).concat(it.qty > 1 ? ["×" + it.qty] : [], it.condition ? [it.condition] : [], !priv && it.value ? [money(it.value)] : []);
-  return `<a class="card" href="#/i/${it.id}"><div class="frame${it.bootleg ? " boot" : ""}"><div class="matte">${inner}</div></div>
+  return `<a class="card" href="#/i/${it.id}"><button type="button" class="qe" data-qe="${it.id}" title="Quick edit" aria-label="Quick edit ${esc(it.title||"")}">✎</button><div class="frame${it.bootleg ? " boot" : ""}"><div class="matte">${inner}</div></div>
     <div class="plaque"><div class="t">${it.favorite?'<span class="star">★</span> ':""}${esc(shown)}</div><div class="s">${esc(sub)||"&nbsp;"}</div></div><div class="meta">${esc(meta.join(" · "))}</div></a>`;
 }
 
@@ -993,6 +1063,10 @@ const sortKey = t => String(t||"").replace(/^(the|a|an)\s+/i, "").trim();
 /* Artist sorting: as written (ignoring a leading "The"), unless the owner set a sort name for that artist,
    or MusicBrainz knows one (music galleries only: "Bowie, David", while bands like Save Ferris stay as they are). */
 const msGet = (map, m) => { if(!map) return ""; m = String(m||"").trim(); return map[m] || map[m.toLowerCase()] || ""; };
+/* "Alan Sherman" ⇄ "Sherman, Alan" */
+const flipName = v => { v = v.trim(); const m = v.match(/^([^,]+),\s*(.+)$/); if(m) return m[2] + " " + m[1];
+          const w = v.split(/\s+/); let last = w.length - 1; while(last > 1 && /^(jr\.?|sr\.?|ii|iii|iv)$/i.test(w[last])) last--;
+  return w.length < 2 ? v : w[last] + ", " + w.slice(0, last).concat(w.slice(last + 1)).join(" "); };
 const makerKey = m => sortKey(msGet(cat.makerSortManual, m) || msGet(cat.makerSort, m) || m);
 let makerSortBusy = false;
 async function fillMakerSort(items, done){
@@ -2382,9 +2456,6 @@ function viewEdit(id, params){
       const mk = document.getElementById("maker"), ms = document.getElementById("makerSort"), flipBtn = document.getElementById("msFlip");
       if(mk && ms){
         let prev = mk.value.trim();
-        const flipName = v => { v = v.trim(); const m = v.match(/^([^,]+),\s*(.+)$/); if(m) return m[2] + " " + m[1];
-          const w = v.split(/\s+/); let last = w.length - 1; while(last > 1 && /^(jr\.?|sr\.?|ii|iii|iv)$/i.test(w[last])) last--;
-          return w.length < 2 ? v : w[last] + ", " + w.slice(0, last).concat(w.slice(last + 1)).join(" "); };
         mk.addEventListener("input", () => { const now = mk.value.trim(); const cur = ms.value.trim();
           if(!cur || cur === prev) ms.value = now; else if(cur === flipName(prev)) ms.value = flipName(now); prev = now; });
         flipBtn.onclick = () => { ms.value = flipName(ms.value.trim() || mk.value.trim()); };
