@@ -558,7 +558,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.13";
+const APP_VERSION = "2026.11.04.14";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1936,7 +1936,8 @@ async function releaseImages(ref){
   }
   return out;
 }
-function chooseCover(it){
+function chooseCover(it, opts){
+  opts = opts || {};
   const c = coll(it.collectionId), kind = lookupKind(c), L = document.getElementById("layer");
   const ref = (it.matched||{}).ref;
   L.innerHTML = `<div class="lightbox" id="cc" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" style="width:100%;max-width:680px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
@@ -1947,7 +1948,8 @@ function chooseCover(it){
   document.getElementById("ccX").onclick = close;
   document.getElementById("cc").onclick = e => { if(e.target.id === "cc") close(); };
   const grid = imgs => `<div class="ccgrid">${imgs.map((im,n) => `<button type="button" data-u="${esc(im.url)}" data-t="${esc(im.thumb||im.url)}"><img src="${esc(im.thumb||im.url)}" alt="" loading="lazy" onerror="this.parentNode.remove()"><span>${esc(im.label||"")}</span></button>`).join("")}</div>`;
-  const wire = root => root.querySelectorAll("[data-u]").forEach(b => b.onclick = () => useCover(it, b.dataset.u, b.dataset.t, document.getElementById("ccRep").checked));
+  const wire = root => root.querySelectorAll("[data-u]").forEach(b => b.onclick = () => { const rep = document.getElementById("ccRep").checked;
+    if(opts.onPick){ close(); opts.onPick(b.dataset.u, b.dataset.t, rep); } else useCover(it, b.dataset.u, b.dataset.t, rep); });
   if(ref) releaseImages(ref).then(imgs => { const el = document.getElementById("ccThis"); if(!el || !imgs.length) return;
     el.innerHTML = `<h3 style="font-size:1rem;margin:12px 0 6px">From the release you matched</h3>` + grid(imgs); wire(el); }).catch(()=>{});
   const isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
@@ -2129,6 +2131,7 @@ function viewEdit(id, params){
         <div class="actions" style="margin-top:0">
           <label class="iconbtn primary filebtn">📷 Add photos<input type="file" accept="image/*" multiple id="addPhotos"></label>
           <label class="iconbtn filebtn">📄 Add COA / document<input type="file" accept="image/*,application/pdf" multiple id="addDocs"></label>
+          ${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="findCover">🖼 Find a cover</button>` : ""}
         </div>
         <p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">The first photo is the cover. Photos are resized for quick loading. Documents (COAs, receipts, appraisals) keep their original quality.</p>
         <div class="media-edit" id="media"></div>
@@ -2175,6 +2178,9 @@ function viewEdit(id, params){
     </form>`;
     renderMedia();
     // Names and titles: capitalize each word when the whole entry was typed in lowercase (leaves deliberate casing alone).
+    if(document.getElementById("findCover")) document.getElementById("findCover").onclick = () => { collect();
+      if(!(it.title||"").trim()) return toast("Type the title first, then find a cover.");
+      chooseCover(it, {onPick:pickCover}); };
     app.querySelectorAll("[data-tc]").forEach(i => i.addEventListener("blur", () => { if(i.value && i.value === i.value.toLowerCase()) i.value = i.value.replace(/(^|[\s\-\/(&"])(\p{Ll})/gu, (m, a, b) => a + b.toUpperCase()); }));
     const f = document.getElementById("ef");
     f.collectionId.onchange = () => { collect(); it.collectionId = f.collectionId.value; render(); };
@@ -2314,6 +2320,16 @@ function viewEdit(id, params){
       pending.push({m:nm, blob:big, thumbBlob:th, previewUrl:URL.createObjectURL(th)});
     }
     renderMedia(); toast("Photo updated. Save to keep it.");
+  }
+  // Browse cover images from the databases while adding/editing, same sheet as "Change cover" on a saved piece.
+  async function pickCover(url, thumb, replace){
+    const old = it.media.find(m => m.kind === "photo");
+    if(replace && old){ it.media = it.media.filter(m => m !== old); const pi = pending.findIndex(p => p.m === old); if(pi >= 0) pending.splice(pi, 1); else if(!old.remote) removed.push(old); }
+    const n = it.media.length;
+    try{ const resp = await fetchT(url, {}, 20000), blob = await resp.blob(); if(!resp.ok || !/^image\//.test(blob.type)) throw new Error("not an image");
+      await addFiles([new File([blob], "cover.jpg", {type:blob.type})], "photo", true); }
+    catch(e){ it.media.push({id:uid(), kind:"photo", remote:true, name:"cover", path:url, thumb:thumb || url}); }
+    const added = it.media.splice(n); it.media.unshift(...added); renderMedia(); toast("Cover set");
   }
   async function addFiles(files, kind, noCollect){
     if(!noCollect) collect();
