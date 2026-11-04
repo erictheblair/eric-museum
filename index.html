@@ -635,7 +635,7 @@ body.wallmode #fsc{display:none}
 .wall.r-xmas .xw{display:block;position:absolute;z-index:0;left:-84px;top:18%;width:168px;height:44%;pointer-events:none;border:11px solid #efe7d6;border-radius:3px;
   box-shadow:inset 0 0 0 2px #b9ab8e,inset 0 0 18px rgba(20,30,60,.5),0 0 0 2px #8a7a5c,0 0 50px rgba(255,170,80,.18),0 14px 26px rgba(0,0,0,.55)}
 .wall.r-xmas .xw b{position:absolute;display:block}
-.wall.r-xmas .xw .sc{inset:0;overflow:hidden;background:url(rooms/xmas-snowman.svg) center bottom/cover no-repeat}
+.wall.r-xmas .xw .sc{inset:0;overflow:hidden;background:url(rooms/xmas-snowman.svg?v=2) center bottom/cover no-repeat}
 .wall.r-xmas .xw.sl .sc{background-image:url(rooms/xmas-sled.svg)}
 .wall.r-xmas .xw .sc::before,.wall.r-xmas .xw .sc::after{content:"";position:absolute;inset:-120px 0 0;background:url(rooms/xmas-snow1.svg) 0 0/120px;animation:xsnow 9s linear infinite}
 .wall.r-xmas .xw .sc::after{background-image:url(rooms/xmas-snow2.svg);background-size:90px;opacity:.75;animation-duration:14s;filter:blur(.4px)}
@@ -649,7 +649,7 @@ body.wallmode #fsc{display:none}
 .wall.r-xmas .xw::after{content:"";position:absolute;left:-22px;right:-22px;bottom:-24px;height:13px;background:linear-gradient(180deg,#f6efe0,#cfc3a8);border-radius:2px;box-shadow:0 8px 12px rgba(0,0,0,.45)}
 /* A tree in the foreground: it sits in front of the art and slides a little faster than the wall */
 .wall.r-xmas .bay>.xt{display:block;position:absolute;z-index:4;left:calc(var(--th) * -.3067);bottom:calc(var(--fh) * .1);--th:min(68vh,680px);height:var(--th);width:calc(var(--th) * .6135);pointer-events:none;
-  background:url(rooms/xmas-tree.svg) center bottom/contain no-repeat;filter:drop-shadow(0 30px 30px rgba(0,0,0,.6)) drop-shadow(0 0 40px rgba(255,170,70,.25));
+  background:url(rooms/xmas-tree.svg?v=3) center bottom/contain no-repeat;filter:drop-shadow(0 30px 30px rgba(0,0,0,.6)) drop-shadow(0 0 40px rgba(255,170,70,.25));
   transform:translateX(calc((var(--bx,0) - var(--sx,0) - var(--vw2,0)) * var(--pk,.32) * 1px)) scale(1.04);transform-origin:50% 100%;will-change:transform}
 /* Presents under the art, with a nutcracker or a tin soldier standing guard */
 .wall.r-xmas .bay>.xp{display:block;position:absolute;z-index:2;left:-120px;bottom:calc(var(--fh) * .32);width:210px;height:156px;pointer-events:none;background:url(rooms/xmas-presents.svg) center bottom/contain no-repeat;filter:drop-shadow(0 8px 10px rgba(0,0,0,.4))}
@@ -674,7 +674,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.23";
+const APP_VERSION = "2026.11.04.24";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
