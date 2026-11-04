@@ -681,7 +681,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.28";
+const APP_VERSION = "2026.11.04.29";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1165,6 +1165,7 @@ function viewWall(id, params){
       ${pieces.length > 1 ? `<button type="button" class="wbtn${shuffle ? " on" : ""}" id="wshuf" title="${shuffle ? "Shuffle again" : "Shuffle the order"}">🔀</button>${shuffle ? `<button type="button" class="wbtn" id="worder" title="Back to your gallery's order">In order</button>` : ""}` : ""}
       ${pieces.length > 1 ? `<select id="wspeed" aria-label="Tour speed" title="How long the Tour stays on each piece">${[3,5,8,12,20,30,60].map(n => `<option value="${n}" ${n===tourSecs()?"selected":""}>⏱ ${n<60 ? n + "s" : "1 min"}</option>`).join("")}</select>` : ""}
       ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
+      ${document.fullscreenEnabled || document.webkitFullscreenEnabled ? `<button type="button" class="wbtn" id="wfs" title="Full screen (F)" aria-label="Full screen">⛶</button>` : ""}
       <span class="wcount" id="wcount"></span>` : ""}</div>
     ${pieces.length > 1 ? `<button type="button" class="wbig" id="wbig" aria-label="Pause">❚❚</button>` : ""}
     ${pieces.length > 1 ? `<button type="button" class="wnav prev" id="wprev" aria-label="Previous piece">‹</button><button type="button" class="wnav next" id="wnext" aria-label="Next piece">›</button>` : ""}
@@ -1298,7 +1299,20 @@ function viewWall(id, params){
     if(e.key === "ArrowRight") step(1); else if(e.key === "ArrowLeft") step(-1);
     else if(e.key === " "){ e.preventDefault(); tour ? (stopTour(), peek()) : startTour(); }
     else if(e.key === "Escape"){ stopTour(); location.hash = "#/c/" + id; }
+    else if((e.key === "f" || e.key === "F") && !e.metaKey && !e.ctrlKey && !/^(INPUT|SELECT|TEXTAREA)$/.test((e.target||{}).tagName)) toggleFs();
   });
+  // Full screen: the whole screen, not just the browser window. Leaving gallery mode drops back out of it.
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const toggleFs = () => { const d = document.documentElement;
+    if(fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { const r = (d.requestFullscreen || d.webkitRequestFullscreen).call(d); if(r && r.catch) r.catch(() => toast("Full screen isn't available here.")); } };
+  const fsBtn = document.getElementById("wfs");
+  const fsSync = () => { if(!wall.isConnected) return; if(fsBtn){ fsBtn.textContent = fsEl() ? "⤡" : "⛶"; fsBtn.title = fsEl() ? "Exit full screen (F)" : "Full screen (F)"; fsBtn.setAttribute("aria-label", fsBtn.title); } };
+  if(fsBtn) fsBtn.onclick = e => { e.stopPropagation(); toggleFs(); };
+  document.addEventListener("fullscreenchange", fsSync); document.addEventListener("webkitfullscreenchange", fsSync);
+  window.addEventListener("hashchange", function fx(){ setTimeout(() => { if(wall.isConnected) return;
+    window.removeEventListener("hashchange", fx); document.removeEventListener("fullscreenchange", fsSync); document.removeEventListener("webkitfullscreenchange", fsSync);
+    if(fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); }, 0); });
 }
 
 
