@@ -84,6 +84,13 @@ form.edit{padding-bottom:84px}
 .sizer{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
 .sizer button{border:none;background:none;padding:5px 11px;cursor:pointer;font-size:.8rem;color:var(--muted)}
 .sizer button.on{background:var(--ink);color:var(--bg)}
+/* When the view buttons scroll out of sight, a copy floats just under the header */
+#fsz{position:fixed;left:0;right:0;top:calc(64px + env(safe-area-inset-top));z-index:19;pointer-events:none;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s}
+#fsz.on{opacity:1;transform:none}
+#fsz .wrap{display:flex;justify-content:flex-end}
+#fsz .sizer{pointer-events:auto;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+#fsz:not(.on) .sizer{pointer-events:none}
+#fsz .sizer button{padding:8px 14px;font-size:.85rem}
 .dense .grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:12px}
 .dense .frame{padding:3px;border-radius:3px}
 .dense .matte{padding:3px}
@@ -674,7 +681,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.25";
+const APP_VERSION = "2026.11.04.26";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -929,6 +936,16 @@ function setView(v){ viewMode = v; LS.set("cm.view", v);
   document.body.classList.toggle("dense", v === "small"); document.body.classList.toggle("listview", v === "list");
   document.querySelectorAll(".sizer button").forEach(b => { const on = b.dataset.size === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }); }
 document.addEventListener("click", e => { const b = e.target.closest(".sizer button"); if(b) setView(b.dataset.size); });
+const floatSizer = () => {
+  let f = document.getElementById("fsz");
+  const src = document.querySelector("#app .sizer");
+  const show = !!src && src.getBoundingClientRect().bottom < ((document.querySelector("header.top") || {getBoundingClientRect: () => ({bottom: 56})}).getBoundingClientRect().bottom + 4) && !document.querySelector("#app .wall");
+  if(!f){ if(!show) return; f = document.createElement("div"); f.id = "fsz"; document.body.appendChild(f); }
+  if(show && !f.classList.contains("on")) f.innerHTML = `<div class="wrap">${sizer()}</div>`;
+  f.classList.toggle("on", show);
+};
+addEventListener("scroll", floatSizer, {passive:true});
+addEventListener("hashchange", () => setTimeout(floatSizer, 50));
 setView(viewMode);
 
 const mediaUrl = path => /^https?:\/\//.test(path) ? Promise.resolve(path) : store.url(path);
