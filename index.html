@@ -478,21 +478,22 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 /* Aquarium fish: swim behind the art at a few depths */
 .fish{display:none}
 .wall.r-aquarium .fish{display:block;position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
-.fish i{position:absolute;left:0;width:var(--w);top:var(--t);animation:swim var(--s) linear infinite;animation-delay:var(--d);opacity:var(--o,1);filter:var(--f,none)}
-.fish i.rtl{animation-name:swimr}
-.fish b{display:block;width:100%;aspect-ratio:var(--ar,2);background:center/contain no-repeat;animation:bob 3.2s ease-in-out infinite alternate;animation-delay:var(--d)}
-.fish i.rtl b{transform:scaleX(-1)}
-@keyframes swim{from{transform:translateX(-160px)}to{transform:translateX(calc(100vw + 40px))}}
-@keyframes swimr{from{transform:translateX(calc(100vw + 40px))}to{transform:translateX(-160px)}}
+.swim{display:none}.wall.r-aquarium .swim{display:block;position:absolute;left:0;top:0;bottom:0;width:var(--lw,100vw);z-index:0;pointer-events:none;overflow:hidden}
+.swim i{position:absolute;left:0;width:var(--w);top:var(--t);animation:swim var(--s) linear infinite;animation-duration:calc(var(--s) * var(--k,1));animation-delay:var(--d);opacity:var(--o,1);filter:var(--f,none)}
+.swim i.rtl{animation-name:swimr}
+.swim b{display:block;width:100%;aspect-ratio:var(--ar,2);background:center/contain no-repeat;animation:bob 3.2s ease-in-out infinite alternate;animation-delay:var(--d)}
+.swim i.rtl b{transform:scaleX(-1)}
+@keyframes swim{from{transform:translateX(-160px)}to{transform:translateX(calc(var(--lw,100vw) + 40px))}}
+@keyframes swimr{from{transform:translateX(calc(var(--lw,100vw) + 40px))}to{transform:translateX(-160px)}}
 @keyframes bob{from{translate:0 -7px}to{translate:0 7px}}
-.fish .clown b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 32'%3E%3Cdefs%3E%3CclipPath id='b'%3E%3Cellipse cx='38' cy='16' rx='21' ry='10'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%3E%3Cpath d='M2 5 L21 16 L2 27 Q7 16 2 5Z' fill='%23ff6a00'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 21 16;14 21 16;-14 21 16' dur='1.1s' repeatCount='indefinite'/%3E%3C/g%3E%3Cpath d='M32 7 Q38 -1 46 7Z' fill='%23ff6a00'/%3E%3Cellipse cx='38' cy='16' rx='21' ry='10' fill='%23ff7a1a'/%3E%3Cg clip-path='url(%23b)'%3E%3Crect x='27' y='0' width='5' height='32' fill='%23fff' stroke='%23111' stroke-width='1'/%3E%3Crect x='44' y='0' width='4' height='32' fill='%23fff' stroke='%23111' stroke-width='1'/%3E%3Cellipse cx='38' cy='22' rx='22' ry='5' fill='%23ff9a40' opacity='.5'/%3E%3C/g%3E%3Ccircle cx='52' cy='14' r='2.6' fill='%23fff'/%3E%3Ccircle cx='52.6' cy='14' r='1.5' fill='%23111'/%3E%3C/svg%3E")}
-.fish .tang b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 32'%3E%3Cdefs%3E%3CclipPath id='b'%3E%3Cellipse cx='38' cy='16' rx='21' ry='10'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%3E%3Cpath d='M2 5 L21 16 L2 27 Q7 16 2 5Z' fill='%23f5d21c'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 21 16;14 21 16;-14 21 16' dur='1.4s' repeatCount='indefinite'/%3E%3C/g%3E%3Cpath d='M32 7 Q38 -1 46 7Z' fill='%23f5d21c'/%3E%3Cellipse cx='38' cy='16' rx='21' ry='10' fill='%232f6fe0'/%3E%3Cg clip-path='url(%23b)'%3E%3Cpath d='M20 12 Q38 2 54 14 Q40 9 26 16 Q34 20 46 22 Q30 26 20 18Z' fill='%230b1d4a'/%3E%3Cellipse cx='38' cy='9' rx='18' ry='3' fill='%236aa2ff' opacity='.5'/%3E%3C/g%3E%3Ccircle cx='52' cy='14' r='2.6' fill='%23fff'/%3E%3Ccircle cx='52.6' cy='14' r='1.5' fill='%23111'/%3E%3C/svg%3E")}
-.fish .yellow b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'%3E%3Cdefs%3E%3CclipPath id='b'%3E%3Cellipse cx='38' cy='20' rx='18' ry='15'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%3E%3Cpath d='M2 9 L24 20 L2 31 Q7 20 2 9Z' fill='%23ffc400'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 24 20;14 24 20;-14 24 20' dur='1.2s' repeatCount='indefinite'/%3E%3C/g%3E%3Cpath d='M32 6 Q38 -2 46 6Z' fill='%23ffc400'/%3E%3Cellipse cx='38' cy='20' rx='18' ry='15' fill='%23ffd21f'/%3E%3Cg clip-path='url(%23b)'%3E%3Cellipse cx='38' cy='9' rx='16' ry='4' fill='%23fff3a0' opacity='.6'/%3E%3C/g%3E%3Ccircle cx='49' cy='18' r='2.6' fill='%23fff'/%3E%3Ccircle cx='49.6' cy='18' r='1.5' fill='%23111'/%3E%3C/svg%3E")}
-.fish .angel b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 60'%3E%3Cpath d='M24 6 Q30 20 26 30 Q30 40 24 54 Q18 40 20 30 Q16 20 24 6Z' fill='%23e9eef2' opacity='.9'/%3E%3Cellipse cx='26' cy='30' rx='13' ry='11' fill='%23f1f4f6'/%3E%3Crect x='20' y='10' width='3' height='40' fill='%232b2b2b' opacity='.7'/%3E%3Crect x='29' y='14' width='2.5' height='32' fill='%232b2b2b' opacity='.6'/%3E%3Cg%3E%3Cpath d='M13 30 L4 22 L4 38Z' fill='%23dfe6ea'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 13 30;14 13 30;-14 13 30' dur='1.5s' repeatCount='indefinite'/%3E%3C/g%3E%3Ccircle cx='34' cy='28' r='1.8' fill='%23111'/%3E%3C/svg%3E")}
-.fish .school b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'%3E%3Cg transform='translate(0 6) scale(1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(30 0) scale(0.9)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(22 26) scale(1.1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(56 14) scale(1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(70 36) scale(0.9)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(92 22) scale(1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(46 44) scale(0.8)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3C/svg%3E")}
-.fish .yellow b{--ar:1.6}.fish .angel b{--ar:.83}
-@media (min-width:900px){.fish i{width:calc(var(--w) * 1.5)}}
-@media (prefers-reduced-motion:reduce){.fish i,.fish b{animation:none}.fish i{display:none}}
+.swim .clown b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 32'%3E%3Cdefs%3E%3CclipPath id='b'%3E%3Cellipse cx='38' cy='16' rx='21' ry='10'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%3E%3Cpath d='M2 5 L21 16 L2 27 Q7 16 2 5Z' fill='%23ff6a00'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 21 16;14 21 16;-14 21 16' dur='1.1s' repeatCount='indefinite'/%3E%3C/g%3E%3Cpath d='M32 7 Q38 -1 46 7Z' fill='%23ff6a00'/%3E%3Cellipse cx='38' cy='16' rx='21' ry='10' fill='%23ff7a1a'/%3E%3Cg clip-path='url(%23b)'%3E%3Crect x='27' y='0' width='5' height='32' fill='%23fff' stroke='%23111' stroke-width='1'/%3E%3Crect x='44' y='0' width='4' height='32' fill='%23fff' stroke='%23111' stroke-width='1'/%3E%3Cellipse cx='38' cy='22' rx='22' ry='5' fill='%23ff9a40' opacity='.5'/%3E%3C/g%3E%3Ccircle cx='52' cy='14' r='2.6' fill='%23fff'/%3E%3Ccircle cx='52.6' cy='14' r='1.5' fill='%23111'/%3E%3C/svg%3E")}
+.swim .tang b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 32'%3E%3Cdefs%3E%3CclipPath id='b'%3E%3Cellipse cx='38' cy='16' rx='21' ry='10'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%3E%3Cpath d='M2 5 L21 16 L2 27 Q7 16 2 5Z' fill='%23f5d21c'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 21 16;14 21 16;-14 21 16' dur='1.4s' repeatCount='indefinite'/%3E%3C/g%3E%3Cpath d='M32 7 Q38 -1 46 7Z' fill='%23f5d21c'/%3E%3Cellipse cx='38' cy='16' rx='21' ry='10' fill='%232f6fe0'/%3E%3Cg clip-path='url(%23b)'%3E%3Cpath d='M20 12 Q38 2 54 14 Q40 9 26 16 Q34 20 46 22 Q30 26 20 18Z' fill='%230b1d4a'/%3E%3Cellipse cx='38' cy='9' rx='18' ry='3' fill='%236aa2ff' opacity='.5'/%3E%3C/g%3E%3Ccircle cx='52' cy='14' r='2.6' fill='%23fff'/%3E%3Ccircle cx='52.6' cy='14' r='1.5' fill='%23111'/%3E%3C/svg%3E")}
+.swim .yellow b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'%3E%3Cdefs%3E%3CclipPath id='b'%3E%3Cellipse cx='38' cy='20' rx='18' ry='15'/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%3E%3Cpath d='M2 9 L24 20 L2 31 Q7 20 2 9Z' fill='%23ffc400'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 24 20;14 24 20;-14 24 20' dur='1.2s' repeatCount='indefinite'/%3E%3C/g%3E%3Cpath d='M32 6 Q38 -2 46 6Z' fill='%23ffc400'/%3E%3Cellipse cx='38' cy='20' rx='18' ry='15' fill='%23ffd21f'/%3E%3Cg clip-path='url(%23b)'%3E%3Cellipse cx='38' cy='9' rx='16' ry='4' fill='%23fff3a0' opacity='.6'/%3E%3C/g%3E%3Ccircle cx='49' cy='18' r='2.6' fill='%23fff'/%3E%3Ccircle cx='49.6' cy='18' r='1.5' fill='%23111'/%3E%3C/svg%3E")}
+.swim .angel b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 60'%3E%3Cpath d='M24 6 Q30 20 26 30 Q30 40 24 54 Q18 40 20 30 Q16 20 24 6Z' fill='%23e9eef2' opacity='.9'/%3E%3Cellipse cx='26' cy='30' rx='13' ry='11' fill='%23f1f4f6'/%3E%3Crect x='20' y='10' width='3' height='40' fill='%232b2b2b' opacity='.7'/%3E%3Crect x='29' y='14' width='2.5' height='32' fill='%232b2b2b' opacity='.6'/%3E%3Cg%3E%3Cpath d='M13 30 L4 22 L4 38Z' fill='%23dfe6ea'/%3E%3CanimateTransform attributeName='transform' type='rotate' values='-14 13 30;14 13 30;-14 13 30' dur='1.5s' repeatCount='indefinite'/%3E%3C/g%3E%3Ccircle cx='34' cy='28' r='1.8' fill='%23111'/%3E%3C/svg%3E")}
+.swim .school b{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60'%3E%3Cg transform='translate(0 6) scale(1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(30 0) scale(0.9)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(22 26) scale(1.1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(56 14) scale(1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(70 36) scale(0.9)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(92 22) scale(1)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3Cg transform='translate(46 44) scale(0.8)'%3E%3Cpath d='M0 4 L5 8 L0 12Z' fill='%23d33'/%3E%3Cellipse cx='12' cy='8' rx='9' ry='3.6' fill='%239fb6c8'/%3E%3Crect x='5' y='6.4' width='14' height='1.8' fill='%233ff0ff'/%3E%3Crect x='5' y='8.4' width='8' height='2.2' fill='%23e33'/%3E%3Ccircle cx='18' cy='7.4' r='1' fill='%23111'/%3E%3C/g%3E%3C/svg%3E")}
+.swim .yellow b{--ar:1.6}.swim .angel b{--ar:.83}
+@media (min-width:900px){.swim i{width:calc(var(--w) * 1.5)}}
+@media (prefers-reduced-motion:reduce){.swim i,.swim b{animation:none}.swim i{display:none}}
 /* Aquarium: caustic light, drifting shadows, light rays, kelp + coral reefs */
 .wall.r-aquarium::before{display:none}
 .fish .cz{position:absolute;inset:-30%;background:url(rooms/caustics2.png) 0 0/460px;mix-blend-mode:screen;opacity:.17;filter:blur(.6px);animation:cz1 38s linear infinite;will-change:transform}
@@ -514,6 +515,8 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 @keyframes sway{from{transform:rotate(-4deg) skewX(3deg)}to{transform:rotate(4deg) skewX(-4deg)}}
 @media (max-width:899px){.wall.r-aquarium .reef{width:200px;left:-100px;height:34vh;bottom:calc(11vh - 10px)}.wall.r-aquarium .bay:last-child .reef.rr{right:-100px}.reef b{width:48px}}
 @media (orientation:landscape) and (max-height:560px){.wall.r-aquarium .reef{height:48vh;bottom:calc(8vh - 8px)}}
+.fish .cz,.fish .rays,.wall.r-aquarium::after{background-position-x:calc(var(--sx,0) * -1px)}
+.fish .shade{background-size:1400px 100%;background-repeat:repeat-x;background-position-x:calc(var(--sx,0) * -1px)}
 @media (prefers-reduced-motion:reduce){.fish .cz,.fish .shade,.fish .rays,.reef b{animation:none}}
 </style>
 </head>
@@ -528,7 +531,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.4";
+const APP_VERSION = "2026.11.04.5";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -993,8 +996,8 @@ function viewWall(id, params){
       ${facts.length ? `<div class="pf">${esc(facts.join(" · "))}</div>` : ""}<div class="pmore">Details ›</div></a>`;
   };
   app.innerHTML = `<div class="wall r-${room}" id="wall">
-    <div class="floor"></div><div class="fish" aria-hidden="true"><div class="shade"></div><div class="cz"></div><div class="cz c2"></div><div class="rays"></div><i class="clown " style="--w:70px;--t:11%;--s:26s;--d:-4s;--o:1"><b></b></i><i class="tang rtl" style="--w:88px;--t:81%;--s:34s;--d:-15s;--o:1"><b></b></i><i class="yellow " style="--w:60px;--t:40%;--s:30s;--d:-22s;--o:1"><b></b></i><i class="school rtl" style="--w:130px;--t:7%;--s:46s;--d:-8s;--o:0.6;--f:blur(.6px)"><b></b></i><i class="angel " style="--w:46px;--t:73%;--s:42s;--d:-30s;--o:0.65;--f:blur(.8px)"><b></b></i><i class="clown rtl" style="--w:48px;--t:65%;--s:38s;--d:-27s;--o:0.8;--f:blur(.4px)"><b></b></i></div>
-    <div class="wtrack" id="wtrack">${pieces.map((it,n) => `<section class="bay" data-n="${n}" aria-label="${esc(it.title||"")}">
+    <div class="floor"></div><div class="fish" aria-hidden="true"><div class="shade"></div><div class="cz"></div><div class="cz c2"></div><div class="rays"></div></div>
+    <div class="wtrack" id="wtrack"><div class="swim" aria-hidden="true"></div>${pieces.map((it,n) => `<section class="bay" data-n="${n}" aria-label="${esc(it.title||"")}">
       <i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
       <button type="button" class="pframe" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
       ${placard(it)}</section>`).join("")}</div>
@@ -1010,7 +1013,7 @@ function viewWall(id, params){
     ${pieces.length > 1 ? `<button type="button" class="wnav prev" id="wprev" aria-label="Previous piece">‹</button><button type="button" class="wnav next" id="wnext" aria-label="Next piece">›</button>` : ""}
   </div>`;
   if(!pieces.length) return;
-  const wall = document.getElementById("wall"), track = document.getElementById("wtrack"), bays = [...track.children];
+  const wall = document.getElementById("wall"), track = document.getElementById("wtrack"), bays = [...track.querySelectorAll(".bay")];
   const perView = () => Math.max(1, Math.round(track.clientWidth / (bays[0].clientWidth || 1)));
   const current = () => Math.round(track.scrollLeft / (bays[0].clientWidth || 1));
   const loadNear = n => bays.slice(Math.max(0, n - 1), n + perView() + 2).forEach(b => {
@@ -1029,7 +1032,7 @@ function viewWall(id, params){
   let st; track.addEventListener("scroll", () => { clearTimeout(st); st = setTimeout(() => { show(); restartTimer(); }, 90); }, {passive:true});
   const start = Math.min(+params.get("i") || 0, bays.length - 1);
   requestAnimationFrame(() => { track.scrollLeft = start * bays[0].clientWidth; show(); });
-  window.addEventListener("resize", function rs(){ if(!wall.isConnected) return window.removeEventListener("resize", rs); track.scrollLeft = current() * bays[0].clientWidth; });
+  window.addEventListener("resize", function rs(){ if(!wall.isConnected) return window.removeEventListener("resize", rs); track.scrollLeft = current() * bays[0].clientWidth; fillSwim(); });
   // Tour: steps to the next piece every few seconds, hides the controls, keeps the screen awake.
   // While it plays, a tap brings the controls back for a few seconds (with a big pause button) instead of stopping it.
   let tour = null, lock = null, peekT = null;
@@ -1073,6 +1076,18 @@ function viewWall(id, params){
     const y = cardTop > frameBottom + 40 ? (frameBottom + cardTop - 34) / 2 : wall.clientHeight * .95 - 40;   // side-by-side layout: just above the floor   // side-by-side layout: just under the frames
     wall.style.setProperty("--rail", Math.max(80, Math.round(y)) + "px");
   };
+  // Aquarium fish swim the whole length of the hall, so they scroll with the wall like everything else.
+  const FISH = [["clown ", "--w:70px;--t:11%;--s:26s;--d:-4s;--o:1"], ["tang rtl", "--w:88px;--t:81%;--s:34s;--d:-15s;--o:1"], ["yellow ", "--w:60px;--t:40%;--s:30s;--d:-22s;--o:1"], ["school rtl", "--w:130px;--t:7%;--s:46s;--d:-8s;--o:0.6;--f:blur(.6px)"], ["angel ", "--w:46px;--t:73%;--s:42s;--d:-30s;--o:0.65;--f:blur(.8px)"], ["clown rtl", "--w:48px;--t:65%;--s:38s;--d:-27s;--o:0.8;--f:blur(.4px)"]];
+  const fillSwim = () => {
+    const sw = track.querySelector(".swim"); if(!sw || !bays.length) return;
+    const lw = bays.length * bays[0].clientWidth, k = Math.min(24, Math.max(1, Math.round(lw / (track.clientWidth || 1))));
+    sw.style.setProperty("--lw", lw + "px"); sw.style.setProperty("--k", k);
+    let h = "";
+    for(let j = 0; j < k; j++) for(const [cls, st] of FISH){ const secs = parseFloat(st.match(/--s:([\d.]+)s/)[1]) * k, d = parseFloat(st.match(/--d:(-?[\d.]+)s/)[1]);
+      h += `<i class="${cls}" style="${st.replace(/--d:-?[\d.]+s/, "--d:" + (d - secs * j / k).toFixed(1) + "s")}"><b></b></i>`; }
+    sw.innerHTML = h;
+  };
+  fillSwim();
   // Wall and floor textures scroll with the art, so the pieces look hung on the wall rather than sliding past it.
   const splitLayers = v => { const out = []; let d = 0, cur = ""; for(const ch of v){ if(ch === "(") d++; if(ch === ")") d--; if(ch === "," && !d){ out.push(cur.trim()); cur = ""; } else cur += ch; } out.push(cur.trim()); return out; };
   let slide = [];
@@ -1088,7 +1103,7 @@ function viewWall(id, params){
     }).filter(Boolean);
   };
   let slideRaf = 0;
-  const applySlide = () => { slideRaf = 0; const sx = track.scrollLeft; for(const {el, layers} of slide) el.style.backgroundPosition = layers.map(l => l.move ? `calc(${l.x} - ${sx}px) ${l.y}` : `${l.x} ${l.y}`).join(","); };
+  const applySlide = () => { slideRaf = 0; const sx = track.scrollLeft; wall.style.setProperty("--sx", sx); for(const {el, layers} of slide) el.style.backgroundPosition = layers.map(l => l.move ? `calc(${l.x} - ${sx}px) ${l.y}` : `${l.x} ${l.y}`).join(","); };
   const resetSlide = () => { measureSlide(); applySlide(); };
   track.addEventListener("scroll", () => { if(!slideRaf) slideRaf = requestAnimationFrame(applySlide); }, {passive:true});
   resetSlide();
