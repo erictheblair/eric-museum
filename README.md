@@ -22,7 +22,7 @@ Pick one:
 You can also try it without Dropbox: it saves on that device only until you connect.
 
 ## Privacy
-- "Show values" is off by default: prices, values, serial numbers and cert numbers are hidden,
+- Private mode (Settings) hides prices, values, serial numbers and cert numbers,
   so you can hand someone your phone.
 - The app can only see its own folder in your Dropbox, nothing else.
 - Back up anytime from Settings (CSV spreadsheet or JSON). Photos are already in Dropbox.
@@ -35,3 +35,12 @@ Optional: add a free Discogs token in Settings for better record and laserdisc m
 For older items without barcodes, type the title and press **🔎 Look up**.
 Use **More details** on any piece for your own label/value pairs (edition number, variant, signed by…).
 Barcode scanning uses ZXing (Apache-2.0), bundled in `vendor/`.
+
+## Gallery mode
+Open any gallery and choose gallery mode to walk a hall of framed pieces. Pick a room
+(50s diner, aquarium, cabin, castle, Christmas, greenhouse, haunted mansion, library, modern,
+museum, neon arcade, starship), press ▶ Tour to let it play, or ⛶ (or F) for full screen on a computer.
+Room artwork lives in `rooms/`.
+
+## Quick edit
+On a computer, hover over a piece in a gallery and click ✎ to edit its details without leaving the page.
