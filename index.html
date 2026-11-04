@@ -684,7 +684,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.33";
+const APP_VERSION = "2026.11.04.34";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2465,7 +2465,8 @@ function viewEdit(id, params){
     const f = document.getElementById("ef"), d = new FormData(f), c = coll(it.collectionId);
     ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => it[k] = (d.get(k)||"").trim().replace(/^__other$/,""));
     { const ms = (d.get("makerSort")||"").trim(), mk = (it.maker||"").trim().toLowerCase();   // one sort name per artist, used by all their pieces
-      if(mk){ cat.makerSortManual = cat.makerSortManual || {}; if(ms && ms !== it.maker) cat.makerSortManual[mk] = ms; else delete cat.makerSortManual[mk]; } }
+      if(mk){ cat.makerSortManual = cat.makerSortManual || {}; const auto = msGet(cat.makerSort, it.maker) || it.maker;   // keep any choice that differs from the automatic one, including "as written" over MusicBrainz
+        if(ms && ms !== auto) cat.makerSortManual[mk] = ms; else delete cat.makerSortManual[mk]; } }
     ["price","value"].forEach(k => { const v = (d.get(k)||"").replace(/[$,\s]/g,""); it[k] = v === "" ? "" : (isNaN(+v) ? v : +v); });
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
