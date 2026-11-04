@@ -569,7 +569,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.17";
+const APP_VERSION = "2026.11.04.18";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -932,7 +932,7 @@ function viewHome(params){
 
 function viewHall(id, params){
   const c = coll(id);
-  const q = params.get("q") || "", sort = params.get("sort") || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
+  const q = params.get("q") || "", sort = params.get("sort") || (c && c.sort) || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
   const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1";
   const fsel = {}; c.fields.forEach(f => { const v = params.get("f." + f.k); if(v && !(priv && f.priv)) fsel[f.k] = v; });
   document.title = c.name + " · " + (cat.title||"The Collection");
@@ -987,7 +987,7 @@ function viewHall(id, params){
   <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${id}">▦ Scan</a><a class="fab" href="#/new?c=${id}">＋ Add</a></div>`;
   const f = document.getElementById("sf");
   f.onsubmit = e => { e.preventDefault(); location.hash = link({q:new FormData(f).get("q").trim(), filters:showFilters?"1":""}); };
-  f.sort.onchange = () => { LS.set("cm.sort."+id, f.sort.value); location.hash = link({sort:f.sort.value, q:new FormData(f).get("q").trim(), filters:showFilters?"1":""}); };
+  f.sort.onchange = () => { LS.set("cm.sort."+id, f.sort.value); if(c.sort !== f.sort.value){ c.sort = f.sort.value; persist().catch(()=>{}); } location.hash = link({sort:f.sort.value, q:new FormData(f).get("q").trim(), filters:showFilters?"1":""}); };
   app.querySelectorAll("#filt [data-p]").forEach(sel => sel.onchange = () => { location.hash = link({[sel.dataset.p]:sel.value, filters:"1"}); });
   app.querySelectorAll("#filt [data-c]").forEach(cb => cb.onchange = () => { location.hash = link({[cb.dataset.c]:cb.checked?"1":"", filters:"1"}); });
   if(document.getElementById("bulkMatch")) document.getElementById("bulkMatch").onclick = () => {
@@ -1014,7 +1014,7 @@ function viewWall(id, params){
   document.body.classList.add("wallmode");
   const byId = new Map(cat.items.map(i => [i.id, i]));
   let pieces = (hallOrder[id] || []).map(x => byId.get(x)).filter(i => i && i.collectionId === id && cover(i));
-  if(!pieces.length) pieces = sortItems(cat.items.filter(i => i.collectionId === id && cover(i)), LS.get("cm.sort."+id, "title"));
+  if(!pieces.length) pieces = sortItems(cat.items.filter(i => i.collectionId === id && cover(i)), (coll(id)||{}).sort || LS.get("cm.sort."+id, "title"));
   // Shuffle: a seeded order kept in the address, so coming back from a piece keeps the same shuffle.
   const shuffle = LS.get("cm.wallShuffle", false);
   let seed = shuffle ? (parseInt(params.get("s"), 10) || Math.floor(Math.random() * 1e9) + 1) : 0;
