@@ -549,14 +549,15 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.11";
+const APP_VERSION = "2026.11.04.12";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
 const CONDITIONS = ["Mint","Near Mint","Excellent","Very Good","Good","Fair","Poor"];
 const PRESETS = [
   {id:"records", name:"Records", icon:"🎵", maker:"Artist", fields:[
-    {k:"format",l:"Format",opts:["LP","2×LP","EP","7\"","10\"","12\" single","78","Box set","Picture disc","Flexi disc"]},{k:"label",l:"Label"},{k:"catno",l:"Catalog #"},
+    {k:"format",l:"Format",opts:["LP","2×LP","EP","7\"","10\"","12\" single","78","Box set","Picture disc","Flexi disc"]},
+    {k:"color",l:"Vinyl color",opts:["Black","Clear","White","Red","Orange","Yellow","Green","Blue","Purple","Pink","Gold","Silver","Smoke","Splatter","Marble","Swirl","Half & half","Glow in the dark"]},{k:"label",l:"Label"},{k:"catno",l:"Catalog #"},
     {k:"pressing",l:"Pressing / country"},{k:"matrix",l:"Matrix / runout"},{k:"mediaGrade",l:"Media grade"},{k:"sleeveGrade",l:"Sleeve grade"}]},
   {id:"laserdiscs", name:"Laserdiscs", icon:"💿", maker:"Director", fields:[
     {k:"label",l:"Label / publisher"},{k:"catno",l:"Catalog #"},{k:"format",l:"Format",opts:["CLV","CAV","CLV/CAV","Extended play"]},
@@ -1686,6 +1687,14 @@ async function searchCandidates(kind, q, maker){
   }
   return searchOther(kind, q, maker);
 }
+// Vinyl colour from Discogs: the free-text format note ("Red Translucent") or a colour word in the format list.
+const COLOR_WORDS = /\b(black|clear|transparent|translucent|white|red|orange|yellow|green|blue|purple|violet|pink|gold|silver|grey|gray|smoke|brown|splatter|marble|marbled|swirl|swirled|glow|coloured|colored|picture)\b/i;
+function vinylColor(r){
+  const txt = (r.formats||[]).map(f => f.text || "").find(t => COLOR_WORDS.test(t));
+  if(txt) return txt.trim();
+  const w = (r.format||[]).find(f => COLOR_WORDS.test(f) && !/^(vinyl|lp|album)$/i.test(f));
+  return w && !/^(coloured|colored)$/i.test(w) ? w : "";
+}
 async function discogsSearch(q, maker, tok){
   const u = "https://api.discogs.com/database/search?type=release&per_page=25&q=" + encodeURIComponent(q) + (maker ? "&artist=" + encodeURIComponent(maker) : "") + "&token=" + encodeURIComponent(tok);
   let j = await getJSON(u);
@@ -1695,7 +1704,7 @@ async function discogsSearch(q, maker, tok){
     const code = (r.barcode||[]).map(b => String(b).replace(/\s/g,"")).find(b => /^\d{8,14}$/.test(b)) || "";
     const img = r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "";
     const res = {source:"Discogs", collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "", year:r.year ? String(r.year) : "",
-      cover:img, barcode:code, ref:{discogs:r.id}, fields:{label, catno, format:fm.format||"", pressing:r.country||""}, named:{"Label":label, "Catalog #":catno, "Country":r.country, "Discogs":r.uri ? "https://www.discogs.com" + r.uri : ""}};
+      cover:img, barcode:code, ref:{discogs:r.id}, fields:{label, catno, format:fm.format||"", pressing:r.country||"", color:vinylColor(r)}, named:{"Label":label, "Catalog #":catno, "Country":r.country, "Discogs":r.uri ? "https://www.discogs.com" + r.uri : ""}};
     return {...res, thumb:r.thumb || img, sub:["Discogs", (r.format||[]).join(", "), r.country, label, catno].filter(Boolean).join(" · "), get:async()=>res};
   });
 }
@@ -2044,7 +2053,7 @@ async function lookupDiscogs(code, tok){
   const fm = formatFrom(r.format||[]);
   return {source:"Discogs", ref:{discogs:r.id}, collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "",
     year:r.year||"", cover:r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "",
-    fields:{label:(r.label||[])[0]||"", catno:r.catno && r.catno!=="none" ? r.catno : "", format:fm.format||"", pressing:r.country||""}};
+    fields:{label:(r.label||[])[0]||"", catno:r.catno && r.catno!=="none" ? r.catno : "", format:fm.format||"", pressing:r.country||"", color:vinylColor(r)}};
 }
 async function lookupMusicBrainz(code){
   const alt = code.length === 13 && code[0] === "0" ? code.slice(1) : code.length === 12 ? "0" + code : null;
@@ -2717,7 +2726,10 @@ async function boot(){
       cat.items.forEach(i => { if(i.collectionId === "records" && i.fields && i.fields.format === '7" single') i.fields.format = '7"'; }); } }
   // Add preset fields introduced in newer versions, but never re-add ones the user removed.
   PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; c.seen = c.seen || c.fields.map(f=>f.k);
-    p.fields.forEach(f => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); if(!c.fields.some(x=>x.k===f.k)) c.fields.push(JSON.parse(JSON.stringify(f))); } }); });
+    p.fields.forEach((f, n) => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); if(!c.fields.some(x=>x.k===f.k)){
+      // Slot it in after the field that comes before it in the preset (e.g. Vinyl color right after Format).
+      const after = n ? c.fields.findIndex(x => x.k === p.fields[n-1].k) : -1;
+      c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f))); } } }); });
   setBrand();
   window.addEventListener("hashchange", route);
   route();
