@@ -536,6 +536,15 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .inrow{display:flex;gap:8px;align-items:stretch}
 .inrow input{flex:1 1 auto;min-width:0}
 .inrow .iconbtn{flex:0 0 auto;height:auto;min-height:44px;padding:0 16px;gap:7px;white-space:nowrap;border-radius:10px}
+/* Edge handles on the crop box: drag one side only */
+.pe-crop i.ed{border:none;width:48px;height:48px;display:flex;align-items:center;justify-content:center}
+.pe-crop i.ed::after{content:"";background:#fff;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.pe-crop i.ed[data-h=n],.pe-crop i.ed[data-h=s]{left:50%;margin-left:-24px;cursor:ns-resize}
+.pe-crop i.ed[data-h=n]{top:-24px}.pe-crop i.ed[data-h=s]{bottom:-24px}
+.pe-crop i.ed[data-h=n]::after,.pe-crop i.ed[data-h=s]::after{width:30px;height:6px}
+.pe-crop i.ed[data-h=w],.pe-crop i.ed[data-h=e]{top:50%;margin-top:-24px;cursor:ew-resize}
+.pe-crop i.ed[data-h=w]{left:-24px}.pe-crop i.ed[data-h=e]{right:-24px}
+.pe-crop i.ed[data-h=w]::after,.pe-crop i.ed[data-h=e]::after{width:6px;height:30px}
 </style>
 </head>
 <body>
@@ -549,7 +558,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.12";
+const APP_VERSION = "2026.11.04.13";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1376,11 +1385,11 @@ function photoEditor(blob){
     const L = document.getElementById("layer");
     L.innerHTML = `<div class="pedit" id="pe">
       <div class="pe-top"><button type="button" class="iconbtn" id="peX">Cancel</button><b>Adjust photo</b><button type="button" class="iconbtn primary" id="peOk">Done</button></div>
-      <div class="pe-stage" id="peStage"><div class="pe-wrap" id="peWrap"><canvas id="peC"></canvas><div class="pe-crop" id="peCrop"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div></div></div>
+      <div class="pe-stage" id="peStage"><div class="pe-wrap" id="peWrap"><canvas id="peC"></canvas><div class="pe-crop" id="peCrop"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i><i class="ed" data-h="n"></i><i class="ed" data-h="s"></i><i class="ed" data-h="w"></i><i class="ed" data-h="e"></i></div></div></div>
       <div class="pe-tools">
         <div class="pe-row"><button type="button" class="iconbtn" id="peL" title="Rotate left">⟲ Left</button><button type="button" class="iconbtn" id="peR" title="Rotate right">⟳ Right</button><button type="button" class="iconbtn" id="peAuto">✨ Auto crop</button><button type="button" class="iconbtn" id="peReset">Reset</button></div>
         <label class="pe-row" style="gap:10px">Straighten<input type="range" id="peDeg" min="-15" max="15" step="0.5" value="0" style="flex:1"><span id="peDegV" style="width:3.2em;text-align:right">0°</span></label>
-        <div class="pe-hint">Drag the corners to crop. Drag inside the box to move it.</div>
+        <div class="pe-hint">Drag a corner, or the bar on any side, to crop. Drag inside the box to move it.</div>
       </div></div>`;
     const cv = document.getElementById("peC"), box = document.getElementById("peCrop"), stage = document.getElementById("peStage"), wrap = document.getElementById("peWrap");
     const draw = () => {
