@@ -532,6 +532,10 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .boottog{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--bg)}
 .boottog input{width:22px;height:22px;accent-color:#b3261e}
 .boottog:has(input:checked){border-color:#b3261e;background:color-mix(in srgb,#b3261e 10%,var(--bg))}
+/* Field with a button beside it (Title + Look up, Barcode + Scan) */
+.inrow{display:flex;gap:8px;align-items:stretch}
+.inrow input{flex:1 1 auto;min-width:0}
+.inrow .iconbtn{flex:0 0 auto;height:auto;min-height:44px;padding:0 16px;gap:7px;white-space:nowrap;border-radius:10px}
 </style>
 </head>
 <body>
@@ -545,7 +549,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.10";
+const APP_VERSION = "2026.11.04.11";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2113,10 +2117,10 @@ function viewEdit(id, params){
       </fieldset>
       <fieldset><legend>The piece</legend><div class="fgrid">
         <div class="f"><label for="collectionId">Gallery</label><select id="collectionId" name="collectionId">${[...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(x=>`<option value="${x.id}" ${x.id===it.collectionId?"selected":""}>${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
-        <div class="f"><label for="title">Title *</label><div style="display:flex;gap:6px"><input id="title" name="title" required autocapitalize="words" data-tc value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title" style="height:auto;white-space:nowrap">🔎 Look up</button>` : ""}</div></div>
+        <div class="f"><label for="title">Title *</label><div class="inrow"><input id="title" name="title" required autocapitalize="words" data-tc value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title">🔎 <span>Look up</span></button>` : ""}</div></div>
         <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
         <div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
-        <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div style="display:flex;gap:6px"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" style="height:auto">▦</button></div></div>
+        <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div class="inrow"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" aria-label="Scan with camera">▦ <span>Scan</span></button></div></div>
         ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts && f.opts.length
           ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts)
           : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}>`}</div>`).join("")}
