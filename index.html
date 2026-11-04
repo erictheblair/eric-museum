@@ -163,13 +163,16 @@ form.edit{max-width:760px}
 .f textarea{min-height:110px;resize:vertical}
 fieldset{border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 16px}
 legend{font-family:var(--serif);font-weight:600;padding:0 6px}
-.media-edit{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:10px}
+.media-edit{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
 .mtile{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);font-size:.78rem}
 .mtile .im{aspect-ratio:1/1;background:var(--mat);display:flex;align-items:center;justify-content:center;font-size:2rem}
 .mtile .im img{width:100%;height:100%;object-fit:cover}
 .mtile .row{display:flex;gap:4px;padding:6px;align-items:center}
 .mtile input{width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:var(--bg);font-size:.78rem}
-.mtile button{border:none;background:none;cursor:pointer;padding:2px 4px;font-size:.95rem}
+.mtile{position:relative}.mtile .im{position:relative}.mtile .tag{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;padding:2px 8px;font-size:.72rem}
+.mtile .row{gap:6px}
+.mtile button{flex:1 1 0;min-width:40px;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink,inherit);cursor:pointer;padding:0;font-size:1.25rem;display:inline-flex;align-items:center;justify-content:center}
+.mtile button[data-rm]{color:#c0392b}
 .filebtn{position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .check{display:flex;align-items:center;gap:8px;font-size:.92rem}
@@ -531,7 +534,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.5";
+const APP_VERSION = "2026.11.04.6";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2040,13 +2043,13 @@ function viewEdit(id, params){
       </fieldset>
       <fieldset><legend>The piece</legend><div class="fgrid">
         <div class="f"><label for="collectionId">Gallery</label><select id="collectionId" name="collectionId">${[...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(x=>`<option value="${x.id}" ${x.id===it.collectionId?"selected":""}>${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
-        <div class="f"><label for="title">Title *</label><div style="display:flex;gap:6px"><input id="title" name="title" required value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title" style="height:auto;white-space:nowrap">🔎 Look up</button>` : ""}</div></div>
-        <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" value="${esc(it.maker||"")}" list="makers"></div>
+        <div class="f"><label for="title">Title *</label><div style="display:flex;gap:6px"><input id="title" name="title" required autocapitalize="words" data-tc value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title" style="height:auto;white-space:nowrap">🔎 Look up</button>` : ""}</div></div>
+        <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
         <div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
         <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div style="display:flex;gap:6px"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" style="height:auto">▦</button></div></div>
         ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts && f.opts.length
           ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts)
-          : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}">`}</div>`).join("")}
+          : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}>`}</div>`).join("")}
         <div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>
         <div class="f"><label for="qty">How many you have</label><input id="qty" name="qty" type="number" min="1" step="1" value="${esc(it.qty||1)}" inputmode="numeric"></div>
         <div class="f"><label for="location">Where it lives (shelf, box, wall)</label><input id="location" name="location" value="${esc(it.location||"")}"></div>
@@ -2078,6 +2081,8 @@ function viewEdit(id, params){
       </div></div>
     </form>`;
     renderMedia();
+    // Names and titles: capitalize each word when the whole entry was typed in lowercase (leaves deliberate casing alone).
+    app.querySelectorAll("[data-tc]").forEach(i => i.addEventListener("blur", () => { if(i.value && i.value === i.value.toLowerCase()) i.value = i.value.replace(/(^|[\s\-\/(&"])(\p{Ll})/gu, (m, a, b) => a + b.toUpperCase()); }));
     const f = document.getElementById("ef");
     f.collectionId.onchange = () => { collect(); it.collectionId = f.collectionId.value; render(); };
     document.getElementById("addPhotos").onchange = e => addFiles(e.target.files, "photo");
@@ -2181,10 +2186,11 @@ function viewEdit(id, params){
     el.innerHTML = it.media.map((m,n) => {
       const p = pending.find(p => p.m === m);
       const im = m.kind === "photo" ? (p ? `<img src="${p.previewUrl}" alt="">` : `<img alt="" data-path="${esc(m.thumb||m.path)}">`) : (/pdf$/i.test(m.name||"") ? "📄" : "📜");
-      return `<div class="mtile"><div class="im">${im}</div><div class="row">
-        ${m.kind === "photo" ? `<span style="flex:1;color:var(--muted)">${n===it.media.findIndex(x=>x.kind==="photo")?"Cover":"Photo"}</span><button type="button" data-cover="${m.id}" title="Make cover">⤒</button><button type="button" data-edit="${m.id}" title="Crop &amp; rotate">✎</button>`
+      const isCover = m.kind === "photo" && n === it.media.findIndex(x=>x.kind==="photo");
+      return `<div class="mtile"><div class="im">${im}${isCover ? `<span class="tag">Cover</span>` : ""}</div><div class="row">
+        ${m.kind === "photo" ? `${isCover ? "" : `<button type="button" data-cover="${m.id}" title="Make cover" aria-label="Make cover">⤒</button>`}<button type="button" data-edit="${m.id}" title="Crop &amp; rotate" aria-label="Crop and rotate">✎</button>`
           : `<input data-label="${m.id}" value="${esc(m.label||"")}" placeholder="COA, receipt…">`}
-        <button type="button" data-rm="${m.id}" title="Remove">✕</button></div></div>`;
+        <button type="button" data-rm="${m.id}" title="Remove" aria-label="Remove">✕</button></div></div>`;
     }).join("");
     el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { collect(); const i = it.media.findIndex(m=>m.id===b.dataset.rm); const [m] = it.media.splice(i,1);
       const pi = pending.findIndex(p=>p.m===m); if(pi>=0) pending.splice(pi,1); else removed.push(m); renderMedia(); });
