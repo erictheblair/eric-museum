@@ -306,3 +306,42 @@ def checker():
 
 panels(); bookcase(); tile(); steel(); checker()
 print("lib+diner ok")
+
+# ---------- Haunted floor: old, weathered, dark planks ----------
+def oldboards():
+    W, H = 768, 384
+    yy, xx = np.mgrid[0:H, 0:W].astype(float)
+    bw = 48
+    col = (xx // bw).astype(int)
+    r = np.random.default_rng(66)
+    # staggered butt joints along each plank
+    off = r.uniform(0, H, 32)
+    seg = (((yy + off[col % 32]) // 190).astype(int))
+    tone = r.uniform(-.06, .06, (32, 8))[col % 32, seg % 8]
+    grain = noise(H, W, 2.2, 61, aniso=(.04, 1))
+    fine = noise(H, W, 1.2, 62, aniso=(.02, 1))
+    rot = noise(H, W, 2.6, 63)
+    base = np.stack([.24, .19, .16])[None, None, :]
+    c = base * (0.55 + .7 * grain[..., None] + .25 * (fine[..., None] - .5)) + tone[..., None]
+    c *= (0.8 + .35 * rot[..., None])                       # patchy rot / damp
+    gx = xx % bw
+    c[gx < 3] *= .12                                         # gaps between planks
+    c[(gx >= 3) & (gx < 6)] *= .7                            # worn plank edges
+    joint = ((yy + off[col % 32]) % 190) < 2
+    c[joint] *= .2
+    for _ in range(26):                                      # knots
+        kx, ky = r.uniform(0, W), r.uniform(0, H); d = np.sqrt(((xx - kx) * 1.0) ** 2 + ((yy - ky) * .45) ** 2)
+        c *= (1 - .45 * np.exp(-(d / r.uniform(3, 7)) ** 2))[..., None]
+    for _ in range(14):                                      # nail heads
+        kx = (r.integers(0, W // bw) * bw) + r.choice([8, bw - 9]); ky = r.uniform(0, H)
+        d = np.sqrt((xx - kx) ** 2 + (yy - ky) ** 2); c *= (1 - .6 * (d < 2.2))[..., None]
+    for _ in range(40):                                      # scratches
+        x0, y0, L, a = r.uniform(0, W), r.uniform(0, H), r.uniform(20, 90), r.uniform(-.5, .5)
+        t = np.linspace(0, 1, 200); px = (x0 + L * np.sin(a) * t).astype(int) % W; py = (y0 + L * np.cos(a) * t).astype(int) % H
+        c[py, px] *= 1.25
+    c = np.clip(c, 0, 1) * np.array([.92, .92, 1.0])           # cold cast
+    save(c, "oldboards.jpg", 82)
+
+if __name__ == "__main__":
+    import sys
+    if "oldboards" in sys.argv: oldboards()
