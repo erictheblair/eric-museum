@@ -525,6 +525,13 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .lightbox>.panel{position:relative;will-change:transform}
 .lightbox>.panel::before{content:"";display:block;width:44px;height:5px;border-radius:3px;background:color-mix(in srgb,var(--muted) 45%,transparent);margin:-6px auto 10px}
 .lightbox>.panel [id$="X"][aria-label="Close"]{min-width:44px;height:44px;font-size:1.2rem}
+/* Bootleg banner across the corner of the artwork */
+.frame.boot,.pframe.boot{position:relative;overflow:hidden}
+.frame.boot::after,.pframe.boot::after{content:"BOOTLEG";position:absolute;z-index:3;top:16px;right:-38px;width:140px;transform:rotate(45deg);background:#b3261e;color:#fff;text-align:center;font:800 .62rem/1.9 var(--sans,system-ui);letter-spacing:.16em;box-shadow:0 2px 6px rgba(0,0,0,.45);border-top:1px dashed rgba(255,255,255,.55);border-bottom:1px dashed rgba(255,255,255,.55);pointer-events:none}
+.item .frame.boot::after,.pframe.boot::after{top:26px;right:-50px;width:200px;font-size:.85rem;line-height:2.1}
+.boottog{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--bg)}
+.boottog input{width:22px;height:22px;accent-color:#b3261e}
+.boottog:has(input:checked){border-color:#b3261e;background:color-mix(in srgb,#b3261e 10%,var(--bg))}
 </style>
 </head>
 <body>
@@ -538,7 +545,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.9";
+const APP_VERSION = "2026.11.04.10";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -823,7 +830,7 @@ function plate(it){
   const shown = iss && !/#/.test(it.title||"") ? it.title + " #" + iss : it.title;
   const sub = [it.maker, it.year].filter(Boolean).join(" · ");
   const meta = c.fields.filter(f => !(priv && f.priv) && (it.fields||{})[f.k]).slice(0,2).map(f => it.fields[f.k]).concat(it.qty > 1 ? ["×" + it.qty] : [], it.condition ? [it.condition] : [], !priv && it.value ? [money(it.value)] : []);
-  return `<a class="card" href="#/i/${it.id}"><div class="frame"><div class="matte">${inner}</div></div>
+  return `<a class="card" href="#/i/${it.id}"><div class="frame${it.bootleg ? " boot" : ""}"><div class="matte">${inner}</div></div>
     <div class="plaque"><div class="t">${it.favorite?'<span class="star">★</span> ':""}${esc(shown)}</div><div class="s">${esc(sub)||"&nbsp;"}</div></div><div class="meta">${esc(meta.join(" · "))}</div></a>`;
 }
 
@@ -1006,7 +1013,7 @@ function viewWall(id, params){
     <div class="floor"></div><div class="fish" aria-hidden="true"><div class="shade"></div><div class="cz"></div><div class="cz c2"></div><div class="rays"></div></div>
     <div class="wtrack" id="wtrack"><div class="swim" aria-hidden="true"></div>${pieces.map((it,n) => `<section class="bay" data-n="${n}" aria-label="${esc(it.title||"")}">
       <i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
-      <button type="button" class="pframe" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
+      <button type="button" class="pframe${it.bootleg ? " boot" : ""}" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
       ${placard(it)}</section>`).join("")}</div>
     ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
     <div class="wbar"><a class="wbtn" href="#/c/${id}" aria-label="Leave gallery mode" title="Leave gallery mode">✕</a>
@@ -1189,14 +1196,14 @@ function viewItem(id){
   const add = (l, v, isPriv) => { if(v !== "" && v != null) facts.push([l, isPriv && priv ? hidden : esc(v)]); };
   add(c.maker || "Maker", it.maker); add("Year", it.year);
   c.fields.forEach(f => add(f.l, (it.fields||{})[f.k], f.priv));
-  add("Condition", it.condition); add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
+  add("Release", it.bootleg ? "Bootleg (unofficial)" : ""); add("Condition", it.condition); add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
   add("Acquired", [it.acquiredDate, it.source].filter(Boolean).join(" · "));
   if(it.price) facts.push(["Price paid", priv ? hidden : esc(money(it.price))]);
   if(it.value) facts.push(["Estimated value", priv ? hidden : esc(money(it.value))]);
   (it.extra||[]).forEach(x => add(x.l, x.v));
   app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › <a href="#/c/${c.id}">${esc(c.name)}</a></div>
   <article class="item">
-    <div class="viewer">${photos.length ? `<div class="frame"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div></div>
+    <div class="viewer">${photos.length ? `<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div></div>
       ${photos.length > 1 ? `<div class="thumbs">${photos.map((p,n)=>`<button data-n="${n}" class="${n?"":"on"}" aria-label="Photo ${n+1}"><img alt="" data-path="${esc(p.thumb||p.path)}"></button>`).join("")}</div>` : ""}`
       : `<div class="frame"><div class="matte" style="aspect-ratio:4/3"><div class="placeholder"><div class="em" style="font-size:4rem">${c.icon}</div><div>No photos yet</div></div></div></div>`}
     </div>
@@ -2114,6 +2121,7 @@ function viewEdit(id, params){
           ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts)
           : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}>`}</div>`).join("")}
         <div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>
+        <div class="f full"><label class="boottog"><input type="checkbox" name="bootleg" ${it.bootleg ? "checked" : ""}><span><b>Bootleg</b> <span style="color:var(--muted)">· unofficial release; adds a banner to the artwork</span></span></label></div>
         <div class="f"><label for="qty">How many you have</label><input id="qty" name="qty" type="number" min="1" step="1" value="${esc(it.qty||1)}" inputmode="numeric"></div>
         <div class="f"><label for="location">Where it lives (shelf, box, wall)</label><input id="location" name="location" value="${esc(it.location||"")}"></div>
         <div class="f full"><label for="tags">Tags (comma separated)</label><input id="tags" name="tags" value="${esc((it.tags||[]).join(", "))}" placeholder="e.g. Disney, signed, wishlist upgrade"></div>
@@ -2236,6 +2244,7 @@ function viewEdit(id, params){
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
     const q = parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
+    if(d.get("bootleg")) it.bootleg = true; else delete it.bootleg;
     const cps = readCopies();
     if(q > 1 && cps.some(x => x.condition || x.location || x.note)) it.copies = cps.slice(0, q); else delete it.copies;
     it.fields = it.fields || {};
