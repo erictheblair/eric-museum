@@ -534,7 +534,7 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.6";
+const APP_VERSION = "2026.11.04.7";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1283,22 +1283,73 @@ function rotated(src, quarter, deg){
   const iw = w0*k/W, ih = h0*k/H;
   return {c, inner:{x:(1-iw)/2, y:(1-ih)/2, w:iw, h:ih}};
 }
-// Find the piece against a plain background: compare every pixel to the border colour.
+// Find the piece against its background. Border pixels teach us what "background" looks like (a few colour
+// clusters, so uneven light and a two-tone table still count), shadows are discounted, outlines are picked up
+// from edges, and the biggest solid shape wins. Also measures how far the piece is tilted.
 function autoCropBox(canvas){
-  const sm = scaledCanvas(canvas, 360), W = sm.width, H = sm.height, d = sm.getContext("2d").getImageData(0,0,W,H).data;
-  const px = (x,y) => { const i = (y*W+x)*4; return [d[i],d[i+1],d[i+2]]; };
-  const border = []; for(let x=0;x<W;x+=2){ border.push(px(x,1), px(x,H-2)); } for(let y=0;y<H;y+=2){ border.push(px(1,y), px(W-2,y)); }
-  const med = [0,1,2].map(ch => border.map(p=>p[ch]).sort((a,b)=>a-b)[border.length>>1]);
-  const dist = p => Math.abs(p[0]-med[0]) + Math.abs(p[1]-med[1]) + Math.abs(p[2]-med[2]);
-  const spread = border.map(dist).sort((a,b)=>a-b)[Math.floor(border.length*.8)];
-  const th = Math.max(48, spread * 1.6);
+  const sm = scaledCanvas(canvas, 320), W = sm.width, H = sm.height, N = W*H, d = sm.getContext("2d").getImageData(0,0,W,H).data;
+  const R = new Float32Array(N), G = new Float32Array(N), B = new Float32Array(N), Lu = new Float32Array(N);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ let r=0,g=0,b=0,n=0;
+    for(let dy=-1;dy<=1;dy++){ const yy=y+dy; if(yy<0||yy>=H) continue; for(let dx=-1;dx<=1;dx++){ const xx=x+dx; if(xx<0||xx>=W) continue; const k=(yy*W+xx)*4; r+=d[k]; g+=d[k+1]; b+=d[k+2]; n++; } }
+    const i=y*W+x; R[i]=r/n; G[i]=g/n; B[i]=b/n; Lu[i]=(R[i]+G[i]+B[i])/3; }
+  const ring = []; const bw = Math.max(2, Math.round(Math.min(W,H)*.015));
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(x<bw||y<bw||x>=W-bw||y>=H-bw) ring.push(y*W+x);
+  // k-means on border colours
+  const K = 4, srt = ring.slice().sort((a,b)=>Lu[a]-Lu[b]);
+  let C = Array.from({length:K}, (_,k) => { const i = srt[Math.floor((k+.5)/K*srt.length)]; return [R[i],G[i],B[i]]; });
+  for(let it=0; it<8; it++){ const acc = C.map(()=>[0,0,0,0]);
+    for(const i of ring){ let bk=0, bd=1e9; C.forEach((c,k)=>{ const v=Math.abs(R[i]-c[0])+Math.abs(G[i]-c[1])+Math.abs(B[i]-c[2]); if(v<bd){bd=v;bk=k;} }); const a=acc[bk]; a[0]+=R[i]; a[1]+=G[i]; a[2]+=B[i]; a[3]++; }
+    C = C.map((c,k) => acc[k][3] ? [acc[k][0]/acc[k][3], acc[k][1]/acc[k][3], acc[k][2]/acc[k][3]] : c); }
+  const dist = new Float32Array(N);
+  for(let i=0;i<N;i++){ let best=1e9;
+    for(const c of C){ const dr=R[i]-c[0], dg=G[i]-c[1], db=B[i]-c[2], l=(dr+dg+db)/3, ch=Math.abs(dr-l)+Math.abs(dg-l)+Math.abs(db-l);
+      const v = (l < 0 ? .25 : .8) * Math.abs(l) + 1.3*ch;   // darker-than-background (shadows) counts for less
+      if(v<best) best=v; }
+    dist[i]=best; }
+  // Edges (Sobel on brightness)
+  const grad = new Float32Array(N);
+  for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i=y*W+x;
+    const gx = Lu[i-W+1]+2*Lu[i+1]+Lu[i+W+1]-Lu[i-W-1]-2*Lu[i-1]-Lu[i+W-1], gy = Lu[i+W-1]+2*Lu[i+W]+Lu[i+W+1]-Lu[i-W-1]-2*Lu[i-W]-Lu[i-W+1];
+    grad[i] = Math.hypot(gx, gy); }
+  const pct = (arr, idx, p) => { const v = idx.map(i=>arr[i]).sort((a,b)=>a-b); return v[Math.min(v.length-1, Math.floor(v.length*p))]; };
+  const inner = ring.filter(i => { const x=i%W, y=(i/W)|0; return x>0&&y>0&&x<W-1&&y<H-1; });
+  // Otsu threshold on the colour distance, never below what the border itself varies by
+  const hist = new Array(256).fill(0); for(let i=0;i<N;i++) hist[Math.min(255, dist[i]|0)]++;
+  let sum=0; for(let t=0;t<256;t++) sum+=t*hist[t]; let sB=0, wB=0, best=0, otsu=30;
+  for(let t=0;t<256;t++){ wB+=hist[t]; if(!wB) continue; const wF=N-wB; if(!wF) break; sB+=t*hist[t]; const mB=sB/wB, mF=(sum-sB)/wF, v=wB*wF*(mB-mF)*(mB-mF); if(v>best){best=v; otsu=t;} }
+  const th = Math.max(18, Math.min(otsu, 90), pct(dist, ring, .97) * 1.25), gth = Math.max(90, pct(grad, inner, .97) * 2);
+  let m = new Uint8Array(N), cnt = 0; for(let i=0;i<N;i++){ m[i] = dist[i] > th ? 1 : 0; cnt += m[i]; }
+  // Piece barely differs from the background (white on white): fall back to its outline. Otherwise skip edges, so soft shadows don't count.
+  if(cnt < N*.06) for(let i=0;i<N;i++) if(grad[i] > gth) m[i] = 1;
+  // Close small gaps: dilate then erode
+  const morph = (src, r, dil) => { const t = new Uint8Array(N), o = new Uint8Array(N);
+    for(let y=0;y<H;y++){ for(let x=0;x<W;x++){ let v = dil ? 0 : 1; for(let k=-r;k<=r;k++){ const xx=x+k; const s = xx<0||xx>=W ? (dil?0:1) : src[y*W+xx]; if(dil ? s : !s){ v = dil ? 1 : 0; break; } } t[y*W+x]=v; } }
+    for(let y=0;y<H;y++){ for(let x=0;x<W;x++){ let v = dil ? 0 : 1; for(let k=-r;k<=r;k++){ const yy=y+k; const s = yy<0||yy>=H ? (dil?0:1) : t[yy*W+x]; if(dil ? s : !s){ v = dil ? 1 : 0; break; } } o[y*W+x]=v; } }
+    return o; };
+  const rr = Math.max(2, Math.round(Math.min(W,H)*.012));
+  m = morph(morph(m, rr, true), rr, false);
+  // Largest connected shape
+  const lab = new Int32Array(N); let bestLab = 0, bestN = 0, cur = 0; const st = new Int32Array(N);
+  for(let s0=0;s0<N;s0++){ if(!m[s0] || lab[s0]) continue; cur++; let sp=0, n=0; st[sp++]=s0; lab[s0]=cur;
+    while(sp){ const i=st[--sp]; n++; const x=i%W;
+      if(x>0 && m[i-1] && !lab[i-1]){ lab[i-1]=cur; st[sp++]=i-1; } if(x<W-1 && m[i+1] && !lab[i+1]){ lab[i+1]=cur; st[sp++]=i+1; }
+      if(i>=W && m[i-W] && !lab[i-W]){ lab[i-W]=cur; st[sp++]=i-W; } if(i<N-W && m[i+W] && !lab[i+W]){ lab[i+W]=cur; st[sp++]=i+W; } }
+    if(n>bestN){ bestN=n; bestLab=cur; } }
+  if(bestN < N*.02) return null;
+  // Tilt: the angle whose bounding box hugs the outline tightest
+  const pts = []; for(let i=0;i<N;i++) if(lab[i]===bestLab){ const x=i%W; if(x===0||x===W-1||lab[i-1]!==bestLab||lab[i+1]!==bestLab||lab[i-W]!==bestLab||lab[i+W]!==bestLab) pts.push(x, (i/W)|0); }
+  const area = a => { const c=Math.cos(a), s=Math.sin(a); let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    for(let k=0;k<pts.length;k+=2){ const X=pts[k]*c-pts[k+1]*s, Y=pts[k]*s+pts[k+1]*c; if(X<x0)x0=X; if(X>x1)x1=X; if(Y<y0)y0=Y; if(Y>y1)y1=Y; } return (x1-x0)*(y1-y0); };
+  let ba = 0, bA = area(0); for(let deg=-15; deg<=15; deg+=.25){ const A = area(deg*Math.PI/180); if(A < bA - 1e-6){ bA = A; ba = deg; } }
+  const angle = bA > 0 && bestN / bA > .82 && Math.abs(ba) >= .5 ? ba : 0;   // only for squarish things (sleeves, cards, frames)
+  // Straight bounding box, ignoring thin stray bits
   const cols = new Array(W).fill(0), rows = new Array(H).fill(0);
-  for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(dist(px(x,y)) > th){ cols[x]++; rows[y]++; }
-  const edge = (arr, lim) => { let a = 0, b = arr.length-1; while(a < b && arr[a] < lim) a++; while(b > a && arr[b] < lim) b--; return [a, b]; };
-  const [x0,x1] = edge(cols, H*.04), [y0,y1] = edge(rows, W*.04);
-  const pad = .012, box = {x:x0/W - pad, y:y0/H - pad, w:(x1-x0+1)/W + 2*pad, h:(y1-y0+1)/H + 2*pad};
+  for(let i=0;i<N;i++) if(lab[i]===bestLab){ cols[i%W]++; rows[(i/W)|0]++; }
+  const edge = (arr) => { const lim = Math.max(...arr) * .05; let a = 0, b = arr.length-1; while(a < b && arr[a] <= lim) a++; while(b > a && arr[b] <= lim) b--; return [a, b]; };
+  const [x0,x1] = edge(cols), [y0,y1] = edge(rows);
+  const pad = .01, box = {x:x0/W - pad, y:y0/H - pad, w:(x1-x0+1)/W + 2*pad, h:(y1-y0+1)/H + 2*pad, angle};
   box.x = Math.max(0, box.x); box.y = Math.max(0, box.y); box.w = Math.min(1-box.x, box.w); box.h = Math.min(1-box.y, box.h);
-  if(box.w*box.h > .94 || box.w < .12 || box.h < .12) return null;
+  if((box.w > .97 && box.h > .97) || box.w < .1 || box.h < .1) return null;
   return box;
 }
 function photoEditor(blob){
@@ -1337,7 +1388,12 @@ function photoEditor(blob){
       // Look only inside the clean area (no blank corners from straightening), then map back.
       const inn = R.inner, ic = document.createElement("canvas"), W = R.c.width, H = R.c.height;
       ic.width = Math.round(inn.w*W); ic.height = Math.round(inn.h*H); ic.getContext("2d").drawImage(R.c, inn.x*W, inn.y*H, ic.width, ic.height, 0, 0, ic.width, ic.height);
-      const b = autoCropBox(ic); if(!b) return toast("Couldn't find clear edges. Drag the corners instead.");
+      let b = autoCropBox(ic); if(!b) return toast("Couldn't find clear edges. Drag the corners instead.");
+      // Tilted piece: straighten it first, then find the edges again on the straightened photo.
+      if(b.angle && Math.abs(deg + b.angle) <= 15){ deg = Math.round((deg + b.angle) * 2) / 2; document.getElementById("peDeg").value = deg; document.getElementById("peDegV").textContent = deg + "°"; rebuild(false);
+        const inn2 = R.inner, W2 = R.c.width, H2 = R.c.height; ic.width = Math.round(inn2.w*W2); ic.height = Math.round(inn2.h*H2); ic.getContext("2d").drawImage(R.c, inn2.x*W2, inn2.y*H2, ic.width, ic.height, 0, 0, ic.width, ic.height);
+        b = autoCropBox(ic) || {x:0, y:0, w:1, h:1};
+        crop = {x:inn2.x + b.x*inn2.w, y:inn2.y + b.y*inn2.h, w:b.w*inn2.w, h:b.h*inn2.h}; return draw(); }
       crop = {x:inn.x + b.x*inn.w, y:inn.y + b.y*inn.h, w:b.w*inn.w, h:b.h*inn.h}; draw(); };
     // Dragging the crop box and its corners.
     let drag = null;
@@ -1417,16 +1473,19 @@ function scanBarcode(onCode){
       let native = null;
       try{ if("BarcodeDetector" in window) native = new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39"]}); }catch{}
       const cv = document.createElement("canvas"), ctx = cv.getContext("2d", {willReadFrequently:true});
+      let flip = true;
       const tick = async () => {
         if(finished) return;
+        flip = !flip;
         if(video.readyState >= 2 && video.videoWidth){
           const s = Math.min(1, 1280 / video.videoWidth);
           cv.width = Math.round(video.videoWidth * s); cv.height = Math.round(video.videoHeight * s);
           ctx.drawImage(video, 0, 0, cv.width, cv.height);
           try{
             if(native){ const r = await native.detect(cv); if(r.length) return finish(r[0].rawValue); }
-            const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)));
-            const r = zx.decode(bmp); if(r) return finish(r.getText());
+            const src = new ZXing.HTMLCanvasElementLuminanceSource(cv);
+            // Alternate normal and inverted reads so white-on-black barcodes work too.
+            const r = zx.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(flip ? src.invert() : src))); if(r) return finish(r.getText());
           }catch(e){ /* not found in this frame */ }
         }
         setTimeout(tick, 200);
