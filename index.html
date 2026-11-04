@@ -684,7 +684,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.32";
+const APP_VERSION = "2026.11.04.33";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2324,7 +2324,7 @@ function viewEdit(id, params){
         <div class="f"><label for="collectionId">Gallery</label><select id="collectionId" name="collectionId">${[...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(x=>`<option value="${x.id}" ${x.id===it.collectionId?"selected":""}>${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
         <div class="f"><label for="title">Title *</label><div class="inrow"><input id="title" name="title" required autocapitalize="words" data-tc value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title">🔎 <span>Look up</span></button>` : ""}</div></div>
         <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
-        <div class="f"><label for="makerSort">Sort ${esc((c.maker||"maker").toLowerCase())} as <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="makerSort" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker))}" placeholder="${esc(it.maker ? makerKey(it.maker) : "e.g. Bowie, David")}" autocapitalize="words"></div>
+        <div class="f"><label for="makerSort">Sort ${esc((c.maker||"maker").toLowerCase())} as <span style="font-weight:400;color:var(--muted)">(optional)</span></label><div class="inrow"><input id="makerSort" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker) || msGet(cat.makerSort, it.maker) || it.maker || "")}" placeholder="e.g. Bowie, David" autocapitalize="words"><button type="button" class="iconbtn" id="msFlip" title="Last name first (or back again)">⇄ <span>Flip</span></button></div></div>
         <div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
         <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div class="inrow"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" aria-label="Scan with camera">▦ <span>Scan</span></button></div></div>
         ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts && f.opts.length
@@ -2378,6 +2378,17 @@ function viewEdit(id, params){
     f.onsubmit = async e => { e.preventDefault(); collect(); await save((e.submitter && e.submitter.dataset.next) || ""); };
     const startScan = () => { collect(); scanBarcode(code => lookupInto(code)); };
     document.getElementById("scanBtn").onclick = startScan;
+    { // "Sort as" follows the artist's name until it's changed by hand; Flip turns "Alan Sherman" into "Sherman, Alan" and back.
+      const mk = document.getElementById("maker"), ms = document.getElementById("makerSort"), flipBtn = document.getElementById("msFlip");
+      if(mk && ms){
+        let prev = mk.value.trim();
+        const flipName = v => { v = v.trim(); const m = v.match(/^([^,]+),\s*(.+)$/); if(m) return m[2] + " " + m[1];
+          const w = v.split(/\s+/); let last = w.length - 1; while(last > 1 && /^(jr\.?|sr\.?|ii|iii|iv)$/i.test(w[last])) last--;
+          return w.length < 2 ? v : w[last] + ", " + w.slice(0, last).concat(w.slice(last + 1)).join(" "); };
+        mk.addEventListener("input", () => { const now = mk.value.trim(); const cur = ms.value.trim();
+          if(!cur || cur === prev) ms.value = now; else if(cur === flipName(prev)) ms.value = flipName(now); prev = now; });
+        flipBtn.onclick = () => { ms.value = flipName(ms.value.trim() || mk.value.trim()); };
+      } }
     if(document.getElementById("scanTop")) document.getElementById("scanTop").onclick = startScan;
     document.getElementById("barcode").onchange = e => { const v = e.target.value.trim(); if(v && !existing) { collect(); lookupInto(v); } };
     if(document.getElementById("titleLook")) document.getElementById("titleLook").onclick = lookupTitle;
