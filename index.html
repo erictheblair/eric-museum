@@ -684,7 +684,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.31";
+const APP_VERSION = "2026.11.04.32";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -990,33 +990,25 @@ function matches(it, q){
 const conditionList = () => CONDITIONS.concat(((cat && cat.settings)||{}).conditions || []);
 const condRank = c => { const i = conditionList().findIndex(x => x.toLowerCase() === String(c||"").toLowerCase()); return i < 0 ? (c ? 50 : 99) : i; };
 const sortKey = t => String(t||"").replace(/^(the|a|an)\s+/i, "").trim();
-/* Artists sort by last name ("Bowie, David"). Music galleries learn real sort names from MusicBrainz, so bands
-   like Pink Floyd stay as they are; everything else uses a careful guess that leaves anything band-like alone. */
-const GROUPISH = /(&|\+|\/|,|\d|\b(and|with|feat\.?|featuring|vs\.?|band|orchestra|philharmonic|symphony|quartet|quintet|trio|ensemble|choir|chorus|brothers|sisters|boys|girls|singers|players|group|company|club|crew|gang|kids|project|experience|collective|society|records|studios?|productions|inc\.?|ltd\.?|llc|various|unknown|soundtrack|cast|disney|pictures|entertainment|comics|press|games)\b)/i;
-const NAME_SUFFIX = /^(jr\.?|sr\.?|ii|iii|iv|esq\.?|phd)$/i;
-function guessMakerSort(m){
-  m = String(m||"").trim();
-  if(!m || /^(the|a|an)\s/i.test(m) || GROUPISH.test(m)) return sortKey(m);
-  const w = m.split(/\s+/); let last = w.length - 1;
-  while(last > 0 && NAME_SUFFIX.test(w[last].replace(/,$/, ""))) last--;
-  if(last < 1 || w.length > 4 || w.some(x => /[a-z]/.test(x[0]) && !/^(van|von|de|da|del|della|di|du|la|le|der|den|ten|ter|y)$/i.test(x))) return m;
-  return w[last] + ", " + w.slice(0, last).concat(w.slice(last + 1)).join(" ");
-}
-const makerKey = m => { const ms = (cat.makerSort || {})[String(m||"").trim()]; return ms ? sortKey(ms) : guessMakerSort(m); };
+/* Artist sorting: as written (ignoring a leading "The"), unless the owner set a sort name for that artist,
+   or MusicBrainz knows one (music galleries only: "Bowie, David", while bands like Save Ferris stay as they are). */
+const msGet = (map, m) => { if(!map) return ""; m = String(m||"").trim(); return map[m] || map[m.toLowerCase()] || ""; };
+const makerKey = m => sortKey(msGet(cat.makerSortManual, m) || msGet(cat.makerSort, m) || m);
 let makerSortBusy = false;
 async function fillMakerSort(items, done){
   if(makerSortBusy || !navigator.onLine) return;
   const ms = cat.makerSort || (cat.makerSort = {});
-  const todo = [...new Set(items.map(i => String(i.maker||"").trim()))].filter(m => m && !(m in ms) && !/[&,\/+]|\s(and|with|feat\.?|featuring|x)\s/i.test(m) && !/^various/i.test(m));
+  const todo = [...new Set(items.map(i => String(i.maker||"").trim()))].filter(m => m && !(m in ms) && !(m.toLowerCase() in ms) && !msGet(cat.makerSortManual, m) && !/[&,\/+]|\s(and|with|feat\.?|featuring|x)\s/i.test(m) && !/^various/i.test(m));
   if(!todo.length) return;
   makerSortBusy = true; let changed = 0;
   try{
     for(const m of todo.slice(0, 80)){
-      try{
-        const j = await getJSON("https://musicbrainz.org/ws/2/artist/?fmt=json&limit=5&query=" + encodeURIComponent('artist:"' + m.replace(/"/g, "") + '"'));
-        const a = (j.artists||[]).find(a => (a.score||0) >= 90 && (a.name||"").toLowerCase() === m.toLowerCase());
-        ms[m] = a && a["sort-name"] ? a["sort-name"] : ""; changed++;
-      }catch{ break; }
+      const url = "https://musicbrainz.org/ws/2/artist/?fmt=json&limit=5&query=" + encodeURIComponent('artist:"' + m.replace(/"/g, "") + '"');
+      let j = null;
+      for(let tries = 0; tries < 3 && !j; tries++){ try{ j = await getJSON(url); }catch{ await new Promise(r => setTimeout(r, 3000 * (tries + 1))); } }
+      if(!j) break;   // MusicBrainz is busy or offline; try again next time
+      const a = (j.artists||[]).find(a => (a.score||0) >= 90 && [a.name, ...((a.aliases||[]).map(x => x.name))].some(n => String(n||"").toLowerCase() === m.toLowerCase()));
+      ms[m.toLowerCase()] = a && a["sort-name"] ? a["sort-name"] : ""; changed++;
       await new Promise(r => setTimeout(r, 1100));   // MusicBrainz asks for about one request a second
     }
   } finally { makerSortBusy = false; }
@@ -2332,6 +2324,7 @@ function viewEdit(id, params){
         <div class="f"><label for="collectionId">Gallery</label><select id="collectionId" name="collectionId">${[...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(x=>`<option value="${x.id}" ${x.id===it.collectionId?"selected":""}>${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
         <div class="f"><label for="title">Title *</label><div class="inrow"><input id="title" name="title" required autocapitalize="words" data-tc value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title">🔎 <span>Look up</span></button>` : ""}</div></div>
         <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
+        <div class="f"><label for="makerSort">Sort ${esc((c.maker||"maker").toLowerCase())} as <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="makerSort" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker))}" placeholder="${esc(it.maker ? makerKey(it.maker) : "e.g. Bowie, David")}" autocapitalize="words"></div>
         <div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
         <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div class="inrow"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" aria-label="Scan with camera">▦ <span>Scan</span></button></div></div>
         ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts && f.opts.length
@@ -2460,6 +2453,8 @@ function viewEdit(id, params){
   function collect(){
     const f = document.getElementById("ef"), d = new FormData(f), c = coll(it.collectionId);
     ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => it[k] = (d.get(k)||"").trim().replace(/^__other$/,""));
+    { const ms = (d.get("makerSort")||"").trim(), mk = (it.maker||"").trim().toLowerCase();   // one sort name per artist, used by all their pieces
+      if(mk){ cat.makerSortManual = cat.makerSortManual || {}; if(ms && ms !== it.maker) cat.makerSortManual[mk] = ms; else delete cat.makerSortManual[mk]; } }
     ["price","value"].forEach(k => { const v = (d.get(k)||"").replace(/[$,\s]/g,""); it[k] = v === "" ? "" : (isNaN(+v) ? v : +v); });
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
