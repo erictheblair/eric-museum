@@ -525,6 +525,12 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .lightbox>.panel{position:relative;will-change:transform}
 .lightbox>.panel::before{content:"";display:block;width:44px;height:5px;border-radius:3px;background:color-mix(in srgb,var(--muted) 45%,transparent);margin:-6px auto 10px}
 .lightbox>.panel [id$="X"][aria-label="Close"]{min-width:44px;height:44px;font-size:1.2rem}
+/* On a computer, sheets pop up in the middle of the screen instead of hanging off the bottom; the search ones keep one steady size while results load */
+@media (min-width:700px) and (min-height:520px){.lightbox[style*="flex-end"]{align-items:center!important;padding:4vh 24px}
+  .lightbox[style*="flex-end"]>.panel{border-radius:16px!important;padding-bottom:18px!important;box-shadow:0 30px 90px rgba(0,0,0,.55);animation:popIn .18s ease-out}
+  .lightbox[style*="flex-end"]>.panel::before{display:none}
+  #cc>.panel,#pk>.panel{height:min(700px,86vh)}}
+@keyframes popIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
 /* Bootleg banner across the corner of the artwork */
 .frame.boot,.pframe.boot{position:relative;overflow:hidden}
 .frame.boot::after,.pframe.boot::after{content:"BOOTLEG";position:absolute;z-index:3;top:16px;right:-38px;width:140px;transform:rotate(45deg);background:#b3261e;color:#fff;text-align:center;font:800 .62rem/1.9 var(--sans,system-ui);letter-spacing:.16em;box-shadow:0 2px 6px rgba(0,0,0,.45);border-top:1px dashed rgba(255,255,255,.55);border-bottom:1px dashed rgba(255,255,255,.55);pointer-events:none}
@@ -601,6 +607,60 @@ body.wallmode #fsc{display:none}
 @media (max-width:600px){.wall.r-haunted .hwin{left:6px;width:52px;top:18%;height:36%;border-width:6px;border-radius:26px 26px 4px 4px}
   .wall.r-haunted .hwin .wi{width:34px;height:20px}.wall.r-haunted .hwin .wb{width:24px}}
 @media (prefers-reduced-motion:reduce){.wall.r-haunted .hwin,.wall.r-haunted .hwin *,.wall.r-haunted .hwin::before{animation:none}}
+/* Christmas: red damask parlor with wainscoting, garland swags with twinkling bulbs, snowy windows (a waving snowman, kids sledding), foreground trees that parallax, presents, nutcrackers and tin soldiers */
+.xg,.xw,.xt,.xp{display:none}
+.wall.r-xmas{--fh:10vh;--wn:22vh;background:radial-gradient(ellipse 80% 70% at 50% 40%,rgba(255,150,60,.10),rgba(20,4,2,.62)),
+  linear-gradient(180deg,transparent calc(100% - var(--fh) - var(--wn) - 14px),#3a170c calc(100% - var(--fh) - var(--wn) - 14px),#8a5a2a calc(100% - var(--fh) - var(--wn) - 11px),#4a1f0e calc(100% - var(--fh) - var(--wn) - 6px),#1c0a05 calc(100% - var(--fh) - var(--wn)),transparent calc(100% - var(--fh) - var(--wn))),
+  repeating-linear-gradient(90deg,rgba(0,0,0,.35) 0 3px,rgba(255,200,140,.08) 3px 5px,transparent 5px 18px,rgba(255,200,140,.05) 18px 20px,transparent 20px 178px,rgba(0,0,0,.22) 178px 180px,transparent 180px 200px) 0 100%/200px calc(var(--fh) + var(--wn)) repeat-x,
+  linear-gradient(180deg,transparent calc(100% - var(--fh) - var(--wn)),#3a1a0e calc(100% - var(--fh) - var(--wn)),#2a1108),
+  url(rooms/xmas-damask.svg) 0 0/150px auto,#4a0a10}
+.wall.r-xmas .bay{background:none;padding-bottom:calc(var(--fh) + 5vh + env(safe-area-inset-bottom))}
+.wall.r-xmas .bay::before{background:radial-gradient(ellipse 50% 58% at 50% 36%,rgba(255,170,80,.26),rgba(255,120,40,.07) 58%,transparent 80%);mix-blend-mode:screen}
+.wall.r-xmas .floor{height:var(--fh);background:linear-gradient(180deg,rgba(0,0,0,.5),transparent 30%,rgba(0,0,0,.35)),
+  linear-gradient(180deg,transparent 22%,#5e0f14 22%,#d9b45a 24%,#5e0f14 25.5%,#14482a 27%,#7a1018 31%,#7a1018 68%,#14482a 72%,#5e0f14 73.5%,#d9b45a 75%,#5e0f14 77%,transparent 77%),
+  repeating-linear-gradient(90deg,rgba(255,220,150,.10) 0 2px,transparent 2px 22px) 0 0/22px 100% repeat-x,url(rooms/boards.jpg) 0 0/240px,#3a2414}
+.wall.r-xmas .floor::before{background:#140805}
+.wall.r-xmas .pframe{background:linear-gradient(135deg,#7d5716 0%,#e9c46e 18%,#a87a26 36%,#f6dc93 52%,#9c6f20 70%,#dcb45d 86%,#6f4c12 100%);padding:clamp(11px,1.8vw,20px);box-shadow:inset 0 0 0 2px rgba(0,0,0,.35),inset 0 0 0 6px rgba(255,236,170,.25),inset 0 0 12px rgba(0,0,0,.45),0 0 60px rgba(255,150,60,.18),0 24px 48px rgba(0,0,0,.7)}
+.wall.r-xmas .pframe::before{content:"";position:absolute;z-index:2;top:-16px;left:-20px;width:64px;height:44px;background:url(rooms/xmas-holly.svg) center/contain no-repeat;transform:rotate(-24deg);filter:drop-shadow(0 3px 3px rgba(0,0,0,.45));pointer-events:none}
+.wall.r-xmas .pmat{background:#f6f0e2}
+.wall.r-xmas .placard{background:linear-gradient(180deg,#fbf6ea,#efe5cf);border-top:3px solid #8e1219;border-bottom:3px solid #1f5e3a;color:#2a1a10;box-shadow:0 0 0 1px rgba(201,162,74,.6),0 8px 18px rgba(0,0,0,.55)}
+.wall.r-xmas .placard .pmore{color:#8e1219}
+/* Garland: one swag per half bay, so it reads as one long garland down the hall; the two sets of bulbs twinkle out of step */
+.wall.r-xmas .xg{display:block;position:absolute;z-index:2;left:0;right:0;top:calc(env(safe-area-inset-top) + 44px);height:clamp(70px,11vh,110px);pointer-events:none;background:url(rooms/xmas-garland.svg) 0 0/50% 100% repeat-x;filter:drop-shadow(0 8px 6px rgba(0,0,0,.45))}
+.wall.r-xmas .xg::before,.wall.r-xmas .xg::after{content:"";position:absolute;inset:0;background:url(rooms/xmas-bulbsA.svg) 0 0/50% 100% repeat-x;animation:xtw 3.2s ease-in-out infinite}
+.wall.r-xmas .xg::after{background-image:url(rooms/xmas-bulbsB.svg);animation-duration:4.1s;animation-delay:-1.7s}
+@keyframes xtw{0%,100%{opacity:1}50%{opacity:.4}}
+@media (max-width:899px){.wall.r-xmas .xg,.wall.r-xmas .xg::before,.wall.r-xmas .xg::after{background-size:100% 100%}}
+/* Windows onto the snow, every third gap */
+.wall.r-xmas .xw{display:block;position:absolute;z-index:0;left:-84px;top:18%;width:168px;height:44%;pointer-events:none;border:11px solid #efe7d6;border-radius:3px;
+  box-shadow:inset 0 0 0 2px #b9ab8e,inset 0 0 18px rgba(20,30,60,.5),0 0 0 2px #8a7a5c,0 0 50px rgba(255,170,80,.18),0 14px 26px rgba(0,0,0,.55)}
+.wall.r-xmas .xw b{position:absolute;display:block}
+.wall.r-xmas .xw .sc{inset:0;overflow:hidden;background:url(rooms/xmas-snowman.svg) center bottom/cover no-repeat}
+.wall.r-xmas .xw.sl .sc{background-image:url(rooms/xmas-sled.svg)}
+.wall.r-xmas .xw .sc::before,.wall.r-xmas .xw .sc::after{content:"";position:absolute;inset:-120px 0 0;background:url(rooms/xmas-snow1.svg) 0 0/120px;animation:xsnow 9s linear infinite}
+.wall.r-xmas .xw .sc::after{background-image:url(rooms/xmas-snow2.svg);background-size:90px;opacity:.75;animation-duration:14s;filter:blur(.4px)}
+@keyframes xsnow{from{background-position:0 0}to{background-position:30px 120px}}
+.wall.r-xmas .xw .sc::after{animation-name:xsnow2}
+@keyframes xsnow2{from{background-position:0 0}to{background-position:-20px 90px}}
+.wall.r-xmas .xw .fr{inset:0;z-index:2;background:linear-gradient(90deg,transparent calc(50% - 4px),#efe7d6 calc(50% - 4px) calc(50% + 4px),transparent calc(50% + 4px)),linear-gradient(180deg,transparent calc(50% - 4px),#efe7d6 calc(50% - 4px) calc(50% + 4px),transparent calc(50% + 4px)),
+  radial-gradient(ellipse 60% 26% at 50% 100%,rgba(255,255,255,.55),transparent 70%),radial-gradient(ellipse 80% 22% at 50% 0,rgba(255,255,255,.3),transparent),linear-gradient(115deg,rgba(255,255,255,.12),transparent 38%,rgba(255,255,255,.05) 62%,transparent)}
+.wall.r-xmas .xw .wr{z-index:3;left:50%;top:-44px;width:78px;height:78px;margin-left:-39px;background:url(rooms/xmas-wreath.svg) center/contain no-repeat;filter:drop-shadow(0 6px 5px rgba(0,0,0,.5))}
+.wall.r-xmas .xw::after{content:"";position:absolute;left:-22px;right:-22px;bottom:-24px;height:13px;background:linear-gradient(180deg,#f6efe0,#cfc3a8);border-radius:2px;box-shadow:0 8px 12px rgba(0,0,0,.45)}
+/* A tree in the foreground: it sits in front of the art and slides a little faster than the wall */
+.wall.r-xmas .bay>.xt{display:block;position:absolute;z-index:4;left:calc(var(--th) * -.335);bottom:calc(var(--fh) * .1);--th:min(64vh,640px);height:var(--th);width:calc(var(--th) * .667);pointer-events:none;
+  background:url(rooms/xmas-tree.svg) center bottom/contain no-repeat;filter:drop-shadow(0 30px 30px rgba(0,0,0,.6)) drop-shadow(0 0 40px rgba(255,170,70,.25));
+  transform:translateX(calc((var(--bx,0) - var(--sx,0) - var(--vw2,0)) * var(--pk,.32) * 1px)) scale(1.04);transform-origin:50% 100%;will-change:transform}
+/* Presents under the art, with a nutcracker or a tin soldier standing guard */
+.wall.r-xmas .bay>.xp{display:block;position:absolute;z-index:2;left:-120px;bottom:calc(var(--fh) * .32);width:210px;height:156px;pointer-events:none;background:url(rooms/xmas-presents.svg) center bottom/contain no-repeat;filter:drop-shadow(0 8px 10px rgba(0,0,0,.4))}
+.wall.r-xmas .xp b{position:absolute;display:block;right:-74px;bottom:-4px;width:66px;height:187px;background:url(rooms/xmas-nut.svg) center bottom/contain no-repeat}
+.wall.r-xmas .xp.so b{background-image:url(rooms/xmas-soldier.svg);right:auto;left:-62px}
+@media (max-width:600px){.wall.r-xmas{--wn:16vh}
+  .wall.r-xmas .xw{left:-46px;width:92px;top:22%;height:34%;border-width:7px}.wall.r-xmas .xw .wr{width:50px;height:50px;margin-left:-25px;top:-30px}
+  .wall.r-xmas .bay>.xt{--th:44vh;--pk:.2}
+  .wall.r-xmas .bay>.xp{left:-70px;width:124px;height:92px}.wall.r-xmas .xp b{width:40px;height:113px;right:-44px}.wall.r-xmas .xp.so b{left:-38px}
+  .wall.r-xmas .pframe::before{width:46px;height:32px;top:-12px;left:-14px}
+  .wall.r-xmas .xg{top:calc(env(safe-area-inset-top) + 46px);height:46px}.wall.r-xmas .bay{padding-top:calc(84px + env(safe-area-inset-top))}}
+@media (prefers-reduced-motion:reduce){.wall.r-xmas .xg::before,.wall.r-xmas .xg::after,.wall.r-xmas .xw .sc::before,.wall.r-xmas .xw .sc::after{animation:none}}
 </style>
 </head>
 <body>
@@ -613,7 +673,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.21";
+const APP_VERSION = "2026.11.04.22";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1051,7 +1111,7 @@ function viewHall(id, params){
 /* ---------- Gallery mode: the pieces hung on a dark, spotlit wall ---------- */
 const hallOrder = {};
 const tourSecs = () => { const v = +LS.get("cm.tourSecs", 8); return [3,5,8,12,20,30,60].includes(v) ? v : 8; };
-const ROOMS = [["museum","🏛 Museum"],["modern","⬜ Modern gallery"],["library","📚 Library"],["castle","🏰 Castle"],["haunted","👻 Haunted mansion"],["cabin","🪵 Cabin"],["greenhouse","🌿 Greenhouse"],["aquarium","🐠 Aquarium"],["diner","🍒 50s diner"],["ship","🚀 Starship"],["neon","🌃 Neon arcade"]];
+const ROOMS = [["museum","🏛 Museum"],["modern","⬜ Modern gallery"],["library","📚 Library"],["castle","🏰 Castle"],["haunted","👻 Haunted mansion"],["cabin","🪵 Cabin"],["greenhouse","🌿 Greenhouse"],["aquarium","🐠 Aquarium"],["diner","🍒 50s diner"],["ship","🚀 Starship"],["xmas","🎄 Christmas"],["neon","🌃 Neon arcade"]];
 function viewWall(id, params){
   const c = coll(id); if(!c) return notFound();
   document.title = c.name + " · Gallery mode";
@@ -1077,7 +1137,7 @@ function viewWall(id, params){
   app.innerHTML = `<div class="wall r-${room}" id="wall">
     <div class="floor"></div><div class="fish" aria-hidden="true"><div class="shade"></div><div class="cz"></div><div class="cz c2"></div><div class="rays"></div></div>
     <div class="wtrack" id="wtrack"><div class="swim" aria-hidden="true"></div>${pieces.map((it,n) => `<section class="bay${n%3===2 ? " hw" : ""}" data-n="${n}" aria-label="${esc(it.title||"")}">
-      ${n%3===2 ? `<i class="hwin" style="--wd:${-((n*4.7)%13).toFixed(1)}s;--wtd:${-((n*11.3)%37).toFixed(1)}s"><b class="wi"></b><b class="wb"></b><b class="wt"></b></i>` : ""}<i class="ghost ${["gt","gr","gl"][n%3]}" style="--gd:${-((n*7.7)%26).toFixed(1)}s"></i>${n%2 ? `<i class="spider" style="--sd:${-((n*5.3)%22).toFixed(1)}s;--sl:${26+(n*7)%14}vh"></i>` : ""}${n%2 === 0 ? `<i class="mhole" style="--hx:${[14,30,62][n%3]}%"><b class="${n%4 ? "back" : ""}" style="--rd:${-((n*9.1)%31).toFixed(1)}s"></b></i>` : ""}<i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
+      ${n%3===2 ? `<i class="hwin" style="--wd:${-((n*4.7)%13).toFixed(1)}s;--wtd:${-((n*11.3)%37).toFixed(1)}s"><b class="wi"></b><b class="wb"></b><b class="wt"></b></i>` : ""}<i class="ghost ${["gt","gr","gl"][n%3]}" style="--gd:${-((n*7.7)%26).toFixed(1)}s"></i>${n%2 ? `<i class="spider" style="--sd:${-((n*5.3)%22).toFixed(1)}s;--sl:${26+(n*7)%14}vh"></i>` : ""}${n%2 === 0 ? `<i class="mhole" style="--hx:${[14,30,62][n%3]}%"><b class="${n%4 ? "back" : ""}" style="--rd:${-((n*9.1)%31).toFixed(1)}s"></b></i>` : ""}${n%3===2 ? `<i class="xw ${n%6===2 ? "sm" : "sl"}"><b class="sc"></b><b class="fr"></b><b class="wr"></b></i>` : n%3===1 ? `<i class="xt"></i>` : `<i class="xp ${n%6 ? "so" : "nu"}"><b></b></i>`}<i class="xg"></i><i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
       <button type="button" class="pframe${it.bootleg ? " boot" : ""}" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
       ${placard(it)}</section>`).join("")}</div>
     ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
@@ -1193,6 +1253,10 @@ function viewWall(id, params){
       const mode = n % 3, x = fr.left - br.left, y = fr.top - br.top;
       g.style.setProperty("--gx", (mode === 1 ? x + fr.width : mode === 2 ? x : x + fr.width * (n % 2 ? .25 : .75)) + "px");
       g.style.setProperty("--gy", (mode ? y + fr.height * .36 : y) + "px"); }); };
+  // Christmas: each foreground tree knows where its gap is along the hall, so CSS can slide it against --sx for parallax.
+  const placeTrees = () => { if(!wall.classList.contains("r-xmas")) return; wall.style.setProperty("--vw2", track.clientWidth / 2);
+    bays.forEach(b => { const t = b.querySelector(".xt"); if(t) t.style.setProperty("--bx", b.offsetLeft); }); };
+  placeTrees(); window.addEventListener("resize", function ptr(){ if(!wall.isConnected) return window.removeEventListener("resize", ptr); placeTrees(); });
   placeRail(); placeGhosts(); wall.addEventListener("load", () => { placeRail(); placeGhosts(); }, true);
   window.addEventListener("resize", function pg(){ if(!wall.isConnected) return window.removeEventListener("resize", pg); placeGhosts(); });
   window.addEventListener("resize", function pr(){ if(!wall.isConnected) return window.removeEventListener("resize", pr); placeRail(); });
@@ -1203,7 +1267,7 @@ function viewWall(id, params){
   if(document.getElementById("worder")) document.getElementById("worder").onclick = () => { LS.set("cm.wallShuffle", false); location.hash = "#/wall/" + id; };
   if(document.getElementById("wprev")){ document.getElementById("wprev").onclick = () => step(-1); document.getElementById("wnext").onclick = () => step(1); }
   document.getElementById("wroom").onchange = e => {
-    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v); placeRail(); placeGhosts(); resetSlide();
+    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v); placeRail(); placeGhosts(); placeTrees(); resetSlide();
     c.room = v; delete c.frame; persist().catch(err => toast("Couldn't save the room choice: " + err.message));
   };
   track.addEventListener("click", e => {
