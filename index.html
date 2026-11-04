@@ -557,6 +557,18 @@ body.wallmode #fsc{display:none}
 .backbtn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px 0 12px;margin:0 0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink,inherit);text-decoration:none;font-weight:600;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .backbtn:active{transform:scale(.97)}
 #app.swiping{transition:none}
+/* Haunted: candle glow that isn't cut off at the bay edge, ghosts peeking from behind frames, a dangling spider */
+.wall.r-haunted .bay::before{background:radial-gradient(ellipse 46% 60% at 55% 36%,rgba(150,170,255,.14),transparent 72%)}
+.wall.r-haunted .bay::after{left:-180px;right:auto;width:360px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 140'%3E%3Cdefs%3E%3CradialGradient id='f' cx='.5' cy='.7' r='.6'%3E%3Cstop offset='0' stop-color='%23fffbe0'/%3E%3Cstop offset='.45' stop-color='%23ffd25a'/%3E%3Cstop offset='1' stop-color='%23ff7a1a' stop-opacity='0'/%3E%3C/radialGradient%3E%3ClinearGradient id='i' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%231b1714'/%3E%3Cstop offset='.5' stop-color='%234a423b'/%3E%3Cstop offset='1' stop-color='%23151210'/%3E%3C/linearGradient%3E%3ClinearGradient id='c' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%23d9ccb0'/%3E%3Cstop offset='.45' stop-color='%23fbf4e2'/%3E%3Cstop offset='1' stop-color='%23c4b694'/%3E%3C/linearGradient%3E%3C/defs%3E%0A%3Ccircle cx='10' cy='28' r='10' fill='%23ffb347' opacity='.35'/%3E%3Ccircle cx='32' cy='18' r='11' fill='%23ffb347' opacity='.35'/%3E%3Ccircle cx='54' cy='28' r='10' fill='%23ffb347' opacity='.35'/%3E%0A%3Cpath d='M32 70 C20 70 12 66 10 56 M32 70 C44 70 52 66 54 56 M32 70 V48' stroke='url%28%23i%29' stroke-width='3.2' fill='none' stroke-linecap='round'/%3E%0A%3Cpath d='M27 64 Q32 58 37 64 L36 118 Q32 126 28 118 Z' fill='url%28%23i%29'/%3E%3Ccircle cx='32' cy='92' r='5' fill='%232a2420' stroke='%235a5048' stroke-width='1'/%3E%3Cpath d='M28 118 Q32 132 36 118' fill='%231b1714'/%3E%0A%3Cellipse cx='10' cy='56' rx='6' ry='2.4' fill='%233a332d'/%3E%3Cellipse cx='54' cy='56' rx='6' ry='2.4' fill='%233a332d'/%3E%3Cellipse cx='32' cy='48' rx='6' ry='2.4' fill='%233a332d'/%3E%0A%3Crect x='7' y='36' width='6' height='20' rx='1' fill='url%28%23c%29'/%3E%3Crect x='51' y='36' width='6' height='20' rx='1' fill='url%28%23c%29'/%3E%3Crect x='29' y='25' width='6' height='23' rx='1' fill='url%28%23c%29'/%3E%0A%3Cpath d='M10 25 C7 30 8 35 10 35 C12 35 13 30 10 25Z' fill='url%28%23f%29'/%3E%3Cpath d='M54 25 C51 30 52 35 54 35 C56 35 57 30 54 25Z' fill='url%28%23f%29'/%3E%3Cpath d='M32 13 C29 18 30 24 32 24 C34 24 35 18 32 13Z' fill='url%28%23f%29'/%3E%0A%3C/svg%3E") center top 18%/40px auto no-repeat,radial-gradient(circle 150px at 50% 26%,rgba(255,170,80,.34),rgba(255,140,60,.12) 55%,transparent);animation:flicker 2.3s infinite}
+@media (max-width:600px){.wall.r-haunted .bay::after{left:-162px;background-size:30px auto,auto;background-position:center top 16%,0 0}}
+.ghost,.spider{display:none}
+.wall.r-haunted .ghost{display:block;position:absolute;z-index:0;width:64px;height:80px;left:var(--gx,50%);top:var(--gy,30%);margin-left:-32px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 100'%3E%3Cdefs%3E%3CradialGradient id='g' cx='.5' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23ffffff'/%3E%3Cstop offset='.7' stop-color='%23e8ecff'/%3E%3Cstop offset='1' stop-color='%23c9d0f0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M40 4C18 4 8 22 8 44v52l9-8 8 8 8-8 7 8 7-8 8 8 8-8 9 8V44C72 22 62 4 40 4Z' fill='url(%23g)' opacity='.92'/%3E%3Cellipse cx='29' cy='40' rx='5.5' ry='8' fill='%231a1622'/%3E%3Cellipse cx='51' cy='40' rx='5.5' ry='8' fill='%231a1622'/%3E%3Cellipse cx='40' cy='60' rx='6' ry='7.5' fill='%231a1622' opacity='.85'/%3E%3Ccircle cx='31' cy='37' r='1.6' fill='%23fff'/%3E%3Ccircle cx='53' cy='37' r='1.6' fill='%23fff'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 0 10px rgba(200,210,255,.55));pointer-events:none;opacity:0;animation:peek 17s ease-in-out infinite;animation-delay:var(--gd,0s)}
+@keyframes peek{0%,62%,100%{transform:translateY(60px) rotate(0);opacity:0}64%{opacity:.95}70%{transform:translateY(-52px) rotate(-8deg);opacity:.95}76%{transform:translateY(-46px) rotate(7deg)}82%{transform:translateY(-52px) rotate(-4deg);opacity:.95}88%{transform:translateY(60px) rotate(0);opacity:.9}90%{opacity:0}}
+.wall.r-haunted .spider{display:block;position:absolute;z-index:2;top:0;left:var(--sx2,88%);width:2px;height:0;background:linear-gradient(rgba(220,220,235,.6),rgba(220,220,235,.35));pointer-events:none;animation:drop 15s cubic-bezier(.3,1.4,.5,1) infinite;animation-delay:var(--sd,0s)}
+.wall.r-haunted .spider::after{content:"";position:absolute;bottom:-44px;left:-27px;width:56px;height:48px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 50'%3E%3Cg stroke='%230b0a0c' stroke-width='2.6' fill='none' stroke-linecap='round'%3E%3Cpath d='M24 22 Q12 10 4 16'/%3E%3Cpath d='M23 26 Q10 22 2 28'/%3E%3Cpath d='M23 30 Q11 34 4 42'/%3E%3Cpath d='M25 33 Q16 42 12 49'/%3E%3Cpath d='M36 22 Q48 10 56 16'/%3E%3Cpath d='M37 26 Q50 22 58 28'/%3E%3Cpath d='M37 30 Q49 34 56 42'/%3E%3Cpath d='M35 33 Q44 42 48 49'/%3E%3C/g%3E%3Cellipse cx='30' cy='30' rx='9' ry='11' fill='%23141216'/%3E%3Ccircle cx='30' cy='17' r='6.5' fill='%231d1a20'/%3E%3Ccircle cx='27.5' cy='16' r='1.6' fill='%23ff3b30'/%3E%3Ccircle cx='32.5' cy='16' r='1.6' fill='%23ff3b30'/%3E%3Cpath d='M27 34 l3 4 l3 -4' stroke='%237a1c1c' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") center/contain no-repeat;animation:dangle 2.4s ease-in-out infinite alternate;transform-origin:50% 0}
+@keyframes drop{0%,55%{height:0}62%,82%{height:var(--sl,34vh)}92%,100%{height:0}}
+@keyframes dangle{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+@media (prefers-reduced-motion:reduce){.wall.r-haunted .ghost,.wall.r-haunted .spider{display:none}}
 </style>
 </head>
 <body>
@@ -569,7 +581,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.18";
+const APP_VERSION = "2026.11.04.19";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1033,7 +1045,7 @@ function viewWall(id, params){
   app.innerHTML = `<div class="wall r-${room}" id="wall">
     <div class="floor"></div><div class="fish" aria-hidden="true"><div class="shade"></div><div class="cz"></div><div class="cz c2"></div><div class="rays"></div></div>
     <div class="wtrack" id="wtrack"><div class="swim" aria-hidden="true"></div>${pieces.map((it,n) => `<section class="bay" data-n="${n}" aria-label="${esc(it.title||"")}">
-      <i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
+      <i class="ghost" style="--gd:${-((n*6.1)%17).toFixed(1)}s"></i>${n%2 ? `<i class="spider" style="--sd:${-((n*4.3)%15).toFixed(1)}s;--sl:${26+(n*7)%14}vh"></i>` : ""}<i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
       <button type="button" class="pframe${it.bootleg ? " boot" : ""}" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
       ${placard(it)}</section>`).join("")}</div>
     ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
@@ -1142,7 +1154,13 @@ function viewWall(id, params){
   const resetSlide = () => { measureSlide(); applySlide(); };
   track.addEventListener("scroll", () => { if(!slideRaf) slideRaf = requestAnimationFrame(applySlide); }, {passive:true});
   resetSlide();
-  placeRail(); wall.addEventListener("load", placeRail, true);
+  // Haunted: park each ghost just behind the top edge of its frame (left or right corner), so it rises out from behind it.
+  const placeGhosts = () => { if(!wall.classList.contains("r-haunted")) return;
+    bays.forEach((bay, n) => { const g = bay.querySelector(".ghost"), f = bay.querySelector(".pframe"); if(!g || !f) return;
+      const br = bay.getBoundingClientRect(), fr = f.getBoundingClientRect();
+      g.style.setProperty("--gx", (fr.left - br.left + (n % 2 ? 46 : fr.width - 46)) + "px"); g.style.setProperty("--gy", (fr.top - br.top) + "px"); }); };
+  placeRail(); placeGhosts(); wall.addEventListener("load", () => { placeRail(); placeGhosts(); }, true);
+  window.addEventListener("resize", function pg(){ if(!wall.isConnected) return window.removeEventListener("resize", pg); placeGhosts(); });
   window.addEventListener("resize", function pr(){ if(!wall.isConnected) return window.removeEventListener("resize", pr); placeRail(); });
   const sp = document.getElementById("wspeed"); if(sp) sp.onchange = () => LS.set("cm.tourSecs", +sp.value);
   const sh = document.getElementById("wshuf");
@@ -1151,7 +1169,7 @@ function viewWall(id, params){
   if(document.getElementById("worder")) document.getElementById("worder").onclick = () => { LS.set("cm.wallShuffle", false); location.hash = "#/wall/" + id; };
   if(document.getElementById("wprev")){ document.getElementById("wprev").onclick = () => step(-1); document.getElementById("wnext").onclick = () => step(1); }
   document.getElementById("wroom").onchange = e => {
-    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v); placeRail(); resetSlide();
+    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v); placeRail(); placeGhosts(); resetSlide();
     c.room = v; delete c.frame; persist().catch(err => toast("Couldn't save the room choice: " + err.message));
   };
   track.addEventListener("click", e => {
