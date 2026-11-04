@@ -566,7 +566,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.15";
+const APP_VERSION = "2026.11.04.16";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2458,8 +2458,12 @@ function viewSettings(){
     <div class="actions"><button class="iconbtn primary" id="dtokSave">Save lookup settings</button></div></div>
   <div class="panel"><h2>Reports &amp; backups</h2>
     <p>The insurance report lists every piece with values, serials and certificate numbers. Print it or save as PDF.</p>
-    <div class="actions"><a class="iconbtn" href="#/report">🧾 Insurance report</a><button class="iconbtn" id="csv">⬇ Spreadsheet (CSV)</button><button class="iconbtn" id="json">⬇ Full backup (JSON)</button>
-      <label class="iconbtn filebtn">⬆ Restore backup<input type="file" accept=".json,application/json" id="imp"></label></div></div>
+    <div class="actions"><a class="iconbtn" href="#/report">🧾 Insurance report</a><button class="iconbtn" id="csv">⬇ Spreadsheet (CSV)</button><button class="iconbtn" id="json">⬇ Catalog only (JSON)</button>
+      <label class="iconbtn filebtn">⬆ Restore catalog (JSON)<input type="file" accept=".json,application/json" id="imp"></label></div>
+    <h3 style="font-size:1rem;margin:14px 0 4px">Keep a copy of everything</h3>
+    <p><b>Download everything</b> saves one .zip with every piece, every photo and document, a spreadsheet and the app itself, so your collection never depends on Dropbox or this website. Save it to iCloud Drive or a USB stick now and then.</p>
+    <div class="actions"><button class="iconbtn primary" id="zipAll">⬇ Download everything (.zip)</button>
+      <label class="iconbtn filebtn">⬆ Restore from download<input type="file" accept=".zip,application/zip" id="zipImp"></label></div></div>
   <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p>
     <p style="font-size:.8rem">App version ${APP_VERSION} · <a href="#" id="forceUpd">Check for updates</a></p></div>
   ${store.kind==="local" && !cat.items.length ? `<div class="panel"><h2>Try it out</h2><p>Load a few sample pieces to see how the museum looks. You can delete them anytime.</p><div class="actions"><button class="iconbtn" id="demo">Load samples</button></div></div>` : ""}`;
@@ -2527,6 +2531,8 @@ function viewSettings(){
     }catch(e){ b(); alert(e.message); }
   };
   $("csv").onclick = exportCSV;
+  $("zipAll").onclick = downloadEverything;
+  $("zipImp").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) restoreEverything(f); };
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
   $("imp").onchange = async e => {
     const f = e.target.files[0]; if(!f) return;
@@ -2539,7 +2545,7 @@ function viewSettings(){
 }
 
 function download(blob, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
-function exportCSV(){
+function csvBlob(){
   const fieldCols = []; cat.collections.forEach(c => c.fields.forEach(f => { if(!fieldCols.some(x=>x.l===f.l)) fieldCols.push(f); }));
   const head = ["Gallery","Title","Maker","Year","Barcode","Condition","Location","Acquired","Source","Price paid","Estimated value","Tags","Notes","More details", ...fieldCols.map(f=>f.l), "Photos","Documents"];
   const q = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; };
@@ -2547,7 +2553,115 @@ function exportCSV(){
     return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, i.price, i.value, (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "),
       ...fieldCols.map(fc => { const f = c.fields.find(x=>x.l===fc.l); return f ? (i.fields||{})[f.k] : ""; }),
       (i.media||[]).filter(m=>m.kind==="photo").length, (i.media||[]).filter(m=>m.kind!=="photo").map(m=>m.label||m.name).join("; ")]; });
-  download(new Blob(["﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"}), "collection-" + new Date().toISOString().slice(0,10) + ".csv");
+  return new Blob(["﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"});
+}
+function exportCSV(){ download(csvBlob(), "collection-" + new Date().toISOString().slice(0,10) + ".csv"); }
+
+/* ---------- Download everything: one .zip with the catalog, every photo and document, a spreadsheet and the app ---------- */
+const CRC_T = (() => { const t = new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n]=c>>>0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for(let i=0;i<u8.length;i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function progressBox(msg){ const b = document.createElement("div"); b.className = "busy"; b.innerHTML = "<div></div>"; document.body.appendChild(b);
+  const set = m => b.firstChild.textContent = m; set(msg); return {set, done:() => b.remove()}; }
+// Plain "stored" zip (photos are already compressed), built from Blobs so big collections don't need to fit in memory at once.
+async function makeZip(entries){
+  const parts = [], central = []; let off = 0;
+  const enc = new TextEncoder(), d = new Date(), dt = ((d.getFullYear()-1980)<<9 | (d.getMonth()+1)<<5 | d.getDate()), tm = (d.getHours()<<11 | d.getMinutes()<<5 | (d.getSeconds()>>1));
+  for(const e of entries){
+    const name = enc.encode(e.name), data = new Uint8Array(await e.blob.arrayBuffer()), crc = crc32(data), size = data.length;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true); h.setUint16(10,tm,true); h.setUint16(12,dt,true);
+    h.setUint32(14,crc,true); h.setUint32(18,size,true); h.setUint32(22,size,true); h.setUint16(26,name.length,true); h.setUint16(28,0,true);
+    parts.push(h.buffer, name, e.blob);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint16(10,0,true); c.setUint16(12,tm,true); c.setUint16(14,dt,true);
+    c.setUint32(16,crc,true); c.setUint32(20,size,true); c.setUint32(24,size,true); c.setUint16(28,name.length,true); c.setUint32(42,off,true);
+    central.push(c.buffer, name);
+    off += 30 + name.length + size;
+  }
+  const cdSize = central.reduce((n,b) => n + b.byteLength, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,entries.length,true); end.setUint16(10,entries.length,true); end.setUint32(12,cdSize,true); end.setUint32(16,off,true);
+  return new Blob([...parts, ...central, end.buffer], {type:"application/zip"});
+}
+async function readZip(file){
+  const tail = new DataView(await file.slice(Math.max(0, file.size - 65557)).arrayBuffer());
+  let p = -1; for(let i = tail.byteLength - 22; i >= 0; i--) if(tail.getUint32(i,true) === 0x06054b50){ p = i; break; }
+  if(p < 0) throw new Error("That doesn't look like a zip file.");
+  const n = tail.getUint16(p+10,true), cdSize = tail.getUint32(p+12,true), cdOff = tail.getUint32(p+16,true);
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer()), dec = new TextDecoder(), out = [];
+  for(let i=0, q=0; i<n; i++){
+    const method = cd.getUint16(q+10,true), csize = cd.getUint32(q+20,true), nl = cd.getUint16(q+28,true), xl = cd.getUint16(q+30,true), cl = cd.getUint16(q+32,true), lo = cd.getUint32(q+42,true);
+    const name = dec.decode(new Uint8Array(cd.buffer, q+46, nl)); q += 46 + nl + xl + cl;
+    out.push({name, read: async () => {
+      const lh = new DataView(await file.slice(lo, lo + 30).arrayBuffer()), start = lo + 30 + lh.getUint16(26,true) + lh.getUint16(28,true);
+      const raw = file.slice(start, start + csize);
+      if(method === 0) return raw;
+      if(method === 8) return await new Response(raw.stream().pipeThrough(new DecompressionStream("deflate-raw"))).blob();
+      throw new Error("Unsupported zip compression in " + name);
+    }});
+  }
+  return out;
+}
+async function downloadEverything(){
+  const pb = progressBox("Gathering your collection…");
+  try{
+    const snap = JSON.parse(JSON.stringify(cat)), entries = [], seen = new Set();
+    const media = snap.items.flatMap(i => (i.media||[]).map(m => ({i, m})));
+    let n = 0, missing = 0;
+    for(const {i, m} of media){
+      pb.set(`Copying photos and documents… ${++n} of ${media.length}`);
+      if(m.remote){ // linked from a database: save a real copy so the backup doesn't depend on that website
+        try{ const r = await fetchT(m.path, {}, 15000), b = await r.blob(); if(!r.ok || !/^image\//.test(b.type)) throw 0;
+          const path = "media/" + i.id + "/" + m.id + ".jpg"; entries.push({name:path, blob:b}); seen.add(path);
+          m.path = path; delete m.thumb; delete m.remote; }
+        catch(e){ /* keep the link */ }
+        continue;
+      }
+      for(const path of [m.path, m.thumb].filter(Boolean)){
+        if(seen.has(path)) continue; seen.add(path);
+        const b = await store.getBlob(path).catch(() => null);
+        if(b) entries.push({name:path, blob:b}); else if(path === m.path) missing++;
+      }
+    }
+    pb.set("Adding the catalog, spreadsheet and app…");
+    entries.unshift({name:"catalog.json", blob:new Blob([JSON.stringify(snap, null, 1)], {type:"application/json"})});
+    entries.push({name:"collection.csv", blob:csvBlob()});
+    try{ const r = await fetch(location.pathname, {cache:"no-store"}); if(r.ok) entries.push({name:"museum-app.html", blob:await r.blob()}); }catch(e){}
+    entries.push({name:"READ ME.txt", blob:new Blob([[
+      "Your collection museum - full backup made " + new Date().toLocaleString(),
+      "",
+      "catalog.json     every piece, gallery, note and setting",
+      "media/           every photo, COA and document (same folders the app uses)",
+      "collection.csv   the same list as a spreadsheet (opens in Excel / Numbers / Google Sheets)",
+      "museum-app.html  the app itself",
+      "",
+      "To restore: open the app (online, or museum-app.html from this backup), go to Settings > Reports & backups,",
+      "tap 'Restore from download' and choose this .zip. It puts everything back into whatever storage the app is",
+      "using at the time: your Dropbox if you're signed in, otherwise this browser.",
+      "Photos are ordinary .jpg files, so you can also just open the media folder and look at them.",
+    ].join("\r\n")], {type:"text/plain"})});
+    pb.set("Packing the zip…");
+    const zip = await makeZip(entries);
+    pb.done();
+    download(zip, "museum-backup-" + new Date().toISOString().slice(0,10) + ".zip");
+    toast(`Backup ready: ${snap.items.length} pieces, ${(zip.size/1048576).toFixed(1)} MB` + (missing ? ` (${missing} file${missing===1?"":"s"} couldn't be read)` : ""));
+  }catch(e){ pb.done(); alert("Couldn't make the backup: " + e.message); }
+}
+async function restoreEverything(file){
+  const pb = progressBox("Reading the backup…");
+  try{
+    const list = await readZip(file), catE = list.find(e => e.name === "catalog.json");
+    if(!catE) throw new Error("That zip isn't a museum backup (no catalog.json inside).");
+    const j = JSON.parse(await (await catE.read()).text()); if(!Array.isArray(j.items)) throw new Error("The catalog in that backup is damaged.");
+    const files = list.filter(e => e.name.startsWith("media/") && !e.name.endsWith("/"));
+    pb.done();
+    if(!confirm(`Restore ${j.items.length} pieces and ${files.length} photos/documents from this backup? It replaces the catalog you have now${store.kind === "local" ? " in this browser" : " in your Dropbox"}.`)) return;
+    const pb2 = progressBox("Restoring…"); let n = 0;
+    try{
+      for(const e of files){ pb2.set(`Restoring photos and documents… ${++n} of ${files.length}`); await store.putFile(e.name, await e.read()); }
+      pb2.set("Restoring the catalog…"); cat = j; await persist();
+    } finally { pb2.done(); }
+    toast("Restored"); location.hash = "#/";
+  }catch(e){ pb.done(); alert(e.message); }
 }
 
 function viewReport(){
