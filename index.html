@@ -681,7 +681,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.27";
+const APP_VERSION = "2026.11.04.28";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1161,7 +1161,7 @@ function viewWall(id, params){
     ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
     <div class="wbar"><a class="wbtn" href="#/c/${id}" aria-label="Leave gallery mode" title="Leave gallery mode">✕</a>
       <div class="wtitle">${c.icon} ${esc(c.name)}</div>
-      ${pieces.length ? `<select id="wroom" aria-label="Room">${ROOMS.map(([k,l]) => `<option value="${k}" ${k===room?"selected":""}>${l}</option>`).join("")}</select>
+      ${pieces.length ? `<select id="wroom" aria-label="Room">${ROOMS.slice().sort((a, b) => a[1].slice(a[1].indexOf(" ") + 1).localeCompare(b[1].slice(b[1].indexOf(" ") + 1))).map(([k,l]) => `<option value="${k}" ${k===room?"selected":""}>${l}</option>`).join("")}</select>
       ${pieces.length > 1 ? `<button type="button" class="wbtn${shuffle ? " on" : ""}" id="wshuf" title="${shuffle ? "Shuffle again" : "Shuffle the order"}">🔀</button>${shuffle ? `<button type="button" class="wbtn" id="worder" title="Back to your gallery's order">In order</button>` : ""}` : ""}
       ${pieces.length > 1 ? `<select id="wspeed" aria-label="Tour speed" title="How long the Tour stays on each piece">${[3,5,8,12,20,30,60].map(n => `<option value="${n}" ${n===tourSecs()?"selected":""}>⏱ ${n<60 ? n + "s" : "1 min"}</option>`).join("")}</select>` : ""}
       ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
