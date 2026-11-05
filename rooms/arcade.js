@@ -600,8 +600,46 @@ const SHIELD = spr([
   "kk.kkk.kkk.kkkv.",
   "k...k...k...kk..",
   ".....ww..ww....."]);
-// Curse bolt: a slim lightning bolt, sharp at both ends, drawn pointing down (+y) and turned along its flight path.
-const BOLT = [[3.3, -11.7], [-6, 2.1], [.7, .3], [-3.4, 11.7], [6, -2.6], [1.4, -1.3]];
+// Curse bolt: a hand-pixelled lightning bolt, sharp at both ends, in the same chunky 2px pixels as the jars and skulls.
+// Two drawn poses (pointing straight down, and down-left on the diagonal); turning them in 90° steps gives all 8 headings.
+const rotCW = g => g[0].split("").map((_, i) => g.map((r, j) => g[g.length - 1 - j][i]).join(""));
+const BOLTS = (() => {
+  const down = [
+    ".GG...",
+    ".GG...",
+    "GWG...",
+    "GWG...",
+    "GWGGGG",
+    "GGGGWG",
+    "...GWG",
+    "...GWG",
+    "....GG",
+    "...GG.",
+    "....G."];
+  const diag = [
+    ".....GG",
+    "....GG.",
+    "...GWG.",
+    "..GWG..",
+    ".GWGGGG",
+    "GGGGWG.",
+    "...GWG.",
+    "..GWG..",
+    "..GG...",
+    ".GG....",
+    ".G....."];
+  const out = []; let d = down, q = diag;
+  for(let n = 0; n < 4; n++){ out[(2 + 2 * n) % 8] = d; out[(3 + 2 * n) % 8] = q; d = rotCW(d); q = rotCW(q); }
+  return out;
+})();
+const boltOf = (vx, vy) => BOLTS[((Math.round(Math.atan2(vy, vx) / (Math.PI / 4)) % 8) + 8) % 8];
+function drawBolt(g, cx, cy, rows, fl, ghost){
+  const x = cx - rows[0].length, y = cy - rows.length, green = new Proxy({}, {get:() => "#7dff5a"});
+  if(ghost){ draw(g, rows, x, y, green, 2); return; }
+  // blocky glow: the bolt's own shape, one big pixel out, see-through green
+  g.globalAlpha = .28; for(const [dx, dy] of [[-4,0],[4,0],[0,-4],[0,4],[-2,-2],[2,-2],[-2,2],[2,2]]) draw(g, rows, x + dx, y + dy, green, 2);
+  g.globalAlpha = 1; outl(g, rows, x, y, {G:fl ? "#9dff7a" : "#5ae04a", W:fl ? "#ffffff" : "#e8ff8a"}, 2);
+}
 const HEART = spr([".rr.rr.", "rrrrrrr", "rrrrrrr", ".rrrrr.", "..rrr..", "...r..."]);
 function outl(g, rows, x, y, pal, s, oc){
   s = s || 1; const o = Math.max(1, Math.round(s));
@@ -776,15 +814,10 @@ const CURSE = {
       if(t.k === "skull"){ outl(g, SKULL, tx, ty, {W:"#ffffff", k:"#1a0f22"}, 2); if(fl){ g.fillStyle = "#7dff5a"; g.fillRect(tx + 2, ty + 4, 2, 2); g.fillRect(tx + 8, ty + 4, 2, 2); } }
       if(t.k === "scarab") outl(g, SCARAB[fl], tx, ty, {t:"#3a2a1e", S:"#8a6a48", B:"#7a5a3a", C:"#b89870", d:"#2a1e14", G:"#4a3828"}, 2, "#d8c8a8");
       if(t.k === "bolt"){ const cx = tx + 3, cy = ty + 3;
-        const path = k => { g.beginPath(); BOLT.forEach(([x, y], n) => n ? g.lineTo(x * k * 1.25, y * k * 1.25) : g.moveTo(x * k * 1.25, y * k * 1.25)); g.closePath(); };
-        // fading trail of smaller, dimmer bolts along the path it just flew
-        (t.tr || []).forEach((q, n) => { if(n % 2) return; g.save(); g.translate(q.x, q.y); g.rotate(q.a - Math.PI / 2); g.globalAlpha = .45 * (1 - n / 9);
-          path(.9 - n * .06); g.fillStyle = "#7dff5a"; g.shadowColor = "#7dff5a"; g.shadowBlur = 6; g.fill(); g.restore(); });
-        // the bolt itself, with a soft glow that hugs its shape
-        g.save(); g.translate(cx, cy); g.rotate(Math.atan2(t.vy, t.vx) - Math.PI / 2);
-        g.lineJoin = "miter"; path(1); g.shadowColor = "#7dff5a"; g.shadowBlur = fl ? 10 : 7; g.fillStyle = "#7dff5a"; g.fill();
-        g.shadowBlur = 0; g.strokeStyle = "#0a0612"; g.lineWidth = 2; g.stroke(); g.fill();
-        path(.55); g.fillStyle = fl ? "#ffffff" : "#e8ff8a"; g.fill(); g.restore(); }
+        // fading trail of ghost bolts along the arc it just flew
+        (t.tr || []).forEach((q, n) => { if(n % 3 !== 2) return; g.globalAlpha = .35 * (1 - n / 9);
+          drawBolt(g, Math.round(q.x), Math.round(q.y), boltOf(Math.cos(q.a), Math.sin(q.a)), fl, true); });
+        g.globalAlpha = 1; drawBolt(g, cx, cy, boltOf(t.vx, t.vy), fl); }
       if(t.k === "record"){
         if(!t.roll){ // a flying disc seen at an angle, wobbling: black vinyl, a pale rim, groove rings, red label, glint
           const cx = tx + 9, cy = ty + 4, ry = 3.4 + Math.sin(t.spin * .5) * 1.4;
