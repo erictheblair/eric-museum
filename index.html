@@ -27,7 +27,7 @@
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
 a{color:inherit}
 button,input,select,textarea{font:inherit;color:inherit}
-h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:.01em;margin:0}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:.01em;margin:0;overflow-wrap:anywhere}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
 header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
 header.top .wrap{display:flex;align-items:center;gap:10px;height:56px}
@@ -95,6 +95,7 @@ form.edit{padding-bottom:84px}
 .sizer{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
 .sizer button{border:none;background:none;padding:5px 11px;cursor:pointer;font-size:.8rem;color:var(--muted)}
 .sizer button.on{background:var(--ink);color:var(--bg)}
+@media (pointer:coarse){.sizer button{padding:8px 13px}} /* easier to tap on phones */
 /* When the view buttons scroll out of sight, a copy floats just under the header */
 #fsz{position:fixed;left:0;right:0;top:calc(64px + env(safe-area-inset-top));z-index:19;pointer-events:none;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s}
 #fsz.on{opacity:1;transform:none}
@@ -242,7 +243,10 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 @media (max-width:420px){.wbar{gap:5px;padding-left:8px;padding-right:8px}.wbtn,.wbar select{padding:0 8px;font-size:.8rem;min-width:32px}.wbar .wcount{font-size:.8rem}}
 .wbtn.on{background:rgba(201,162,74,.28);border-color:rgba(233,196,110,.6)}
-.wbar .wcount{color:#bfb4a2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wbar .wcount{color:#e6dccb;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Title and count stay readable over light rooms (diner tiles, greenhouse glass). */
+.wbar .wtitle,.wbar .wcount{text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.5)}
+.wall.r-modern .wbar .wtitle,.wall.r-modern .wbar .wcount{text-shadow:none}
 .wtrack{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .wtrack::-webkit-scrollbar{display:none}
 .bay{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(18px,3.5vh,34px);padding:calc(64px + env(safe-area-inset-top)) 18px calc(13vh + env(safe-area-inset-bottom));position:relative;
@@ -931,17 +935,48 @@ class DropboxStore {
     const r = await fetch("https://content.dropboxapi.com/2/files/download", {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Dropbox-API-Arg":DropboxStore.arg({path:"/catalog.json"})}});
     if(!r.ok) throw new Error("Could not read your catalog from Dropbox (" + r.status + ")");
     this.rev = meta.rev;
-    return JSON.parse(await r.text());
+    const text = await r.text(), j = JSON.parse(text);
+    this.base = text; // the catalog as last seen in Dropbox, for merging with changes made on another device
+    return j;
   }
   async save(cat){
-    const blob = new Blob([JSON.stringify(cat, null, 1)], {type:"application/json"});
-    try{
-      const m = await this.upload("/catalog.json", blob, this.rev ? {".tag":"update", update:this.rev} : {".tag":"add"});
-      this.rev = m.rev;
-    }catch(e){
-      if((e.summary||"").includes("conflict")) throw new Error("Your catalog was changed on another device. Reload the page to get the latest, then redo this change.");
-      throw e;
+    await this.snapshot();
+    for(let tries = 0; ; tries++){
+      const text = JSON.stringify(cat, null, 1);
+      try{
+        const m = await this.upload("/catalog.json", new Blob([text], {type:"application/json"}), this.rev ? {".tag":"update", update:this.rev} : {".tag":"add"});
+        this.rev = m.rev; this.base = text; return;
+      }catch(e){
+        if(!(e.summary||"").includes("conflict") || tries >= 3) {
+          if((e.summary||"").includes("conflict")) throw new Error("Your catalog was changed on another device. Reload the page to get the latest, then redo this change.");
+          throw e;
+        }
+        // Changed on another device since we loaded it: fold both sets of changes together and try again.
+        const base = this.base ? JSON.parse(this.base) : {items:[]}, remote = await this.load();
+        const merged = mergeCatalogs(base, cat, remote || {items:[]});
+        Object.keys(cat).forEach(k => delete cat[k]); Object.assign(cat, merged);
+        this.merged = true;
+      }
     }
+  }
+  // Once a day, before the first change, keep a copy of catalog.json in backups/ (the newest 30 are kept).
+  async snapshot(){
+    const day = new Date().toISOString().slice(0,10);
+    if(!this.rev || LS.get("cm.snapDay", "") === day || this._snapTried === day) return;
+    this._snapTried = day;
+    try{ await this.rpc("files/copy_v2", {from_path:"/catalog.json", to_path:"/backups/catalog-" + day + ".json", autorename:false}); }
+    catch(e){ if(!/conflict|already_exists/.test(e.summary || "")) return; } // already made today (maybe on another device)
+    LS.set("cm.snapDay", day);
+    this.pruneSnapshots().catch(() => {});
+  }
+  async listSnapshots(){
+    let j; try{ j = await this.rpc("files/list_folder", {path:"/backups"}); }catch(e){ if((e.summary||"").includes("not_found")) return []; throw e; }
+    let all = j.entries; while(j.has_more){ j = await this.rpc("files/list_folder/continue", {cursor:j.cursor}); all = all.concat(j.entries); }
+    return all.filter(e => e[".tag"] === "file" && /^catalog-.*\.json$/.test(e.name)).sort((a,b) => b.name.localeCompare(a.name));
+  }
+  async pruneSnapshots(){
+    const daily = (await this.listSnapshots()).filter(e => /^catalog-\d{4}-\d\d-\d\d\.json$/.test(e.name));
+    for(const e of daily.slice(30)) await this.rpc("files/delete_v2", {path:e.path_lower});
   }
   async putFile(path, blob){ await this.upload("/" + path, blob, "overwrite"); }
   async deleteFile(path){ this.links.delete(path); try{ await this.rpc("files/delete_v2", {path:"/" + path}); }catch(e){ if(!(e.summary||"").includes("not_found")) throw e; } }
@@ -961,6 +996,34 @@ class DropboxStore {
   }
 }
 
+/* Three-way merge for when two devices change the catalog at the same time.
+   A piece changed on only one side keeps that change; changed on both, the newer edit wins.
+   A piece deleted on one side stays deleted unless the other side changed it. */
+function mergeCatalogs(base, local, remote){
+  const J = x => JSON.stringify(x), byId = l => new Map((l || []).map(i => [i.id, i]));
+  const B = byId(base.items), L = byId(local.items), R = byId(remote.items), out = [];
+  const ids = [...R.keys(), ...[...L.keys()].filter(id => !R.has(id))];
+  for(const id of ids){
+    const b = B.get(id), l = L.get(id), r = R.get(id);
+    if(l && r){ if(J(l) === J(b)) out.push(r); else if(J(r) === J(b)) out.push(l); else out.push(String(r.updated||"") > String(l.updated||"") ? r : l); }
+    else if(l){ if(!b || J(l) !== J(b)) out.push(l); }   // remote deleted it: keep only if changed here
+    else if(r){ if(!b || J(r) !== J(b)) out.push(r); }   // deleted here: keep only if changed there
+  }
+  const m = {};
+  for(const k of new Set([...Object.keys(remote), ...Object.keys(local)])){
+    if(k === "items" || k === "updated") continue;
+    const v = J(local[k]) !== J(base[k]) ? local[k] : remote[k];
+    if(v !== undefined) m[k] = v;
+  }
+  m.items = out; m.updated = new Date().toISOString();
+  return m;
+}
+// Swap in a whole catalog (restore from a backup); put the old one back if it can't be saved.
+async function replaceCatalog(j){
+  const old = cat; cat = j;
+  try{ await persist(); }catch(e){ cat = old; throw e; }
+}
+
 /* ============================================================
    App state
    ============================================================ */
@@ -972,7 +1035,8 @@ const cover = it => (it.media||[]).find(m => m.kind === "photo");
 
 function toast(msg, ms=2600){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
 function busy(msg){ const b=document.createElement("div"); b.className="busy"; b.innerHTML="<div>"+esc(msg||"Saving…")+"</div>"; document.body.appendChild(b); return ()=>b.remove(); }
-async function persist(){ cat.updated = new Date().toISOString(); await store.save(cat); }
+async function persist(){ cat.updated = new Date().toISOString(); await store.save(cat);
+  if(store.merged){ store.merged = false; toast("Also brought in changes from your other device"); } }
 
 function setPriv(v){
   priv = v; LS.set("cm.private", v);
@@ -993,26 +1057,28 @@ function arrangeHalls(){
   grid.classList.add("arranging"); link.textContent = "Done";
   const fabs = document.querySelector(".fabs"); if(fabs) fabs.style.display = "none";
   toast("Drag galleries into the order you like, then tap Done", 3500);
-  let drag = null;
+  // Drag state lives on the grid: the window listeners are wired once, so a second Arrange on the same page must share it.
+  const st = grid._st || (grid._st = {drag:null});
   const move = e => {
-    if(!drag) return;
+    const drag = st.drag; if(!drag) return;
     e.preventDefault();
     const over = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList && el.classList.contains("hall") && el !== drag);
     if(over){ const r = over.getBoundingClientRect(), y = (e.clientY - r.top) / r.height, x = (e.clientX - r.left) / r.width;
       grid.insertBefore(drag, (y > .5 || (y > .2 && x > .5)) ? over.nextSibling : over); }
     if(e.clientY < 70) window.scrollBy(0, -14); else if(e.clientY > innerHeight - 70) window.scrollBy(0, 14);
   };
-  const up = () => { if(drag){ drag.classList.remove("dragging"); drag = null; } };
+  const up = () => { if(st.drag){ st.drag.classList.remove("dragging"); st.drag = null; } };
   if(!grid._wired){ grid._wired = true;
     window.addEventListener("pointermove", move, {passive:false});
     window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
   }
   grid.querySelectorAll(".hall").forEach(h => {
+    if(h._wired) return; h._wired = true;
     h.addEventListener("click", e => { if(grid.classList.contains("arranging")) e.preventDefault(); });
     h.addEventListener("dragstart", e => e.preventDefault());
     h.addEventListener("pointerdown", e => {
       if(!grid.classList.contains("arranging")) return;
-      e.preventDefault(); drag = h; h.classList.add("dragging");
+      e.preventDefault(); st.drag = h; h.classList.add("dragging");
     });
   });
 }
@@ -1571,7 +1637,7 @@ function viewItem(id, host){
   <article class="item">
     <div class="viewer">${photos.length ? `<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div></div>
       ${photos.length > 1 ? `<div class="thumbs">${photos.map((p,n)=>`<button data-n="${n}" class="${n?"":"on"}" aria-label="Photo ${n+1}"><img alt="" data-path="${esc(p.thumb||p.path)}"></button>`).join("")}</div>` : ""}`
-      : `<div class="frame"><div class="matte" style="aspect-ratio:4/3"><div class="placeholder"><div class="em" style="font-size:4rem">${c.icon}</div><div>No photos yet</div></div></div></div>`}
+      : `<div class="frame"><div class="matte" style="aspect-ratio:4/3;min-height:0"><div class="placeholder"><div class="em" style="font-size:4rem">${c.icon}</div><div>No photos yet</div></div></div></div>`}
     </div>
     <div>
       <h1>${it.favorite?'<span class="star">★</span> ':""}${esc(it.title)}</h1>
@@ -2904,7 +2970,12 @@ function viewSettings(){
     <h3 style="font-size:1rem;margin:14px 0 4px">Keep a copy of everything</h3>
     <p><b>Download everything</b> saves one .zip with every piece, every photo and document, a spreadsheet and the app itself, so your collection never depends on Dropbox or this website. Save it to iCloud Drive or a USB stick now and then.</p>
     <div class="actions"><button class="iconbtn primary" id="zipAll">⬇ Download everything (.zip)</button>
-      <label class="iconbtn filebtn">⬆ Restore from download<input type="file" accept=".zip,application/zip" id="zipImp"></label></div></div>
+      <label class="iconbtn filebtn">⬆ Restore from download<input type="file" accept=".zip,application/zip" id="zipImp"></label></div>
+    <p style="font-size:.85rem;color:var(--muted)">${(() => { const d = LS.get("cm.lastZip", ""), days = d ? Math.floor((Date.now() - new Date(d)) / 864e5) : -1;
+      return d ? "Last downloaded on this device " + (days < 1 ? "today" : days === 1 ? "yesterday" : days + " days ago") + "." + (days > 60 ? " Time for a fresh one." : "") : "Not downloaded on this device yet."; })()}</p>
+    ${store.kind === "dropbox" ? `<h3 style="font-size:1rem;margin:14px 0 4px">Daily copies</h3>
+    <p>Each day, before the first change, the app keeps a copy of your catalog in <code>Dropbox/Apps/&lt;your app name&gt;/backups</code> (the last 30 days). If something goes wrong, put an earlier day back.</p>
+    <div class="actions"><button class="iconbtn" id="vers">🕘 Earlier versions</button></div>` : ""}</div>
   <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p>
     <p style="font-size:.8rem">App version ${APP_VERSION} · <a href="#" id="forceUpd">Check for updates</a></p></div>
   ${store.kind==="local" && !cat.items.length ? `<div class="panel"><h2>Try it out</h2><p>Load a few sample pieces to see how the museum looks. You can delete them anytime.</p><div class="actions"><button class="iconbtn" id="demo">Load samples</button></div></div>` : ""}`;
@@ -2943,7 +3014,8 @@ function viewSettings(){
     const name = $("nc").value.trim(); if(!name) return toast("Name the gallery first.");
     const fields = $("nf").value.split(",").map(s=>s.trim()).filter(Boolean).map(s => ({k:"f_"+uid().slice(-5), l:s.replace(/\*$/,"").trim(), priv:/\*$/.test(s)}));
     cat.collections.push({id:"c_"+uid(), name, icon:$("ni").value.trim()||"📦", maker:$("nm").value.trim()||"Maker", fields});
-    await persist().catch(e=>alert(e.message)); viewSettings(); toast("Gallery added");
+    try{ await persist(); }catch(e){ cat.collections.pop(); return alert(e.message); }
+    viewSettings(); toast("Gallery added");
   };
 
   const saveLookups = async quiet => {
@@ -2974,19 +3046,20 @@ function viewSettings(){
   $("privChk").onchange = e => setPriv(e.target.checked);
   $("csv").onclick = exportCSV;
   $("zipAll").onclick = downloadEverything;
+  if($("vers")) $("vers").onclick = () => showVersions();
   $("zipImp").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) restoreEverything(f); };
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
   $("imp").onchange = async e => {
-    const f = e.target.files[0]; if(!f) return;
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
     try{ const j = JSON.parse(await f.text()); if(!Array.isArray(j.items)) throw new Error("That file isn't a museum backup.");
       if(!confirm(`Replace the current catalog with this backup (${j.items.length} pieces)? Photos are not included in backups.`)) return;
-      cat = j; await persist(); toast("Restored"); location.hash = "#/";
+      await replaceCatalog(j); toast("Restored"); location.hash = "#/";
     }catch(er){ alert(er.message); }
   };
   if($("demo")) $("demo").onclick = async () => { await loadSamples(); location.hash = "#/"; };
 }
 
-function download(blob, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+function download(blob, name){ const a = document.createElement("a"), u = URL.createObjectURL(blob); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); }
 // One gallery (in the order you're looking at it) or everything. A single gallery uses its own column names, and private mode leaves out prices, values and private fields.
 function csvBlob(items, g){
   const hide = !!g && priv;
@@ -3221,7 +3294,7 @@ async function downloadEverything(){
     pb.set("Packing the zip…");
     const zip = await makeZip(entries);
     pb.done();
-    download(zip, "museum-backup-" + new Date().toISOString().slice(0,10) + ".zip");
+    download(zip, "museum-backup-" + new Date().toISOString().slice(0,10) + ".zip"); LS.set("cm.lastZip", new Date().toISOString());
     toast(`Backup ready: ${snap.items.length} pieces, ${(zip.size/1048576).toFixed(1)} MB` + (missing ? ` (${missing} file${missing===1?"":"s"} couldn't be read)` : ""));
   }catch(e){ pb.done(); alert("Couldn't make the backup: " + e.message); }
 }
@@ -3237,10 +3310,45 @@ async function restoreEverything(file){
     const pb2 = progressBox("Restoring…"); let n = 0;
     try{
       for(const e of files){ pb2.set(`Restoring photos and documents… ${++n} of ${files.length}`); await store.putFile(e.name, await e.read()); }
-      pb2.set("Restoring the catalog…"); cat = j; await persist();
+      pb2.set("Restoring the catalog…"); await replaceCatalog(j);
     } finally { pb2.done(); }
     toast("Restored"); location.hash = "#/";
   }catch(e){ pb.done(); alert(e.message); }
+}
+
+/* Earlier versions: the daily copies in Dropbox backups/, newest first. */
+async function showVersions(){
+  const L = document.getElementById("layer"), b = busy("Looking for earlier versions…");
+  let list; try{ list = await store.listSnapshots(); }catch(e){ b(); return alert("Couldn't list the earlier versions: " + e.message); } b();
+  const label = e => { const m = e.name.match(/(\d{4}-\d\d-\d\d)/), d = m ? new Date(m[1] + "T12:00:00") : new Date(e.server_modified);
+    return d.toLocaleDateString(undefined, {weekday:"short", year:"numeric", month:"short", day:"numeric"}) + (/before-restore/.test(e.name) ? " · before a restore" : ""); };
+  L.innerHTML = `<div class="lightbox" id="vq" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" role="dialog" aria-labelledby="vqH" style="width:100%;max-width:560px;max-height:88vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 id="vqH">🕘 Earlier versions</h2><button class="iconbtn" id="vqX" aria-label="Close">✕</button></div>
+    <p>Each copy is your catalog as it was at the start of that day. Putting one back replaces the current catalog; the current one is kept here first, so you can always undo it.</p>
+    ${list.length ? `<div class="docs" style="margin:10px 0">${list.map((e,n) => `<div class="doc" style="cursor:default"><span class="grow" style="white-space:normal"><b>${esc(label(e))}</b><br><small style="color:var(--muted)">${Math.max(1, Math.round(e.size/1024))} KB</small></span>
+      <button type="button" class="iconbtn" data-v="${n}" style="white-space:nowrap">Put back</button></div>`).join("")}</div>`
+      : `<p class="empty" style="padding:18px 0">No copies yet. The first one is made the next time you change something.</p>`}
+  </div></div>`;
+  const close = () => { L.innerHTML = ""; };
+  document.getElementById("vqX").onclick = close;
+  document.getElementById("vq").onclick = e => { if(e.target.id === "vq") close(); };
+  L.querySelectorAll("[data-v]").forEach(btn => btn.onclick = async () => {
+    const e = list[+btn.dataset.v], done = busy("Opening that copy…");
+    try{
+      const blob = await store.getBlob(e.path_lower.slice(1)); if(!blob) throw new Error("Couldn't download that copy.");
+      const j = JSON.parse(await blob.text()); if(!Array.isArray(j.items)) throw new Error("That copy is damaged.");
+      done();
+      const now = cat && cat.items ? cat.items.length : null;
+      if(!confirm(`Put back the catalog from ${label(e)}? It has ${j.items.length} piece${j.items.length===1?"":"s"}` + (now != null ? ` (you have ${now} now)` : "") + ". Photos added since then stay in Dropbox but won't show on any piece.")) return;
+      const d2 = busy("Putting it back…");
+      try{
+        if(cat){ const stamp = new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
+          await store.upload("/backups/catalog-before-restore-" + stamp + ".json", new Blob([JSON.stringify(cat, null, 1)], {type:"application/json"}), "add"); }
+        if(cat) await replaceCatalog(j); else { cat = j; await persist(); }
+      } finally { d2(); }
+      LS.set("cm.flash", "Put back the catalog from " + label(e)); location.hash = "#/"; location.reload();
+    }catch(er){ done(); alert(er.message); }
+  });
 }
 
 function viewReport(){
@@ -3458,8 +3566,11 @@ async function boot(){
         await store.save(cat);
       }
       if(justConnected) toast("Connected to Dropbox");
+      store.snapshot().catch(() => {});
     }catch(e){
-      app.innerHTML = `<div class="panel"><h2>Couldn't reach Dropbox</h2><p>${esc(e.message)}</p><div class="actions"><button class="iconbtn primary" onclick="location.reload()">Try again</button><a class="iconbtn" href="#/settings" onclick="setTimeout(()=>location.reload())">Settings</a></div></div>`;
+      const damaged = e instanceof SyntaxError;
+      app.innerHTML = `<div class="panel"><h2>${damaged ? "Your catalog file looks damaged" : "Couldn't reach Dropbox"}</h2><p>${damaged ? "The app couldn't read <code>catalog.json</code> in your Dropbox. You can put back a copy from an earlier day." : esc(e.message)}</p><div class="actions"><button class="iconbtn primary" onclick="location.reload()">Try again</button>${damaged ? `<button class="iconbtn" id="bootVers">🕘 Earlier versions</button>` : ""}<a class="iconbtn" href="#/settings" onclick="setTimeout(()=>location.reload())">Settings</a></div></div>`;
+      if(damaged) document.getElementById("bootVers").onclick = () => showVersions();
       if(!LS.get("cm.dropbox", null)) LS.set("cm.mode","local");
       return;
     }
@@ -3486,10 +3597,31 @@ async function boot(){
       // Slot it in after the field that comes before it in the preset (e.g. Vinyl color right after Format).
       const after = n ? c.fields.findIndex(x => x.k === p.fields[n-1].k) : -1;
       c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f))); } } }); });
+  // The upgrades above are the same on every device, so count them as the starting point when merging with another device's changes.
+  if(store.kind === "dropbox" && store.base) store.base = JSON.stringify(cat, null, 1);
   setBrand();
   window.addEventListener("hashchange", route);
   route();
+  const flash = LS.get("cm.flash", ""); if(flash){ LS.del("cm.flash"); toast(flash, 3500); }
 }
+/* Coming back to the app (e.g. the phone after adding pieces on the computer): pick up changes made elsewhere.
+   Skipped while a form, pop-up or gallery walk is open so nothing in progress is disturbed. */
+let lastFresh = 0;
+async function refreshFromDropbox(){
+  if(!store || store.kind !== "dropbox" || !cat || Date.now() - lastFresh < 20000) return;
+  if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) return;
+  lastFresh = Date.now();
+  try{
+    const meta = await store.rpc("files/get_metadata", {path:"/catalog.json"});
+    if(meta.rev === store.rev) return;
+    const oldRev = store.rev, oldBase = store.base;
+    const fresh = await store.load(), undo = () => { store.rev = oldRev; store.base = oldBase; }; // next save then merges instead
+    if(!fresh || !Array.isArray(fresh.items)) return undo();
+    if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) return undo();
+    const y = scrollY; cat = fresh; setBrand(); route(); scrollTo(0, y);
+  }catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") refreshFromDropbox(); });
 boot();
 setTimeout(() => checkUpdate(false), 1500);
 setTimeout(() => { if(cat) autoSyncBGG(); }, 2500);
