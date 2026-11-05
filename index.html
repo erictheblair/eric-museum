@@ -791,7 +791,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.05.70";
+const APP_VERSION = "2026.11.05.71";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2822,7 +2822,7 @@ document.addEventListener("click", e => {
   e.preventDefault(); e.stopPropagation();
   const which = rp.dataset.g || "moon";
   if(window.MummulaArcade) return MummulaArcade.open(which);
-  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=20"; sc.onload = () => MummulaArcade.open(which);
+  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=21"; sc.onload = () => MummulaArcade.open(which);
   sc.onerror = () => toast("Couldn't load the game."); document.head.appendChild(sc);
 }, true);
 // On a computer, a piece opens as a pop-up over the page you're on. Edit turns the pop-up into the form;
