@@ -568,6 +568,20 @@ const SCARAB = [spr([
   "GttCttG",
   ".tttttG",
   "Gt...tG"])];
+// Mummula shielding: cape wrapped round in front of him, eyes peeking over the collar.
+const SHIELD = spr([
+  "....wwww....",
+  "...wbwwbw...",
+  "..kwrwwrwk..",
+  ".kvkkkkkkvk.",
+  "kvkkkkkkkkvk",
+  "kvkkkvvkkkvk",
+  "kvkkkkkkkkvk",
+  "kvkkkkkkkkvk",
+  "kvkkkvvkkkvk",
+  "kvkkkkkkkkvk",
+  ".kvkkkkkkvk.",
+  "..ww....ww.."]);
 const HEART = spr([".rr.rr.", "rrrrrrr", "rrrrrrr", ".rrrrr.", "..rrr..", "...r..."]);
 function outl(g, rows, x, y, pal, s, oc){
   s = s || 1; const o = Math.max(1, Math.round(s));
@@ -577,11 +591,11 @@ function outl(g, rows, x, y, pal, s, oc){
 const CFLOOR = 270, LEDGE = 58;
 const TAUNTS = ["CURSE YOU!", "BAH!", "KIDS THESE DAYS!", "OFF MY PYRAMID!", "IN MY DAY...", "HEH HEH HEH", "MY BACK!", "BEGONE!"];
 const CURSE = {
-  key:"curse", W:224, H:288, glow:"#b45cff", pre:"THE CURSE OF", sub:"", song:null,
-  help:"← → to dodge · Space, ↑ or tap to cape-dash through a curse or a rolling record · grab the ankhs · the purple hex scrambles your controls",
-  start:"PRESS START", pad:[["left","◀"],["fire","DASH"],["right","▶"]],
+  key:"curse", W:224, H:288, glow:"#b45cff", pre:"THE CURSE OF", sub:"", song:"curse",
+  help:"← → dodge · Space, ↑ or tap to cape-dash · hold ↓ to shield (it runs out) · grab ankhs",
+  start:"PRESS START", pad:[["left","◀"],["fire","DASH"],["down","SHIELD"],["right","▶"]],
   reset(st){
-    st.p = {x:100, y:CFLOOR - 24, w:24, h:24, inv:0, dash:0, cool:0, face:1, trail:[]};
+    st.p = {x:100, y:CFLOOR - 24, w:24, h:24, inv:0, dash:0, cool:0, face:1, trail:[], sh:1, shT:0, shield:false, shLock:false}; st.texts = [];
     st.old = {x:100, tx:100, wind:0, tt:1.6, face:1, say:"", sayT:0, sayNext:2.5};
     st.lives = 3; st.lvl = 1; st.surv = 0; st.bonus = 0; st.curse = 0; st.banner = 1.6; st.shake = 0;
     st.things = []; st.puffs = []; st.boom = []; st.nextAnkh = 3; st.saved = false; st.newHi = false;
@@ -615,8 +629,14 @@ const CURSE = {
     if(dir) p.face = dir;
     p.cool -= dt; p.inv -= dt;
     if((pr.fire || pr.tap || pr.up) && p.cool <= 0){ p.dash = .18; p.cool = .8; }
+    // Shield: hold ↓ to wrap the cape round. He can't move while it's up; the meter lasts 1.5s and refills in 4s once it's down.
+    // Run it dry and you have to let go of ↓ before it comes back up.
+    if(!k.down) p.shLock = false;
+    p.shield = !!k.down && !p.shLock && p.sh > 0 && p.dash <= 0;
+    if(p.shield){ p.sh = Math.max(0, p.sh - dt / 1.5); p.shT += dt; if(p.sh <= 0){ p.shLock = true; p.shield = false; } }
+    else { p.shT = 0; if(!k.down || p.shLock) p.sh = Math.min(1, p.sh + dt / 4); }
     if(p.dash > 0){ p.dash -= dt; p.x += p.face * 330 * dt; p.trail.push({x:p.x, life:.25}); }
-    else p.x += dir * 110 * dt;
+    else if(!p.shield) p.x += dir * 110 * dt;
     p.x = Math.max(0, Math.min(200, p.x));
     for(const t of p.trail) t.life -= dt; p.trail = p.trail.filter(t => t.life > 0);
     // Old Man Mummula shuffles along the ledge, winds up, throws. Faster and meaner each level; doubles up from level 5.
@@ -658,11 +678,17 @@ const CURSE = {
       if(t.k === "heart"){ t.gone = true; st.lives = Math.min(3, st.lives + 1); CURSE.pop(st, t.x + 3, t.y + 3, "#ff3b3b", 10); continue; }
       if(p.dash > 0 || p.inv > 0) continue;
       t.gone = true;
+      // the cape blocks what comes from above (not hexes, clouds or rolling records); a block in the first instant is a perfect block
+      if(p.shield && (t.k === "jar" || t.k === "skull" || t.k === "scarab" || t.k === "bolt")){
+        CURSE.pop(st, t.x + t.w / 2, t.y + t.h / 2, "#ffffff", 10); CURSE.pop(st, t.x + t.w / 2, t.y + t.h / 2, "#d27bff", 8); st.shake = .1;
+        if(p.shT < .2){ st.bonus += 25; st.texts.push({x:p.x + 12, y:p.y - 10, s:"PERFECT +25", life:.9}); }
+        continue; }
       if(t.k === "hex"){ st.curse = 4; st.shake = .3; CURSE.pop(st, p.x + 12, p.y + 12, "#d27bff", 18); continue; }
       CURSE.hurt(st);
     }
     if(p.dash <= 0 && p.inv <= 0) for(const u of st.puffs) if(u.life > .15 && hit(box, u)){ CURSE.hurt(st); break; }
     st.things = st.things.filter(t => !t.gone);
+    for(const x of st.texts){ x.y -= 18 * dt; x.life -= dt; } st.texts = st.texts.filter(x => x.life > 0);
     for(const b of st.boom){ b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 90 * dt; b.life -= dt; }
     st.boom = st.boom.filter(b => b.life > 0);
   },
@@ -751,7 +777,13 @@ const CURSE = {
     const mpal = hexed ? {w:"#d9b8ff", b:"#9a6ad0", v:"#7a1ab0"} : null;
     for(const t of p.trail){ g.globalAlpha = t.life * 2; draw(g, MUM[0], t.x, p.y, {w:"#6a3a9a", b:"#6a3a9a", r:"#6a3a9a", k:"#3a1a5a", v:"#6a3a9a"}, 2); }
     g.globalAlpha = 1;
-    if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, MUM[(Math.floor(st.t * 8) % 2) * ((st.mode === "play" && p.dash <= 0) ? 1 : 0)], p.x, p.y, mpal, 2);
+    if(p.shield && st.mode === "play"){ g.fillStyle = `rgba(210,123,255,${.22 + .1 * Math.sin(st.t * 30)})`; g.beginPath(); g.arc(p.x + 12, p.y + 12, 17, Math.PI, 0); g.fill();
+      outl(g, SHIELD, p.x, p.y, mpal, 2, "#d27bff"); }
+    else if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, MUM[(Math.floor(st.t * 8) % 2) * ((st.mode === "play" && p.dash <= 0) ? 1 : 0)], p.x, p.y, mpal, 2);
+    if(p.sh < 1 && st.mode === "play"){ g.fillStyle = "#1a2a3a"; g.fillRect(p.x + 6, p.y - 9, 12, 2); g.fillStyle = p.shLock ? "#ff4f4f" : "#3cf0ff"; g.fillRect(p.x + 6, p.y - 9, Math.round(12 * p.sh), 2); }
+    g.textAlign = "center"; g.font = "bold 8px 'Courier New',monospace";
+    for(const x of st.texts){ g.fillStyle = "#0a0612"; g.fillText(x.s, x.x + 1, x.y + 1); g.fillStyle = "#ffcf3a"; g.fillText(x.s, x.x, x.y); }
+    g.textAlign = "left";
     if(p.cool > 0 && st.mode === "play"){ g.fillStyle = "#3a2440"; g.fillRect(p.x + 6, p.y - 5, 12, 2); g.fillStyle = "#b45cff"; g.fillRect(p.x + 6, p.y - 5, Math.round(12 * (1 - p.cool / .8)), 2); }
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
     // HUD
