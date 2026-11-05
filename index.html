@@ -561,6 +561,20 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
   .lightbox[style*="flex-end"]>.panel{border-radius:16px!important;padding-bottom:18px!important;box-shadow:0 30px 90px rgba(0,0,0,.55);animation:popIn .18s ease-out}
   .lightbox[style*="flex-end"]>.panel::before{display:none}
   #cc>.panel,#pk>.panel{height:min(700px,86vh)}}
+/* Cover poster builder */
+#po>.panel{width:100%;max-width:1100px;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom));max-height:94vh;display:flex;flex-direction:column}
+#po .pobody{display:grid;gap:14px;min-height:0;flex:1;overflow:auto}
+#po .poview{position:relative;height:36vh;min-height:200px;display:flex;align-items:center;justify-content:center;background:repeating-conic-gradient(color-mix(in srgb,var(--muted) 12%,transparent) 0 25%,transparent 0 50%) 0 0/18px 18px;border-radius:10px;overflow:hidden}
+#po canvas{display:block;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+#po #poMsg{position:absolute;bottom:8px;left:50%;translate:-50% 0;background:rgba(0,0,0,.65);color:#fff;font-size:.78rem;padding:3px 10px;border-radius:999px;white-space:nowrap}
+#po #poMsg:empty{display:none}
+#po .porow{display:grid;gap:5px;margin-bottom:10px}
+#po .porow>span{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#po .porow>div{display:flex;flex-wrap:wrap;gap:6px}
+#po .chip{font-size:.85rem;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;color:inherit}
+#po .chip.on{color:var(--bg)}
+#po .chip i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(128,128,128,.6);display:inline-block}
+@media (min-width:700px) and (min-height:520px){#po .pobody{grid-template-columns:1fr 300px;overflow:visible}#po .poview{height:min(68vh,660px)}#po .poopts{overflow:auto;max-height:min(68vh,660px)}}
 @keyframes popIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
 /* Bootleg banner across the corner of the artwork */
 .frame.boot,.pframe.boot{position:relative;overflow:hidden}
@@ -709,7 +723,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.38";
+const APP_VERSION = "2026.11.04.39";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2846,36 +2860,132 @@ function exportGallery(c, items){
     <p style="color:var(--muted);font-size:.88rem">Exports the ${items.length} ${items.length === 1 ? "piece" : "pieces"} you're looking at${priv ? ". Private mode is on, so prices, values and private fields are left out of the spreadsheet" : ""}.</p>
     <div style="display:grid;gap:10px;margin-top:12px">
       <button class="iconbtn" id="exCsv" style="justify-content:flex-start;height:auto;padding:12px 16px;text-align:left">📄 <span><b>Spreadsheet (CSV)</b><br><small style="color:var(--muted)">Opens in Excel, Numbers or Google Sheets, in the current order</small></span></button>
-      <button class="iconbtn" id="exPic" style="justify-content:flex-start;height:auto;padding:12px 16px;text-align:left" ${withCover.length ? "" : "disabled"}>🖼 <span><b>Cover poster (image)</b><br><small style="color:var(--muted)">Every cover in one picture, by ${esc((c.maker||"artist").toLowerCase())}, no text${withCover.length < items.length ? ` · ${items.length - withCover.length} without a photo left out` : ""}</small></span></button>
+      <button class="iconbtn" id="exPic" style="justify-content:flex-start;height:auto;padding:12px 16px;text-align:left" ${withCover.length ? "" : "disabled"}>🖼 <span><b>Cover poster (image)</b><br><small style="color:var(--muted)">Every cover in one picture, by ${esc((c.maker||"artist").toLowerCase())}, no text. Preview it and pick a background and layout first${withCover.length < items.length ? ` · ${items.length - withCover.length} without a photo left out` : ""}</small></span></button>
     </div></div></div>`;
   const close = () => L.innerHTML = "";
   document.getElementById("exX").onclick = close;
   document.getElementById("ex").onclick = e => { if(e.target.id === "ex") close(); };
   const day = new Date().toISOString().slice(0,10);
   document.getElementById("exCsv").onclick = () => { download(csvBlob(items, c), fileSafe(c.name) + "-" + day + ".csv"); close(); };
-  document.getElementById("exPic").onclick = async () => { close(); try{ const b = await coverPoster(withCover); download(b, fileSafe(c.name) + "-covers-" + day + ".jpg"); }catch(e){ alert("Couldn't make the poster: " + e.message); } };
+  document.getElementById("exPic").onclick = () => posterBuilder(c, withCover, () => exportGallery(c, items));
 }
-// Draws every cover into one tight grid (dark background, no text) and returns it as a JPEG.
-async function coverPoster(items){
-  const n = items.length, cols = Math.max(1, Math.ceil(Math.sqrt(n * 1.6))), rows = Math.ceil(n / cols);
-  const gap = 6, tile = Math.max(60, Math.min(300, Math.floor((14000 - gap) / cols) - gap, Math.floor((14000 - gap) / rows) - gap));
-  const cv = document.createElement("canvas"); cv.width = gap + cols * (tile + gap); cv.height = gap + rows * (tile + gap);
-  const g = cv.getContext("2d"); g.fillStyle = "#141210"; g.fillRect(0, 0, cv.width, cv.height);
-  const pb = progressBox("Making your poster…"); let done = 0, next = 0;
-  const getBlob = async m => { const path = tile <= 200 && m.thumb ? m.thumb : m.path;
-    if(/^https?:\/\//.test(path)){ const r = await fetchT(path, {}, 15000); if(!r.ok) throw 0; return r.blob(); }
-    return (await store.getBlob(path)) || (store.url ? fetch(await store.url(path)).then(r => r.blob()) : null); };
-  const one = async k => {
-    const x = gap + (k % cols) * (tile + gap), y = gap + Math.floor(k / cols) * (tile + gap);
-    try{ const bmp = await createImageBitmap(await getBlob(cover(items[k])));
-      const s = Math.min(tile / bmp.width, tile / bmp.height), w = bmp.width * s, h = bmp.height * s;
-      g.drawImage(bmp, x + (tile - w) / 2, y + (tile - h) / 2, w, h); bmp.close && bmp.close(); }
-    catch{ g.fillStyle = "#2a2622"; g.fillRect(x, y, tile, tile); }
-    pb.set(`Making your poster… ${++done} of ${n}`);
+// ---- Cover poster: pick a background and layout, see a live preview, then save at full size ----
+const PO = {
+  bg: [
+    {k:"char", l:"Charcoal", c:"#141210"}, {k:"black", l:"Black", c:"#000000"}, {k:"white", l:"White", c:"#ffffff"},
+    {k:"cream", l:"Cream", c:"#f1e8d6"}, {k:"walnut", l:"Walnut", c:"#4b2f1b", wood:1}, {k:"wall", l:"Gallery wall", c:"#9a8f7f", spot:1},
+    {k:"night", l:"Midnight", c:"#141c33", grad:["#24345c","#090d1a"]}, {k:"red", l:"Velvet", c:"#4a0f14", spot:1}],
+  layout: [
+    {k:"auto", l:"Snug", a:0}, {k:"square", l:"Square", a:1, L:4000}, {k:"wide", l:"Wide 16:9", a:16/9, L:3840},
+    {k:"print", l:"Print 4:5", a:4/5, L:5000}, {k:"phone", l:"Phone", a:1290/2796, L:2796}, {k:"banner", l:"Banner 3:1", a:3, L:6000}],
+  gap: [{k:"0", l:"None", g:0}, {k:"1", l:"Thin", g:.03}, {k:"2", l:"Roomy", g:.14}],
+  shape: [{k:"fit", l:"Whole cover"}, {k:"fill", l:"Square crop"}],
+  style: [{k:"flat", l:"Flat"}, {k:"shadow", l:"Shadows"}, {k:"shelf", l:"Shelves"}]
+};
+const poOpt = (o, key) => PO[key].find(x => x.k === o[key]) || PO[key][0];
+// Works out tile size and positions so the covers fill the chosen shape as fully as possible.
+function posterLayout(n, o){
+  const lay = poOpt(o,"layout"), gr = poOpt(o,"gap").g, sh = o.style === "shelf" ? .09 : 0;
+  const m = Math.max(gr, sh ? .06 : 0, lay.a ? .04 : 0, o.style === "shadow" ? .05 : 0);
+  const unitW = c => c + (c - 1) * gr + 2 * m, unitH = r => r + (r - 1) * gr + r * sh + 2 * m;
+  let W, H, tile, cols;
+  if(!lay.a){
+    cols = Math.max(1, Math.ceil(Math.sqrt(n * 1.6 * (1 + sh)))); const rows = Math.ceil(n / cols);
+    tile = 300; W = unitW(cols) * tile; H = unitH(rows) * tile;
+  } else {
+    W = lay.a >= 1 ? lay.L : Math.round(lay.L * lay.a); H = lay.a >= 1 ? Math.round(lay.L / lay.a) : lay.L; tile = 0;
+    for(let c = 1; c <= n; c++){ const t = Math.min(W / unitW(c), H / unitH(Math.ceil(n / c))); if(t > tile){ tile = t; cols = c; } }
+  }
+  const cap = Math.min(1, 14000 / Math.max(W, H), Math.sqrt(16e6 / (W * H)));   // stay inside what phones and Safari can draw
+  W = Math.round(W * cap); H = Math.round(H * cap); tile *= cap;
+  const rows = Math.ceil(n / cols), gap = tile * gr, step = tile + gap, rowStep = tile * (1 + sh) + gap;
+  const gw = cols * tile + (cols - 1) * gap, gh = rows * tile * (1 + sh) + (rows - 1) * gap;
+  const x0 = (W - gw) / 2, y0 = (H - gh) / 2, last = n - (rows - 1) * cols;
+  const pos = k => { const r = Math.floor(k / cols), c = k % cols, inLast = r === rows - 1 && last < cols;
+    return {x: x0 + c * step + (inLast ? (cols - last) * step / 2 : 0), y: y0 + r * rowStep}; };
+  return {W, H, tile, cols, rows, gap, sh, x0, y0, gw, rowStep, pos, n};
+}
+function posterBase(g, L, o){
+  const b = poOpt(o,"bg"), {W, H} = L;
+  g.fillStyle = b.c; g.fillRect(0, 0, W, H);
+  if(b.grad){ const lg = g.createLinearGradient(0, 0, 0, H); lg.addColorStop(0, b.grad[0]); lg.addColorStop(1, b.grad[1]); g.fillStyle = lg; g.fillRect(0, 0, W, H); }
+  if(b.spot){ const rg = g.createRadialGradient(W/2, H*.42, 0, W/2, H*.42, Math.hypot(W, H) * .6);
+    rg.addColorStop(0, "rgba(255,240,215,.22)"); rg.addColorStop(.55, "rgba(0,0,0,0)"); rg.addColorStop(1, "rgba(0,0,0,.45)"); g.fillStyle = rg; g.fillRect(0, 0, W, H); }
+  if(b.wood){ let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647, u = Math.max(W, H) / 1000;
+    for(let i = 0; i < 420; i++){ const y = rnd() * H, a = rnd() * .09, th = (rnd() * 2.5 + .4) * u, amp = rnd() * 6 * u, f = rnd() * 6 + 1;
+      g.strokeStyle = rnd() < .5 ? `rgba(20,8,0,${a + .03})` : `rgba(255,200,140,${a * .6})`; g.lineWidth = th; g.beginPath();
+      for(let x = 0; x <= W; x += W / 40) g.lineTo(x, y + Math.sin(x / W * f * 6.28 + i) * amp); g.stroke(); }
+    const vg = g.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.hypot(W, H) * .6); vg.addColorStop(.5, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.35)"); g.fillStyle = vg; g.fillRect(0, 0, W, H); }
+  if(o.style === "shelf"){ const t = L.tile, ph = t * .055, ext = Math.max(L.gap, t * .04);
+    for(let r = 0; r < L.rows; r++){ const y = L.y0 + r * L.rowStep + t, x = L.x0 - ext, w = L.gw + 2 * ext;
+      g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(x, y + ph, w, ph * .7);
+      const lg = g.createLinearGradient(0, y, 0, y + ph); lg.addColorStop(0, "#a7774a"); lg.addColorStop(.25, "#7a5130"); lg.addColorStop(1, "#4a2e18");
+      g.fillStyle = lg; g.fillRect(x, y, w, ph); } }
+}
+function posterTile(g, L, o, k, bmp){
+  const t = L.tile, {x, y} = L.pos(k);
+  if(!bmp){ g.fillStyle = "rgba(128,120,110,.35)"; g.fillRect(x, y, t, t); return; }
+  g.save();
+  if(o.style !== "flat"){ g.shadowColor = "rgba(0,0,0,.5)"; g.shadowBlur = t * .07; g.shadowOffsetY = t * .03; }
+  if(o.shape === "fill"){ const s = Math.max(t / bmp.width, t / bmp.height), sw = t / s, sh = t / s;
+    g.drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, x, y, t, t); }
+  else { const s = Math.min(t / bmp.width, t / bmp.height), w = bmp.width * s, h = bmp.height * s;
+    g.drawImage(bmp, x + (t - w) / 2, o.style === "shelf" ? y + t - h : y + (t - h) / 2, w, h); }
+  g.restore();
+}
+async function posterBitmap(m, big){
+  const path = !big && m.thumb ? m.thumb : m.path;
+  const blob = /^https?:\/\//.test(path) ? await fetchT(path, {}, 15000).then(r => { if(!r.ok) throw 0; return r.blob(); })
+    : (await store.getBlob(path)) || (store.url ? await fetch(await store.url(path)).then(r => r.blob()) : null);
+  return createImageBitmap(blob);
+}
+async function eachLimit(n, f){ let next = 0; await Promise.all(Array.from({length: Math.min(6, n)}, async () => { while(next < n) await f(next++); })); }
+function posterBuilder(c, items, back){
+  const L0 = document.getElementById("layer"), n = items.length, day = new Date().toISOString().slice(0,10);
+  const o = Object.assign({bg:"char", layout:"auto", gap:"1", shape:"fit", style:"flat"}, LS.get("posterOpts", {}));
+  const row = (key, label) => `<div class="porow"><span>${label}</span><div>${PO[key].map(x => `<button class="chip${o[key] === x.k ? " on" : ""}" data-po="${key}" data-v="${x.k}">${key === "bg" ? `<i style="background:${x.grad ? `linear-gradient(${x.grad})` : x.c}"></i>` : ""}${x.l}</button>`).join("")}</div></div>`;
+  L0.innerHTML = `<div class="lightbox" id="po" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Cover poster · ${c.icon} ${esc(c.name)}</h2><button class="iconbtn" id="poX" aria-label="Close">✕</button></div>
+    <div class="pobody"><div class="poview"><canvas id="poCv"></canvas><div id="poMsg"></div></div>
+    <div class="poopts">${row("bg","Background")}${row("layout","Layout")}${row("gap","Spacing")}${row("shape","Covers")}${row("style","Style")}
+      <p id="poInfo" style="color:var(--muted);font-size:.82rem;margin:6px 0 0"></p></div></div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:12px"><button class="iconbtn" id="poBack" style="width:auto;padding:0 14px">‹ Back</button><button class="iconbtn primary" id="poSave" style="width:auto;padding:0 18px">⤓ Save image</button></div></div></div>`;
+  const cv = document.getElementById("poCv"), msg = document.getElementById("poMsg"), info = document.getElementById("poInfo");
+  const bm = new Array(n); let alive = true, loaded = 0;
+  const ro = new ResizeObserver(() => redraw());
+  const close = () => { alive = false; ro.disconnect(); bm.forEach(b => b && b.close && b.close()); L0.innerHTML = ""; };
+  document.getElementById("poX").onclick = close;
+  document.getElementById("po").onclick = e => { if(e.target.id === "po") close(); };
+  document.getElementById("poBack").onclick = () => { close(); back(); };
+  let raf = 0;
+  const draw = () => { raf = 0; if(!alive) return; const L = posterLayout(n, o), box = cv.parentNode.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+    const fit = Math.min((box.width - 16) / L.W, (box.height - 16) / L.H);
+    cv.width = Math.max(1, Math.round(L.W * fit * dpr)); cv.height = Math.max(1, Math.round(L.H * fit * dpr));
+    cv.style.width = Math.round(L.W * fit) + "px"; cv.style.height = Math.round(L.H * fit) + "px";
+    const g = cv.getContext("2d"), s = cv.width / L.W; g.setTransform(s, 0, 0, s, 0, 0); posterBase(g, L, o);
+    for(let k = 0; k < n; k++) posterTile(g, L, o, k, bm[k]);
+    info.textContent = `${n} ${n === 1 ? "cover" : "covers"} in artist order · saves as ${L.W.toLocaleString()} × ${L.H.toLocaleString()} pixels`; };
+  const redraw = () => { if(!raf) raf = requestAnimationFrame(draw); };
+  document.querySelectorAll("[data-po]").forEach(b => b.onclick = () => { o[b.dataset.po] = b.dataset.v; LS.set("posterOpts", o);
+    document.querySelectorAll(`[data-po="${b.dataset.po}"]`).forEach(x => x.classList.toggle("on", x === b)); redraw(); });
+  ro.observe(cv.parentNode);
+  draw(); msg.textContent = `Loading covers… 0 of ${n}`;
+  eachLimit(n, async k => { if(!alive) return; try{ bm[k] = await posterBitmap(cover(items[k]), false); }catch{}
+    if(!alive){ bm[k] && bm[k].close && bm[k].close(); return; }
+    loaded++; msg.textContent = loaded < n ? `Loading covers… ${loaded} of ${n}` : ""; redraw(); });
+  document.getElementById("poSave").onclick = async () => {
+    const L = posterLayout(n, o), big = L.tile > 230, out = document.createElement("canvas"); out.width = L.W; out.height = L.H;
+    const g = out.getContext("2d"); posterBase(g, L, o);
+    const pb = progressBox("Making your poster…"); let done = 0;
+    try{
+      await eachLimit(n, async k => { let b = big || !bm[k] ? null : bm[k];
+        if(!b){ try{ b = await posterBitmap(cover(items[k]), big); }catch{ b = bm[k]; } }
+        posterTile(g, L, o, k, b); if(b && b !== bm[k] && b.close) b.close(); pb.set(`Making your poster… ${++done} of ${n}`); });
+      const blob = await new Promise((res, rej) => out.toBlob(b => b ? res(b) : rej(new Error("the image is too large")), "image/jpeg", .92));
+      download(blob, fileSafe(c.name) + "-" + poOpt(o,"layout").k + "-" + day + ".jpg");
+    }catch(e){ alert("Couldn't make the poster: " + e.message); }
+    finally{ pb.done(); out.width = out.height = 0; }
   };
-  try{ await Promise.all(Array.from({length: Math.min(6, n)}, async () => { while(next < n) await one(next++); })); }
-  finally{ pb.done(); }
-  return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("the image is too large")), "image/jpeg", .9));
 }
 function exportCSV(){ download(csvBlob(), "collection-" + new Date().toISOString().slice(0,10) + ".csv"); }
 
