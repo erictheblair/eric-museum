@@ -765,7 +765,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.05.52";
+const APP_VERSION = "2026.11.05.53";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1459,7 +1459,14 @@ function viewWall(id, params){
   const placeTrees = () => { if(!wall.classList.contains("r-xmas")) return; wall.style.setProperty("--vw2", track.clientWidth / 2);
     bays.forEach(b => { const t = b.querySelector(".xt"); if(t) t.style.setProperty("--bx", b.offsetLeft); }); };
   placeTrees(); window.addEventListener("resize", function ptr(){ if(!wall.isConnected) return window.removeEventListener("resize", ptr); placeTrees(); });
-  placeRail(); placeGhosts(); wall.addEventListener("load", () => { placeRail(); placeGhosts(); }, true);
+  // Room props (cabinets, jukebox, statues…) stand halfway between the two neighbouring frames, whatever their widths.
+  const placeProps = () => bays.forEach((b, n) => { const rp = b.querySelector(":scope>.rp"); if(!rp) return;
+    const prev = n && bays[n-1].querySelector(".pframe"), fr = b.querySelector(".pframe");
+    if(!prev || !fr || !getComputedStyle(rp).backgroundImage.includes("url")){ rp.style.translate = ""; return; }
+    const bl = b.getBoundingClientRect().left, mid = (prev.getBoundingClientRect().right + fr.getBoundingClientRect().left) / 2 - bl;
+    rp.style.translate = Math.round(mid) + "px 0"; });
+  placeRail(); placeGhosts(); placeProps(); wall.addEventListener("load", () => { placeRail(); placeGhosts(); placeProps(); }, true);
+  window.addEventListener("resize", function pp(){ if(!wall.isConnected) return window.removeEventListener("resize", pp); placeProps(); });
   window.addEventListener("resize", function pg(){ if(!wall.isConnected) return window.removeEventListener("resize", pg); placeGhosts(); });
   window.addEventListener("resize", function pr(){ if(!wall.isConnected) return window.removeEventListener("resize", pr); placeRail(); });
   const sp = document.getElementById("wspeed"); if(sp) sp.onchange = () => LS.set("cm.tourSecs", +sp.value);
@@ -1469,7 +1476,7 @@ function viewWall(id, params){
   if(document.getElementById("worder")) document.getElementById("worder").onclick = () => { LS.set("cm.wallShuffle", false); location.hash = "#/wall/" + id; };
   if(document.getElementById("wprev")){ document.getElementById("wprev").onclick = () => step(-1); document.getElementById("wnext").onclick = () => step(1); }
   document.getElementById("wroom").onchange = e => {
-    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v); placeRail(); placeGhosts(); placeTrees(); resetSlide();
+    const v = e.target.value; ROOMS.forEach(([k]) => wall.classList.remove("r-" + k)); wall.classList.add("r-" + v); placeRail(); placeGhosts(); placeTrees(); placeProps(); resetSlide();
     c.room = v; delete c.frame; persist().catch(err => toast("Couldn't save the room choice: " + err.message));
   };
   track.addEventListener("click", e => {
@@ -2773,7 +2780,7 @@ document.addEventListener("click", e => {
   e.preventDefault(); e.stopPropagation();
   const which = rp.classList.contains("rb") ? "island" : "moon";
   if(window.MummulaArcade) return MummulaArcade.open(which);
-  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=3"; sc.onload = () => MummulaArcade.open(which);
+  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=4"; sc.onload = () => MummulaArcade.open(which);
   sc.onerror = () => toast("Couldn't load the game."); document.head.appendChild(sc);
 }, true);
 // On a computer, a piece opens as a pop-up over the page you're on. Edit turns the pop-up into the form;

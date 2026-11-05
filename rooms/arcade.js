@@ -72,18 +72,40 @@ const SAUCER = spr([
   "mmmmmmmmmmmmmmmmm",
   ".mymmmymmmymmmym.",
   "...nnnnnnnnnnn..."]);
+// Player ship: a big Mummula head (with cape collar) popping out of the open-top saucer.
+const SAUCER_BIG = spr([
+  ".......wwbwwww.......",
+  ".....wwwwwwbwwww.....",
+  "....wbwwwwwwwwbww....",
+  "....wwbbbwwwbbbww....",
+  "....wwkrrwwwkrrbw....",
+  "....bwkrrwbwkrrww....",
+  "....wwwwwwkwwwwwb....",
+  "..vv.wwkwkwkwkww.vv..",
+  "..vvvwwwkkkkkwwwvvv..",
+  "...vvkcwwwwwwwckvv...",
+  "....ccCkkkkkkkCcc....",
+  "...mmmmmmmmmmmmmmm...",
+  ".mMMMMMMMMMMMMMMMMMm.",
+  "mmmmmmmmmmmmmmmmmmmmm",
+  ".mymmmymmmymmmymmmym.",
+  "...nnnnnnnnnnnnnnn..."]);
 const UFO = spr([
   "....ccc....",
   "...cCCCc...",
   ".mmmmmmmmm.",
   "mmymmymmymm",
   "..mmmmmmm.."]);
+// Bright cyan with a dark outline so it pops against the orange sunset and sand.
 const CRAB = spr([
-  "o.......o",
-  "oo.o.o.oo",
-  ".ooooooo.",
-  "o.ooooo.o",
-  ".o.....o."]);
+  "kk.......kk",
+  "ktk.w.w.ktk",
+  "ktk.k.k.ktk",
+  ".kkkkkkkkk.",
+  "kktttttttkk",
+  ".kCtttttCk.",
+  "k.kkkkkkk.k",
+  ".k.k...k.k."]);
 const ANKH = spr([
   ".OOO.",
   "O...O",
@@ -223,7 +245,7 @@ const MOON = {
     if(st.banner > 0){ st.banner -= dt; }
     p.x += ((k.right ? 1 : 0) - (k.left ? 1 : 0)) * 100 * dt; p.x = Math.max(2, Math.min(205, p.x));
     st.cool -= dt;
-    if((k.fire || k.tap) && st.cool <= 0 && st.shots.length < 3){ st.shots.push({x:p.x + 7.5, y:p.y - 4, w:2, h:6}); st.cool = .32; }
+    if((k.fire || k.tap) && st.cool <= 0 && st.shots.length < 3){ st.shots.push({x:p.x + 7.5, y:p.y - 12, w:2, h:6}); st.cool = .32; }
     for(const s of st.shots) s.y -= 230 * dt;
     st.shots = st.shots.filter(s => s.y > -8);
     // formation
@@ -266,7 +288,7 @@ const MOON = {
     g.fillStyle = "#ffef3a"; for(const s of st.shots) g.fillRect(s.x, s.y, 2, 6);
     g.fillStyle = "#7dff5a"; for(const z of st.zaps){ g.fillRect(z.x, z.y, 2, 2); g.fillRect(z.x + (Math.floor(st.t * 20) % 2 ? 1 : -1), z.y + 2, 2, 3); }
     const p = st.p;
-    if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, SAUCER, p.x, p.y, {y:Math.floor(st.t * 6) % 2 ? "#ffef3a" : "#ff3b3b"});
+    if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, SAUCER_BIG, p.x - 2, p.y - 7, {y:Math.floor(st.t * 6) % 2 ? "#ffef3a" : "#ff3b3b"});
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
     g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace";
     g.fillText("WAVE " + st.wave, 4, 10);
@@ -332,7 +354,7 @@ const ISLAND = {
     st.balls = st.balls.filter(b => !b.done);
     // collisions: crabs and rocks trip you back toward the monster; fireballs and pits are the end
     const box = {x:m.x + 2, y:m.y + 1, w:m.w - 4, h:m.h - 1};
-    for(const o of st.obs) if(o.kind !== "pit" && !o.gone && hit(box, o)){ o.gone = true; m.stun = .45; m.x -= 34; m.vy = -120; st.shake = .3; ISLAND.pop(st, o.x + 5, o.y + 3, o.kind === "crab" ? "#ff7a1a" : "#8a7a8a"); }
+    for(const o of st.obs) if(o.kind !== "pit" && !o.gone && hit(box, o)){ o.gone = true; m.stun = .45; m.x -= 34; m.vy = -120; st.shake = .3; ISLAND.pop(st, o.x + 5, o.y + 3, o.kind === "crab" ? "#3cf0ff" : "#8a7a8a"); }
     for(const b of st.balls) if(hit(box, b)) return ISLAND.die(st, "burned");
     for(const a of st.ankhs) if(hit(box, a)){ a.got = true; st.coins++; ISLAND.pop(st, a.x + 2, a.y + 4, "#ffd04a"); }
     for(const w of st.waves){ w.x -= sp * dt * .5; if(w.x < -20){ w.x += 14 * 26; w.y = rnd(GROUND + 10, 176); } }
@@ -396,7 +418,7 @@ const ISLAND = {
     }
     for(const o of st.obs){
       const ox = Math.round(o.x);
-      if(o.kind === "crab") draw(g, CRAB, ox, o.y + (Math.floor(st.t * 8) % 2));
+      if(o.kind === "crab") draw(g, CRAB, ox - 1, o.y - 3 + (Math.floor(st.t * 8) & 1));
       if(o.kind === "rock"){ g.fillStyle = "#5a4a5a"; g.beginPath(); g.moveTo(ox, o.y + o.h); g.lineTo(ox + 2, o.y + 2); g.lineTo(ox + 7, o.y); g.lineTo(ox + 12, o.y + 4); g.lineTo(ox + 12, o.y + o.h); g.fill(); g.fillStyle = "#8a7a8a"; g.fillRect(ox + 3, o.y + 3, 3, 2); }
     }
     // ankhs float steadily with a slow glint
