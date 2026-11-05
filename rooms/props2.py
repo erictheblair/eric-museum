@@ -296,6 +296,25 @@ ART["butterflies"] = (f"<svg {W} viewBox='0 0 300 300'>"
  "<g transform='scale(.8)'><animateMotion dur='13s' begin='-5s' repeatCount='indefinite' rotate='0' path='M300 120 C240 60 150 140 120 80 C90 20 20 60 50 140 C80 220 170 160 220 230 C260 290 340 200 300 120 Z'/>"
  + "<g transform='scale(1.9)'>" + butterfly('#4ab8ff', '#16305a', .26) + "</g>" + "</g></svg>")
 
+# ---- Photo statues (Eric's pictures, background removed), standing on drawn marble pedestals ----
+import base64
+ST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "st")
+def img64(name): return "data:image/webp;base64," + base64.b64encode(open(os.path.join(ST, name), "rb").read()).decode()
+if os.path.exists(os.path.join(ST, "bust-t.webp")):
+    # Bust has its own round socle; it sits on a fluted column. Image 417x595.
+    ART["bust"] = (f"<svg {W} xmlns:xlink='http://www.w3.org/1999/xlink' viewBox='0 0 200 400'><defs>{marble}</defs>"
+     "<ellipse cx='100' cy='396' rx='80' ry='6' fill='#000' opacity='.35'/>" + pedestal(236, w=78) +
+     "<ellipse cx='100' cy='237' rx='34' ry='4' fill='#000' opacity='.35'/>"
+     f"<image href='{img64('bust-t.webp')}' x='{100 - 205*417/595/2:.1f}' y='33' width='{205*417/595:.1f}' height='205'/></svg>")
+    # Sphinx on its rods, on a wide square plinth. Image 820x992.
+    sw = 180; sh = sw*992/820
+    ART["sphinx"] = (f"<svg {W} viewBox='0 0 200 400'><defs>{marble}</defs>"
+     "<ellipse cx='100' cy='396' rx='88' ry='6' fill='#000' opacity='.35'/>"
+     "<rect x='26' y='232' width='148' height='12' rx='1' fill='url(#mb)'/><rect x='32' y='244' width='136' height='140' fill='url(#mb)'/>"
+     "<rect x='32' y='244' width='136' height='140' fill='#000' filter='url(#vein)'/><rect x='32' y='244' width='136' height='6' fill='#000' opacity='.18'/>"
+     "<rect x='22' y='384' width='156' height='12' rx='1' fill='url(#mb)'/>"
+     "<rect x='40' y='223' width='120' height='10' fill='#6b6157'/><rect x='40' y='223' width='120' height='2' fill='#9a8f82'/>"
+     f"<image href='{img64('sphinx-t.webp')}' x='{100 - sw/2:.1f}' y='{224 - sh:.1f}' width='{sw}' height='{sh:.1f}'/></svg>")
 if __name__ == "__main__":
     out = sys.argv[1]; os.makedirs(out, exist_ok=True)
     for k, v in ART.items():
