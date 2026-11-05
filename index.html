@@ -720,6 +720,9 @@ body.wallmode #fsc{display:none}
   .wall.r-xmas .bay>.xp{left:-70px;width:124px;height:92px}.wall.r-xmas .xp b{width:40px;height:113px;right:-44px}.wall.r-xmas .xp.so b{left:-38px}
   .wall.r-xmas .pframe::before{width:46px;height:32px;top:-12px;left:-14px}
   .wall.r-xmas .xg{top:calc(env(safe-area-inset-top) + 46px);height:46px}.wall.r-xmas .bay{padding-top:calc(84px + env(safe-area-inset-top))}}
+/* Phone on its side: the garland hangs along the very top, behind the buttons, instead of across the pictures */
+@media (orientation:landscape) and (max-height:560px){.wall.r-xmas .xg{top:env(safe-area-inset-top);height:34px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45))}
+  .wall.r-xmas .xg,.wall.r-xmas .xg::before,.wall.r-xmas .xg::after{background-size:50% 100%}}
 @media (prefers-reduced-motion:reduce){.wall.r-xmas .xg::before,.wall.r-xmas .xg::after,.wall.r-xmas .xw .sc::before,.wall.r-xmas .xw .sc::after{animation:none}}
 </style>
 </head>
@@ -735,7 +738,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.40";
+const APP_VERSION = "2026.11.04.41";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
