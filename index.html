@@ -476,8 +476,18 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .spin-act .iconbtn:not(.primary){background:#2a241e;color:#f3ead9;border-color:#4a4036}
 .setbtn{height:42px;padding:0 14px 0 11px;font-weight:600}
 /* Gallery jump menu in the top bar (the bar stays put as you scroll, so it's always in reach) */
-#galnav{height:42px;max-width:min(240px,42vw);padding:0 30px 0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:.9rem;cursor:pointer;text-overflow:ellipsis}
-#galnav:empty{display:none}
+.gnav{position:relative;flex:0 1 auto;min-width:0}
+.gnav:not(.ready){display:none}
+#gnavBtn{display:flex;align-items:center;gap:8px;height:42px;max-width:min(260px,46vw);padding:0 16px 0 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:.9rem;cursor:pointer}
+#gnavBtn .gl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#gnavBtn svg{flex:0 0 auto;margin-left:2px;transition:transform .15s}
+#gnavBtn[aria-expanded="true"] svg{transform:rotate(180deg)}
+.gmenu{position:absolute;right:0;top:calc(100% + 8px);z-index:40;min-width:240px;max-width:min(340px,92vw);max-height:min(70vh,560px);overflow:auto;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.gmenu a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:var(--ink);text-decoration:none;font-size:.95rem;white-space:nowrap}
+.gmenu a:hover,.gmenu a:focus-visible{background:color-mix(in srgb,var(--ink) 8%,transparent);outline:none}
+.gmenu a.on{font-weight:600;background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.gmenu a .n{margin-left:auto;color:var(--muted);font-size:.8rem;font-weight:400;padding-left:14px}
+.gmenu hr{border:none;border-top:1px solid var(--line);margin:6px 4px}
 .setbtn svg{flex:0 0 auto}
 @media (max-width:400px){.setbtn .lbl{display:none}.setbtn{width:44px;padding:0}}
 /* Starship portholes: star field, shooting stars, the odd rocket or UFO */
@@ -691,7 +701,7 @@ body.wallmode #fsc{display:none}
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="#/" id="brand">The Collection<small>Private museum</small></a>
-  <select id="galnav" aria-label="Go to a gallery" title="Go to a gallery"></select>
+  <div id="galnav" class="gnav"><button type="button" id="gnavBtn" aria-haspopup="true" aria-expanded="false" title="Go to a gallery"></button><div class="gmenu" id="gnavMenu" hidden></div></div>
   <a class="iconbtn setbtn" href="#/settings" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl">Settings</span></a>
 </div></header>
 <main><div class="wrap" id="app"></div></main>
@@ -699,7 +709,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.37";
+const APP_VERSION = "2026.11.04.38";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -3081,11 +3091,24 @@ function viewGallery(id){
 }
 
 function notFound(){ app.innerHTML = `<div class="empty">That piece isn't here. <a href="#/">Back to the museum</a></div>`; }
+// Gallery jump menu: a button in the top bar that drops a list straight down (a plain <select> on a Mac pops up over itself instead).
 function fillGalNav(cur){
-  const g = document.getElementById("galnav"); if(!g || !cat) return;
+  const box = document.getElementById("galnav"), btn = document.getElementById("gnavBtn"), menu = document.getElementById("gnavMenu");
+  if(!box || !cat) return;
   const cs = [...cat.collections].sort((a, b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"}));
-  g.innerHTML = `<option value="">${cur ? "🏛 All galleries" : "Go to a gallery…"}</option>` + cs.map(c => `<option value="${esc(c.id)}" ${c.id === cur ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join("");
-  g.onchange = () => { location.hash = g.value ? "#/c/" + g.value : "#/"; };
+  const c = cs.find(x => x.id === cur);
+  btn.innerHTML = `<span class="gl">${c ? c.icon + " " + esc(c.name) : "Galleries"}</span><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const count = id => cat.items.filter(i => i.collectionId === id).length;
+  menu.innerHTML = `<a href="#/" class="${cur ? "" : "on"}">🏛 All galleries</a><hr>` + cs.map(x => `<a href="#/c/${esc(x.id)}" class="${x.id === cur ? "on" : ""}">${x.icon} ${esc(x.name)}<span class="n">${count(x.id)}</span></a>`).join("");
+  box.classList.add("ready");
+  const shut = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+  btn.onclick = e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute("aria-expanded", String(open));
+    if(open){ const on = menu.querySelector("a.on"); if(on) on.scrollIntoView({block:"nearest"}); } };
+  menu.onclick = shut;
+  if(!fillGalNav.wired){ fillGalNav.wired = true;
+    document.addEventListener("click", e => { if(!e.target.closest("#galnav")) shut(); });
+    document.addEventListener("keydown", e => { if(e.key === "Escape") shut(); }); }
+  shut();
 }
 function setBrand(){ document.getElementById("brand").firstChild.textContent = cat.title || "The Collection"; }
 
