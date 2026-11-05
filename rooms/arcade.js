@@ -7,33 +7,71 @@ const hiGet = k => { try{ return +localStorage.getItem("mummula.hi." + k) || 0; 
 const hiSet = (k, v) => { try{ localStorage.setItem("mummula.hi." + k, String(v)); }catch(e){} };
 
 /* ---------- pixel sprites ---------- */
-const PAL = { w:"#efe6cf", b:"#b9ae94", r:"#ff3b3b", k:"#1a1410", c:"#9ff", C:"#e8ffff", y:"#ffef3a", g:"#2f8f4a", G:"#7dff5a", o:"#ff7a1a", O:"#ffd04a", s:"#e8c878", d:"#7a3a16", p:"#ff4fd8", t:"#3cf0ff", L:"#ff5a12" };
+const PAL = { v:"#b0101a", m:"#9aa5ae", M:"#eef2f5", n:"#5a636b", w:"#efe6cf", b:"#b9ae94", r:"#ff3b3b", k:"#17121a", c:"#9ff", C:"#e8ffff", y:"#ffef3a", g:"#2f8f4a", G:"#7dff5a", o:"#ff7a1a", O:"#ffd04a", s:"#e8c878", d:"#7a3a16", p:"#ff4fd8", t:"#3cf0ff", L:"#ff5a12" };
 function spr(rows){ return rows.map(r => r.split("")); }
+// Mummula: bandaged, red eyes, black vampire cape with a red lining and a tall collar. Two frames (legs / cape flutter).
 const MUM = [spr([
-  "...wwww...",
-  "..wbwwbw..",
-  "..wrwwrw..",
-  "..wwwwww..",
-  "...wbbw...",
-  ".wwwwwwww.",
-  "w.bwwwwb.w",
-  "w.wwwwww.w",
-  "..wbbbbw..",
-  "..ww..ww..",
-  "..ww..ww..",
-  ".www..www."]), spr([
-  "...wwww...",
-  "..wbwwbw..",
-  "..wrwwrw..",
-  "..wwwwww..",
-  "...wbbw...",
-  ".wwwwwwww.",
-  "w.bwwwwb.w",
-  "w.wwwwww.w",
-  "..wbbbbw..",
-  "..ww.ww...",
-  ".ww...ww..",
-  "ww.....ww."])];
+  "....wwww....",
+  "...wbwwbw...",
+  "..kwrwwrwk..",
+  ".kk.wwww.kk.",
+  ".kvwwbbwwvk.",
+  "kvwwwwwwwwvk",
+  "kvw.wwww.wvk",
+  "kv..wbbw..vk",
+  "kv..wwww..vk",
+  "kk..w..w..kk",
+  ".k..w..w..k.",
+  "...ww..ww..."]), spr([
+  "....wwww....",
+  "...wbwwbw...",
+  "..kwrwwrwk..",
+  ".kk.wwww.kk.",
+  ".kvwwbbwwvk.",
+  "kvwwwwwwwwvk",
+  "kvw.wwww.wvk",
+  "kv..wbbw..vk",
+  ".kv.wwww.vk.",
+  ".kk.w..ww.k.",
+  "...ww....w..",
+  "..ww.....ww."])];
+// Side view for the beach run: cape streaming out behind.
+const RUN = [spr([
+  "......wwww..",
+  ".....wwbwr..",
+  "...kkwwwww..",
+  "..kvvkwbw...",
+  ".kvvvwwwww..",
+  "kvvvkwwbw.w.",
+  "kvvk.wwww...",
+  "kkk..wbbw...",
+  "kk...ww.ww..",
+  "....ww...w..",
+  "...ww....ww.",
+  "............"]), spr([
+  "......wwww..",
+  ".....wwbwr..",
+  "...kkwwwww..",
+  ".kkvvkwbw...",
+  "kvvvvwwwww..",
+  "kvvvkwwbw.w.",
+  ".kvk.wwww...",
+  "..kk.wbbw...",
+  "....wwww....",
+  "....w..w....",
+  "...ww..ww...",
+  "............"])];
+// Mummula's classic flying saucer: silver disc, glass dome with Mummula inside, running lights.
+const SAUCER = spr([
+  "......ccccc......",
+  ".....cwwbwwc.....",
+  "....cwrwwwrwc....",
+  "....ckkwwwkkc....",
+  "..mmmmmmmmmmmmm..",
+  ".mMMMMMMMMMMMMMm.",
+  "mmmmmmmmmmmmmmmmm",
+  ".mymmmymmmymmmym.",
+  "...nnnnnnnnnnn..."]);
 const UFO = spr([
   "....ccc....",
   "...cCCCc...",
@@ -56,10 +94,10 @@ const ANKH = spr([
   "..O..",
   "..O.."]);
 function draw(g, rows, x, y, pal, s){
-  s = s || 1;
+  s = s || 1; x = Math.round(x); y = Math.round(y);
   for(let j = 0; j < rows.length; j++) for(let i = 0; i < rows[j].length; i++){
     const ch = rows[j][i]; if(ch === ".") continue;
-    g.fillStyle = (pal && pal[ch]) || PAL[ch]; g.fillRect(Math.round(x + i*s), Math.round(y + j*s), s, s);
+    g.fillStyle = (pal && pal[ch]) || PAL[ch]; g.fillRect(x + Math.floor(i*s), y + Math.floor(j*s), Math.ceil(s), Math.ceil(s));
   }
 }
 
@@ -154,7 +192,7 @@ const MOON = {
   key:"moon", W:224, H:288, glow:"#ff3cc8", sub:"vs. THE MOON MEN",
   help:"← → to move · Space to fire bandage bolts", start:"PRESS START", pad:[["left","◀"],["fire","FIRE"],["right","▶"]],
   reset(st){
-    st.p = {x:107, y:262, w:10, h:12, inv:0}; st.lives = 3; st.wave = 0; st.shots = []; st.zaps = []; st.boom = []; st.saved = false; st.newHi = false;
+    st.p = {x:103, y:264, w:17, h:9, inv:0}; st.lives = 3; st.wave = 0; st.shots = []; st.zaps = []; st.boom = []; st.saved = false; st.newHi = false;
     st.stars = Array.from({length:60}, () => ({x:rnd(0, 224), y:rnd(0, 288), v:rnd(4, 18)}));
     MOON.wave(st);
   },
@@ -168,9 +206,9 @@ const MOON = {
     const p = st.p;
     for(const s of st.stars){ s.y += s.v * dt; if(s.y > 288) { s.y = 0; s.x = rnd(0, 224); } }
     if(st.banner > 0){ st.banner -= dt; }
-    p.x += ((k.right ? 1 : 0) - (k.left ? 1 : 0)) * 100 * dt; p.x = Math.max(2, Math.min(212, p.x));
+    p.x += ((k.right ? 1 : 0) - (k.left ? 1 : 0)) * 100 * dt; p.x = Math.max(2, Math.min(205, p.x));
     st.cool -= dt;
-    if((k.fire || k.tap) && st.cool <= 0 && st.shots.length < 3){ st.shots.push({x:p.x + 4, y:p.y - 4, w:2, h:6}); st.cool = .32; }
+    if((k.fire || k.tap) && st.cool <= 0 && st.shots.length < 3){ st.shots.push({x:p.x + 7.5, y:p.y - 4, w:2, h:6}); st.cool = .32; }
     for(const s of st.shots) s.y -= 230 * dt;
     st.shots = st.shots.filter(s => s.y > -8);
     // formation
@@ -195,7 +233,7 @@ const MOON = {
     }
     st.ufos = st.ufos.filter(u => !u.dead);
     p.inv -= dt;
-    if(p.inv <= 0) for(const z of st.zaps) if(hit(z, p)){ z.y = 999; st.lives--; p.inv = 1.6; MOON.pop(st, p.x + 5, p.y + 6, "#efe6cf"); if(st.lives <= 0) st.mode = "over"; }
+    if(p.inv <= 0) for(const z of st.zaps) if(hit(z, p)){ z.y = 999; st.lives--; p.inv = 1.6; MOON.pop(st, p.x + 8, p.y + 4, "#eef2f5"); if(st.lives <= 0) st.mode = "over"; }
     if(st.ufos.some(u => u.y > 250)){ st.lives = 0; st.mode = "over"; }
     if(!st.ufos.length){ st.score += 50 * st.wave; MOON.wave(st); st.zaps = []; }
     for(const b of st.boom){ b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt; }
@@ -213,11 +251,11 @@ const MOON = {
     g.fillStyle = "#ffef3a"; for(const s of st.shots) g.fillRect(s.x, s.y, 2, 6);
     g.fillStyle = "#7dff5a"; for(const z of st.zaps){ g.fillRect(z.x, z.y, 2, 2); g.fillRect(z.x + (Math.floor(st.t * 20) % 2 ? 1 : -1), z.y + 2, 2, 3); }
     const p = st.p;
-    if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, MUM[Math.floor(st.t * 6) % 2 && (st.keysMoving) ? 1 : 0], p.x, p.y);
+    if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, SAUCER, p.x, p.y, {y:Math.floor(st.t * 6) % 2 ? "#ffef3a" : "#ff3b3b"});
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
     g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace";
     g.fillText("WAVE " + st.wave, 4, 10);
-    for(let i = 0; i < st.lives; i++) draw(g, MUM[0], 180 + i * 12, 2, null, .7);
+    for(let i = 0; i < st.lives; i++) draw(g, SAUCER, 166 + i * 19, 3, null, 1);
     if(st.banner > 0 && st.mode === "play"){ g.textAlign = "center"; g.fillStyle = "#ffef3a"; g.font = "bold 14px Impact,'Arial Black',sans-serif"; g.fillText("WAVE " + st.wave, 112, 150); g.textAlign = "left"; }
   }
 };
@@ -226,99 +264,139 @@ const MOON = {
 const GROUND = 148;
 const ISLAND = {
   key:"island", W:320, H:180, glow:"#3cff7a", sub:"vs. MONSTER ISLAND",
-  help:"Space, ↑ or tap to jump (hold for a bigger jump) · grab the ankhs, dodge the fireballs", start:"PRESS START", pad:[["fire","JUMP"]],
+  help:"Space, ↑ or tap to jump (hold for a bigger jump) · ← → to run ahead or ease back · don't let the monster catch you", start:"PRESS START", pad:[["left","◀"],["fire","JUMP"],["right","▶"]],
   reset(st){
-    st.m = {x:56, y:GROUND - 12, w:8, h:12, vy:0, on:true}; st.obs = []; st.balls = []; st.ankhs = []; st.boom = [];
-    st.speed = 110; st.dist = 0; st.next = 1; st.nextBall = 3; st.nextAnkh = 2; st.shake = 0; st.roar = 4; st.saved = false; st.newHi = false; st.coins = 0;
+    st.m = {x:110, y:GROUND - 12, w:10, h:12, vy:0, on:true, stun:0}; st.obs = []; st.balls = []; st.ankhs = []; st.boom = [];
+    st.speed = 110; st.dist = 0; st.next = 1.2; st.nextBall = 4; st.nextAnkh = 2; st.shake = 0; st.saved = false; st.newHi = false; st.coins = 0;
+    // the monster: its snout tip is at mon.x; it creeps forward, lunges now and then, and gains on you when you stumble
+    st.mon = {x:60, base:60, lunge:0, nextLunge:3.5, step:0, jaw:0};
     st.waves = Array.from({length:14}, (_, i) => ({x:i * 26, y:rnd(GROUND + 10, 176)}));
   },
   update(st, dt, k, pr){
-    const m = st.m;
-    st.speed = Math.min(270, 110 + st.t * 3.2); const sp = st.speed;
+    const m = st.m, mon = st.mon;
+    st.speed = Math.min(250, 105 + st.t * 3); const sp = st.speed;
     st.dist += sp * dt; st.score = Math.floor(st.dist / 6) + st.coins * 50;
-    // jump: press to leave the ground, let go early for a short hop
-    if((pr.fire || pr.tap || pr.up) && m.on){ m.vy = -300; m.on = false; }
+    // run ahead / ease back (limited), jump, short hop on early release
+    m.stun = Math.max(0, m.stun - dt);
+    if(!m.stun) m.x += ((k.right ? 1 : 0) - (k.left ? 1 : 0)) * 80 * dt;
+    m.x = Math.min(250, m.x);
+    if((pr.fire || pr.tap || pr.up) && m.on && !m.stun){ m.vy = -300; m.on = false; }
     if(!(k.fire || k.tap || k.up) && m.vy < -120) m.vy = -120;
     m.vy += 900 * dt; m.y += m.vy * dt;
-    const overPit = st.obs.some(o => o.kind === "pit" && m.x + 2 > o.x && m.x + m.w - 2 < o.x + o.w);
+    const overPit = st.obs.some(o => o.kind === "pit" && m.x + 3 > o.x && m.x + m.w - 3 < o.x + o.w);
     if(m.y >= GROUND - 12 && !overPit && m.y < GROUND){ m.y = GROUND - 12; m.vy = 0; m.on = true; } else m.on = false;
-    if(m.y > 190){ ISLAND.die(st); return; }
+    if(m.y > 190) return ISLAND.die(st, "fell");
+    // the monster: slow creep toward a resting spot, plus lunges that get closer over time
+    mon.base = Math.min(124, 60 + st.t * .55);
+    mon.nextLunge -= dt;
+    if(mon.nextLunge <= 0){ mon.lunge = 1; mon.nextLunge = rnd(2.6, 4.6) * Math.max(.55, 1 - st.t * .006); st.shake = .3; }
+    if(mon.lunge > 0) mon.lunge = Math.max(0, mon.lunge - dt * 1.4);
+    const reach = Math.sin(Math.min(1, mon.lunge) * Math.PI) * 34;
+    mon.x += ((mon.base + reach) - mon.x) * Math.min(1, dt * 6);
+    mon.step += dt * (2 + sp / 90); mon.jaw = (Math.sin(st.t * 9) + 1) / 2;
+    if(Math.floor(mon.step) !== mon.lastStep){ mon.lastStep = Math.floor(mon.step); st.shake = Math.max(st.shake, .08); }
+    if(m.x < mon.x - 2) return ISLAND.die(st, "caught");
     // spawn
     st.next -= dt;
     if(st.next <= 0){
       const r = Math.random(), x = 330;
       if(r < .4) st.obs.push({kind:"crab", x, y:GROUND - 5, w:9, h:5, ph:Math.random() * 6});
       else if(r < .7) st.obs.push({kind:"rock", x, y:GROUND - 9, w:12, h:9});
-      else st.obs.push({kind:"pit", x, y:GROUND, w:rnd(22, 30 + sp * .06), h:40});
-      st.next = rnd(.75, 1.5) * (140 / sp) + .35;
+      else st.obs.push({kind:"pit", x, y:GROUND, w:rnd(22, 30 + sp * .05), h:40});
+      st.next = rnd(.8, 1.6) * (140 / sp) + .4;
     }
     st.nextAnkh -= dt;
-    if(st.nextAnkh <= 0){ st.ankhs.push({x:330, y:rnd(GROUND - 60, GROUND - 22), w:5, h:8}); st.nextAnkh = rnd(1.4, 3); }
+    if(st.nextAnkh <= 0){ st.ankhs.push({x:330, y:Math.round(rnd(GROUND - 58, GROUND - 22)), w:5, h:8}); st.nextAnkh = rnd(1.4, 3); }
     st.nextBall -= dt;
-    if(st.nextBall <= 0){ const tx = rnd(70, 300); st.balls.push({x:tx, y:-10, w:7, h:7, tx, vy:rnd(70, 95)}); st.nextBall = Math.max(.9, 3 - st.t * .03) * rnd(.7, 1.3); }
+    if(st.nextBall <= 0){ const tx = rnd(m.x - 20, 300); st.balls.push({x:tx, y:-10, w:7, h:7, vy:rnd(70, 95)}); st.nextBall = Math.max(1, 3.2 - st.t * .03) * rnd(.7, 1.3); }
     for(const o of st.obs){ o.x -= sp * dt; if(o.kind === "crab") o.x -= Math.sin(st.t * 6 + o.ph) * 10 * dt; }
     for(const a of st.ankhs) a.x -= sp * dt;
-    for(const b of st.balls){ b.y += b.vy * dt; b.x -= sp * dt * .35; b.tx = b.x; }
-    st.obs = st.obs.filter(o => o.x > -40); st.ankhs = st.ankhs.filter(a => a.x > -10 && !a.got);
+    for(const b of st.balls){ b.y += b.vy * dt; b.x -= sp * dt * .35; }
+    st.obs = st.obs.filter(o => o.x > -40 && !o.gone); st.ankhs = st.ankhs.filter(a => a.x > -10 && !a.got);
     for(const b of st.balls) if(b.y > GROUND - 7 && !b.done){ b.done = true; st.shake = .25; ISLAND.pop(st, b.x + 3, GROUND - 2, "#ff7a1a"); }
     st.balls = st.balls.filter(b => !b.done);
-    // collisions
-    const box = {x:m.x + 1, y:m.y + 1, w:m.w - 2, h:m.h - 1};
-    for(const o of st.obs) if(o.kind !== "pit" && hit(box, o)) return ISLAND.die(st);
-    for(const b of st.balls) if(hit(box, b)) return ISLAND.die(st);
+    // collisions: crabs and rocks trip you back toward the monster; fireballs and pits are the end
+    const box = {x:m.x + 2, y:m.y + 1, w:m.w - 4, h:m.h - 1};
+    for(const o of st.obs) if(o.kind !== "pit" && !o.gone && hit(box, o)){ o.gone = true; m.stun = .45; m.x -= 34; m.vy = -120; st.shake = .3; ISLAND.pop(st, o.x + 5, o.y + 3, o.kind === "crab" ? "#ff7a1a" : "#8a7a8a"); }
+    for(const b of st.balls) if(hit(box, b)) return ISLAND.die(st, "burned");
     for(const a of st.ankhs) if(hit(box, a)){ a.got = true; st.coins++; ISLAND.pop(st, a.x + 2, a.y + 4, "#ffd04a"); }
     for(const w of st.waves){ w.x -= sp * dt * .5; if(w.x < -20){ w.x += 14 * 26; w.y = rnd(GROUND + 10, 176); } }
-    st.roar -= dt; if(st.roar <= 0){ st.roar = rnd(5, 9); st.shake = .5; }
     st.shake = Math.max(0, st.shake - dt);
     for(const b of st.boom){ b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 120 * dt; b.life -= dt; }
     st.boom = st.boom.filter(b => b.life > 0);
   },
-  die(st){ ISLAND.pop(st, st.m.x + 4, st.m.y + 6, "#efe6cf"); st.shake = .4; st.mode = "over"; },
+  die(st, how){ st.how = how; ISLAND.pop(st, st.m.x + 5, st.m.y + 6, "#efe6cf"); st.shake = .5; st.mode = "over"; if(how === "caught") st.mon.lunge = 1; },
   pop(st, x, y, col){ for(let i = 0; i < 10; i++){ const a = Math.random() * 6.28, v = rnd(20, 60); st.boom.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v - 30, life:rnd(.3, .6), col}); } },
+  monster(g, st){
+    // A huge green lizard right behind you, running on the sand. Its snout tip is at mon.x.
+    const mon = st.mon, x = Math.round(mon.x), bob = Math.round(Math.sin(mon.step * Math.PI) * 2), stride = Math.sin(mon.step * Math.PI);
+    const jaw = 3 + mon.jaw * 9 + (mon.lunge > 0 ? 6 : 0), hy = GROUND - 44 + bob;
+    g.fillStyle = "#1f6a36";
+    // far leg
+    g.fillRect(x - 70 - stride * 8, GROUND - 30 + bob, 14, 30 - Math.max(0, -stride) * 6);
+    // body leaning forward, tail off-screen left
+    g.fillStyle = "#2f8f4a";
+    g.beginPath(); g.moveTo(-10, GROUND - 20 + bob); g.lineTo(-10, GROUND - 96 + bob); g.bezierCurveTo(x - 90, GROUND - 120 + bob, x - 40, GROUND - 76 + bob, x - 26, hy + 6);
+    g.lineTo(x - 30, GROUND - 26 + bob); g.bezierCurveTo(x - 60, GROUND - 14 + bob, x - 100, GROUND - 16 + bob, -10, GROUND - 20 + bob); g.fill();
+    // back spikes
+    g.fillStyle = "#7dff5a";
+    for(let i = 0; i < 6; i++){ const sx = x - 120 + i * 14, sy = GROUND - 104 + bob + i * 6; g.beginPath(); g.moveTo(sx - 5, sy + 8); g.lineTo(sx + 1, sy - 8); g.lineTo(sx + 6, sy + 8); g.fill(); }
+    // belly
+    g.fillStyle = "#b8d68a"; g.beginPath(); g.moveTo(x - 34, hy + 16); g.bezierCurveTo(x - 50, GROUND - 26 + bob, x - 80, GROUND - 22 + bob, x - 96, GROUND - 26 + bob); g.lineTo(x - 90, GROUND - 40 + bob); g.bezierCurveTo(x - 70, GROUND - 40 + bob, x - 50, GROUND - 50 + bob, x - 38, hy + 4); g.fill();
+    // near leg + claws
+    g.fillStyle = "#2a7c40"; g.fillRect(x - 52 + stride * 8, GROUND - 32 + bob, 16, 32 - Math.max(0, stride) * 6);
+    g.fillStyle = "#fff"; for(let i = 0; i < 3; i++) g.fillRect(x - 52 + stride * 8 + 16, GROUND - 3 - i * 2 + bob, 3, 1);
+    // little arm reaching
+    g.fillStyle = "#2f8f4a"; g.fillRect(x - 34, hy + 22, 12, 4); g.fillStyle = "#fff"; g.fillRect(x - 22, hy + 22, 2, 1); g.fillRect(x - 22, hy + 25, 2, 1);
+    // head: upper jaw + lower jaw opening and snapping, teeth, eye
+    g.fillStyle = "#2f8f4a";
+    g.beginPath(); g.moveTo(x - 30, hy - 10); g.lineTo(x - 6, hy - 6); g.lineTo(x, hy + 2); g.lineTo(x - 30, hy + 4); g.fill();
+    g.beginPath(); g.moveTo(x - 30, hy + 6); g.lineTo(x - 4, hy + 6 + jaw * .6); g.lineTo(x - 6, hy + 10 + jaw); g.lineTo(x - 30, hy + 14); g.fill();
+    g.fillStyle = "#5a0a10"; g.beginPath(); g.moveTo(x - 28, hy + 4); g.lineTo(x - 2, hy + 3); g.lineTo(x - 5, hy + 7 + jaw * .6); g.lineTo(x - 28, hy + 7); g.fill();
+    g.fillStyle = "#fff"; for(let i = 0; i < 5; i++){ g.fillRect(x - 26 + i * 5, hy + 2, 2, 3); g.fillRect(x - 24 + i * 5, hy + 5 + jaw * .5 * (i / 5), 2, 2); }
+    g.fillStyle = "#ffef3a"; g.fillRect(x - 20, hy - 6, 4, 3); g.fillStyle = "#000"; g.fillRect(x - 17, hy - 6, 1, 3);
+    // warning glow when it's about to lunge
+    if(mon.nextLunge < .5 && st.mode === "play"){ g.fillStyle = "rgba(255,60,40," + (.25 + .25 * Math.sin(st.t * 30)) + ")"; g.fillRect(x - 21, hy - 7, 6, 5); }
+  },
   render(g, st){
     g.save();
-    if(st.shake > 0) g.translate(rnd(-2, 2), rnd(-2, 2));
-    // sunset sky, sun, volcano
+    if(st.shake > 0) g.translate(Math.round(rnd(-2, 2)), Math.round(rnd(-2, 2)));
     const sky = g.createLinearGradient(0, 0, 0, GROUND); sky.addColorStop(0, "#3a1050"); sky.addColorStop(.6, "#c8366a"); sky.addColorStop(1, "#ff8a3a");
     g.fillStyle = sky; g.fillRect(-4, -4, 328, GROUND + 4);
     g.fillStyle = "#ffd04a"; g.beginPath(); g.arc(250, 96, 22, 0, 6.28); g.fill();
-    const vx = 210 - (st.dist * .04) % 420;
+    const vx = 230 - (st.dist * .04) % 420;
     for(const ox of [vx, vx + 420]){
       g.fillStyle = "#2a1a2e"; g.beginPath(); g.moveTo(ox - 60, GROUND); g.lineTo(ox - 8, 70); g.lineTo(ox + 8, 70); g.lineTo(ox + 70, GROUND); g.fill();
       g.fillStyle = "#ff4a1a"; g.fillRect(ox - 6, 68, 12, 4);
       g.fillStyle = "rgba(90,80,90,.7)"; for(let i = 0; i < 3; i++){ const t = (st.t * .6 + i / 3) % 1; g.beginPath(); g.arc(ox + Math.sin(t * 6) * 4, 64 - t * 40, 3 + t * 7, 0, 6.28); g.fill(); }
     }
-    // the giant lizard wading behind, roaring now and then
-    const kx = 18 + Math.sin(st.t * .7) * 6, ky = 62 + Math.sin(st.t * 1.4) * 3, roar = st.roar < .6;
-    g.fillStyle = "#2f8f4a";
-    g.beginPath(); g.moveTo(kx - 20, GROUND); g.bezierCurveTo(kx - 22, ky + 40, kx - 6, ky + 8, kx + 12, ky + 4); g.lineTo(kx + 34, ky - 2); g.lineTo(kx + 40, ky + (roar ? 14 : 8)); g.lineTo(kx + 26, ky + 14); g.bezierCurveTo(kx + 30, ky + 40, kx + 34, ky + 70, kx + 40, GROUND); g.fill();
-    g.fillStyle = "#7dff5a"; for(let i = 0; i < 5; i++){ g.beginPath(); g.moveTo(kx - 14 + i * 4, ky + 30 - i * 5); g.lineTo(kx - 20 + i * 4, ky + 24 - i * 6); g.lineTo(kx - 10 + i * 4, ky + 26 - i * 5); g.fill(); }
-    g.fillStyle = "#ffef3a"; g.fillRect(kx + 22, ky + 2, 4, 3);
-    if(roar){ g.fillStyle = "#fff"; g.fillRect(kx + 30, ky + 6, 6, 2); g.strokeStyle = "rgba(255,255,255,.6)"; for(let i = 1; i < 4; i++){ g.beginPath(); g.arc(kx + 42, ky + 9, i * 6, -.6, .6); g.stroke(); } }
-    // sea
     g.fillStyle = "#1b4f8a"; g.fillRect(-4, GROUND, 328, 40);
-    g.fillStyle = "#7cc4ff"; for(const w of st.waves) g.fillRect(w.x | 0, w.y | 0, 10, 1);
-    // beach strip with pits
+    g.fillStyle = "#7cc4ff"; for(const w of st.waves) g.fillRect(Math.round(w.x), Math.round(w.y), 10, 1);
     g.fillStyle = "#e8c878"; g.fillRect(-4, GROUND, 328, 6);
-    g.fillStyle = "#c9a85a"; for(let x = -((st.dist * 1) % 16); x < 324; x += 16) g.fillRect(x, GROUND + 2, 3, 1);
+    g.fillStyle = "#c9a85a"; for(let x = -Math.round(st.dist % 16); x < 324; x += 16) g.fillRect(x, GROUND + 2, 3, 1);
     for(const o of st.obs) if(o.kind === "pit"){
-      g.fillStyle = "#1b4f8a"; g.fillRect(o.x, GROUND, o.w, 6);
-      g.fillStyle = Math.floor(st.t * 8) % 2 ? "#ff5a12" : "#ffb02a"; g.fillRect(o.x + 2, GROUND + 2, o.w - 4, 4);
+      const ox = Math.round(o.x), ow = Math.round(o.w);
+      g.fillStyle = "#1b4f8a"; g.fillRect(ox, GROUND, ow, 6);
+      g.fillStyle = Math.floor(st.t * 8) % 2 ? "#ff5a12" : "#ffb02a"; g.fillRect(ox + 2, GROUND + 2, ow - 4, 4);
     }
     for(const o of st.obs){
-      if(o.kind === "crab") draw(g, CRAB, o.x, o.y + (Math.floor(st.t * 8) % 2));
-      if(o.kind === "rock"){ g.fillStyle = "#5a4a5a"; g.beginPath(); g.moveTo(o.x, o.y + o.h); g.lineTo(o.x + 2, o.y + 2); g.lineTo(o.x + 7, o.y); g.lineTo(o.x + 12, o.y + 4); g.lineTo(o.x + 12, o.y + o.h); g.fill(); g.fillStyle = "#8a7a8a"; g.fillRect(o.x + 3, o.y + 3, 3, 2); }
+      const ox = Math.round(o.x);
+      if(o.kind === "crab") draw(g, CRAB, ox, o.y + (Math.floor(st.t * 8) % 2));
+      if(o.kind === "rock"){ g.fillStyle = "#5a4a5a"; g.beginPath(); g.moveTo(ox, o.y + o.h); g.lineTo(ox + 2, o.y + 2); g.lineTo(ox + 7, o.y); g.lineTo(ox + 12, o.y + 4); g.lineTo(ox + 12, o.y + o.h); g.fill(); g.fillStyle = "#8a7a8a"; g.fillRect(ox + 3, o.y + 3, 3, 2); }
     }
-    for(const a of st.ankhs) draw(g, ANKH, a.x, a.y + Math.sin(st.t * 5 + a.x) * 1.5);
+    // ankhs float steadily with a slow glint
+    for(const a of st.ankhs){ draw(g, ANKH, a.x, a.y); if(Math.floor(st.t * 3 + a.y) % 6 === 0){ g.fillStyle = "#fff"; g.fillRect(Math.round(a.x) + 1, a.y + 1, 1, 1); } }
     for(const b of st.balls){
-      g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(b.x - 1, GROUND - 1, 9, 2);
-      g.fillStyle = "#ff5a12"; g.fillRect(b.x, b.y, 7, 7); g.fillStyle = "#ffd04a"; g.fillRect(b.x + 2, b.y + 2, 3, 3);
-      g.fillStyle = "rgba(255,120,30,.5)"; g.fillRect(b.x + 2, b.y - 6, 3, 5);
+      g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(Math.round(b.x) - 1, GROUND - 1, 9, 2);
+      const bx = Math.round(b.x), by = Math.round(b.y);
+      g.fillStyle = "#ff5a12"; g.fillRect(bx, by, 7, 7); g.fillStyle = "#ffd04a"; g.fillRect(bx + 2, by + 2, 3, 3);
+      g.fillStyle = "rgba(255,120,30,.5)"; g.fillRect(bx + 2, by - 6, 3, 5);
     }
     const m = st.m;
-    if(st.mode !== "over") draw(g, MUM[m.on ? Math.floor(st.t * 10) % 2 : 1], m.x - 1, m.y);
+    if(!(st.mode === "over" && st.how !== "fell")){ if(!(m.stun && Math.floor(st.t * 16) % 2)) draw(g, RUN[m.on ? Math.floor(st.t * 10) % 2 : 1], m.x, m.y); }
+    ISLAND.monster(g, st);
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
-    g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace"; g.fillText("☥ " + st.coins, 6, 12);
+    g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace"; g.fillText("☥ " + st.coins, 290, 12);
     g.restore();
   }
 };
