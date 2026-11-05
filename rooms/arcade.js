@@ -6,6 +6,20 @@
 "use strict";
 const hiGet = k => { try{ return +localStorage.getItem("mummula.hi." + k) || 0; }catch(e){ return 0; } };
 const hiSet = (k, v) => { try{ localStorage.setItem("mummula.hi." + k, String(v)); }catch(e){} };
+/* Shared top-10 board with initials. Only on when the page sets window.MUMMULA_SCORES to the score keeper's address
+   (the Mummula site sets "/api"); otherwise, or when it can't be reached, the games keep this browser's own high score. */
+const boards = {};
+const boardUrl = () => (window.MUMMULA_SCORES || "").replace(/\/+$/, "");
+const takeBoard = (key, l) => Array.isArray(l) ? (boards[key] = l) : null;
+function loadBoard(key){
+  if(!boardUrl()) return Promise.resolve(null);
+  return fetch(boardUrl() + "/scores?game=" + key, {cache:"no-store"}).then(r => r.ok ? r.json() : null).then(l => takeBoard(key, l)).catch(() => null);
+}
+function sendScore(key, name, score){
+  return fetch(boardUrl() + "/scores?game=" + key, {method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify({name, score})})
+    .then(r => r.ok ? r.json() : null).then(l => takeBoard(key, l)).catch(() => null);
+}
+const onBoard = (key, sc) => { const l = boards[key]; return !!l && sc > 0 && (l.length < 10 || sc > l[l.length - 1].s); };
 
 /* ---------- pixel sprites ---------- */
 const PAL = { v:"#b0101a", m:"#9aa5ae", M:"#eef2f5", n:"#5a636b", w:"#efe6cf", b:"#b9ae94", r:"#ff3b3b", k:"#17121a", c:"#9ff", C:"#e8ffff", y:"#ffef3a", g:"#2f8f4a", G:"#7dff5a", o:"#ff7a1a", O:"#ffd04a", s:"#e8c878", d:"#7a3a16", p:"#ff4fd8", t:"#3cf0ff", L:"#ff5a12" };
@@ -149,6 +163,13 @@ function open(which){
     .mm-arcade .x{position:absolute;top:calc(12px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.4);color:#fff;font-size:20px;cursor:pointer}
     .mm-arcade .mu{position:absolute;top:calc(12px + env(safe-area-inset-top));right:66px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.4);color:#fff;font-size:20px;cursor:pointer}
     .mm-arcade .mu.off{opacity:.45;text-decoration:line-through}
+    .mm-arcade .ini{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 22px;background:#0c0618;border:3px solid ${game.glow};border-radius:12px;box-shadow:0 0 30px ${game.glow};text-align:center}
+    .mm-arcade .ini b{font:900 18px Impact,"Arial Black",sans-serif;letter-spacing:.06em;color:#ffef3a}
+    .mm-arcade .ini span{font-weight:700;font-size:13px;color:#ffe3f7}
+    .mm-arcade .ini input{width:4.2em;font:700 34px "Courier New",monospace;letter-spacing:.25em;text-align:center;text-transform:uppercase;color:#fff;background:#000;border:2px solid #fff;border-radius:8px;padding:4px 0 4px .25em}
+    .mm-arcade .ini .row{display:flex;gap:10px}
+    .mm-arcade .ini button{font:700 15px "Courier New",monospace;color:#fff;background:#24104a;border:2px solid ${game.glow};border-radius:10px;min-width:84px;height:44px;cursor:pointer}
+    .mm-arcade .ini button.ok{background:${game.glow};color:#000}
     @media (hover:none),(pointer:coarse){.mm-arcade .pad{display:flex}}
   </style>
   <button class="x" aria-label="Close the game">✕</button>${game.song === null ? "" : `<button class="mu" aria-label="Music on or off">♪</button>`}
@@ -176,7 +197,9 @@ function open(which){
   fit(); addEventListener("resize", fit);
   const keys = {}, pressed = {};
   const map = e => ({ArrowLeft:"left", a:"left", A:"left", ArrowRight:"right", d:"right", D:"right", ArrowUp:"up", w:"up", W:"up", " ":"fire", Enter:"fire", ArrowDown:"down", s:"down", S:"down"})[e.key];
-  const kd = e => { if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); close(); return; }
+  let ini = null; // the initials form, while it's up
+  const kd = e => { if(ini && e.target === ini.input && e.key !== "Escape") return; // typing initials
+    if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); close(); return; }
     if(e.key === "m" || e.key === "M"){ e.preventDefault(); e.stopPropagation(); setMute(!muted); return; }
     play();
     const k = map(e); if(!k) return; e.preventDefault(); e.stopPropagation(); if(!keys[k]) pressed[k] = true; keys[k] = true; };
@@ -193,19 +216,44 @@ function open(which){
   let alive = true; play();
   const st = {mode:"title", t:0, score:0, hi:hiGet(game.key)};
   if(window.__mmTest) window.__mmSt = st;
-  game.reset(st);
+  game.reset(st); loadBoard(game.key);
+  // A score that makes the shared top 10 asks for initials (the last ones used are filled in).
+  function askInitials(){
+    const f = document.createElement("form"); f.className = "ini";
+    let last = ""; try{ last = localStorage.getItem("mummula.ini") || ""; }catch(e){}
+    f.innerHTML = `<b>NEW HIGH SCORE!</b><span>SCORE ${st.score}</span><span>ENTER YOUR INITIALS</span>
+      <input maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Your initials">
+      <div class="row"><button type="button" class="skip">SKIP</button><button class="ok">SAVE</button></div>`;
+    const input = f.querySelector("input"); input.value = last;
+    ini = {input};
+    const done = () => { f.remove(); ini = null; st.mode = "over"; st.t = 0; };
+    input.addEventListener("input", () => { input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3); });
+    f.querySelector(".skip").onclick = done;
+    f.onsubmit = e => { e.preventDefault(); const name = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
+      if(!name){ input.focus(); return; }
+      try{ localStorage.setItem("mummula.ini", name); }catch(e2){}
+      f.querySelectorAll("button").forEach(b => b.disabled = true); f.querySelector(".ok").textContent = "SAVING…";
+      const sc = st.score;
+      sendScore(game.key, name, sc).then(l => { if(l){ st.rank = l.findIndex(r => r.n === name && r.s === sc); done(); return; }
+        f.querySelectorAll("button").forEach(b => b.disabled = false); f.querySelector(".ok").textContent = "TRY AGAIN";
+        f.querySelector("span + span").textContent = "COULDN'T SAVE. TRY AGAIN?"; }); };
+    ov.appendChild(f); setTimeout(() => { input.focus(); input.select(); }, 50);
+  }
   let last = performance.now(), raf = 0;
   const frame = now => {
     if(!alive) return;
     const dt = Math.max(0, Math.min(.05, (now - last) / 1000)); last = now; st.t += dt;
     const go = pressed.fire || pressed.tap || pressed.up;
     if(st.mode === "title" || st.mode === "over"){
-      if(go && st.t > .4){ game.reset(st); st.mode = "play"; st.score = 0; st.t = 0; }
-    } else game.update(st, dt, keys, pressed);
-    if(st.mode === "over" && !st.saved){ st.saved = true; if(st.score > st.hi){ st.hi = st.score; hiSet(game.key, st.hi); st.newHi = true; } st.t = 0; }
+      if(go && st.t > .4){ game.reset(st); st.mode = "play"; st.score = 0; st.t = 0; st.rank = -1; }
+    } else if(st.mode !== "initials") game.update(st, dt, keys, pressed);
+    if(st.mode === "over" && !st.saved){ st.saved = true; if(st.score > st.hi){ st.hi = st.score; hiSet(game.key, st.hi); st.newHi = true; } st.t = 0;
+      if(onBoard(game.key, st.score)){ st.mode = "initials"; askInitials(); } }
     game.render(g, st);
     if(st.mode !== "play") overlayText(g, game, st);
-    scEl.textContent = "SCORE " + st.score; hiEl.textContent = "HI " + Math.max(st.hi, st.score);
+    const top = (boards[game.key] || [])[0];
+    scEl.textContent = "SCORE " + st.score;
+    hiEl.textContent = top ? (st.score > top.s ? "HI " + st.score : "HI " + top.s + " " + top.n) : "HI " + Math.max(st.hi, st.score);
     for(const k in pressed) delete pressed[k];
     raf = requestAnimationFrame(frame);
   };
@@ -233,6 +281,21 @@ function overlayText(g, game, st){
     else { g.fillStyle = game.glow; g.font = "bold 16px Impact,'Arial Black',sans-serif"; g.fillText("MUMMULA", cx, cy - 26); }
     g.fillStyle = "#fff"; g.font = "bold 10px 'Courier New',monospace"; if(game.sub) g.fillText(game.sub, cx, cy - 12);
     if(Math.floor(st.t * 2) % 2 === 0){ g.fillStyle = "#ffef3a"; g.font = "bold 12px 'Courier New',monospace"; g.fillText(game.start, cx, cy + 14); }
+  } else if(boards[game.key] && boards[game.key].length){
+    // game over with the shared top 10
+    g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(0, 0, game.W, game.H);
+    const l = boards[game.key], rh = Math.min(12, Math.floor((game.H - 92) / 10));
+    g.fillStyle = "#ff4f4f"; g.font = "bold 16px Impact,'Arial Black',sans-serif"; g.fillText("GAME OVER", cx, 24);
+    g.fillStyle = "#fff"; g.font = "bold 10px 'Courier New',monospace"; g.fillText("SCORE " + st.score, cx, 38);
+    if(st.mode === "over"){
+      g.fillStyle = game.glow; g.fillText("TOP SCORES", cx, 54);
+      g.font = "bold 9px 'Courier New',monospace"; g.textAlign = "left";
+      l.slice(0, 10).forEach((r, i) => { const y = 54 + rh * (i + 1);
+        g.fillStyle = i === st.rank ? (Math.floor(st.t * 4) % 2 ? "#fff" : "#ffef3a") : i === 0 ? "#ffef3a" : "#ffe3f7";
+        g.fillText(String(i + 1).padStart(2, " ") + ".  " + r.n.padEnd(3, " ") + "  " + String(r.s).padStart(7, " "), cx - 54, y); });
+      g.textAlign = "center";
+      if(st.t > .6 && Math.floor(st.t * 2) % 2 === 0){ g.fillStyle = "#ffef3a"; g.font = "bold 11px 'Courier New',monospace"; g.fillText(game.start.replace("START", "PLAY AGAIN"), cx, game.H - 10); }
+    }
   } else {
     g.fillStyle = "#ff4f4f"; g.font = "bold 18px Impact,'Arial Black',sans-serif"; g.fillText("GAME OVER", cx, cy - 8);
     g.fillStyle = "#fff"; g.font = "bold 11px 'Courier New',monospace"; g.fillText("SCORE " + st.score + (st.newHi ? "  NEW HIGH!" : ""), cx, cy + 10);
@@ -876,5 +939,6 @@ const CURSE = {
     g.restore();
   }
 };
-window.MummulaArcade = {open};
+// board(key) fetches the shared top 10 for a game (resolves null when the page has no score keeper).
+window.MummulaArcade = {open, board:loadBoard};
 })();
