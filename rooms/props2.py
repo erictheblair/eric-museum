@@ -122,33 +122,66 @@ ART["lamp"] = (f"<svg {W} viewBox='0 0 220 400'><defs>"
  "</svg>")
 
 # ======================= CASTLE =======================
-st = ("<linearGradient id='st' x1='0' x2='1'><stop offset='0' stop-color='#3a3f44'/><stop offset='.35' stop-color='#c9d0d6'/><stop offset='.5' stop-color='#f4f7f9'/><stop offset='.7' stop-color='#9aa3aa'/><stop offset='1' stop-color='#2f3438'/></linearGradient>"
-      "<radialGradient id='sr' cx='.38' cy='.32' r='.75'><stop offset='0' stop-color='#f4f7f9'/><stop offset='.55' stop-color='#9aa3aa'/><stop offset='1' stop-color='#30353a'/></radialGradient>")
-ART["armor"] = (f"<svg {W} viewBox='0 0 200 420'><defs>{st}</defs>"
- "<ellipse cx='100' cy='414' rx='70' ry='6' fill='#000' opacity='.45'/>"
+# Polished steel: banded "chrome" gradients, a warm torch reflection on one side, dark edges, rivets.
+# Everything the light plays on is drawn once as #arm and reused as a mask, so the moving glint stays on the metal.
+st = ("<linearGradient id='st' x1='0' x2='1'><stop offset='0' stop-color='#171a1d'/><stop offset='.12' stop-color='#4a525a'/><stop offset='.28' stop-color='#c9d2d9'/><stop offset='.36' stop-color='#ffffff'/>"
+      "<stop offset='.44' stop-color='#9aa5ae'/><stop offset='.58' stop-color='#2c3238'/><stop offset='.72' stop-color='#77818a'/><stop offset='.86' stop-color='#d4dbe0'/><stop offset='1' stop-color='#3a4148'/></linearGradient>"
+      "<linearGradient id='stv' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#eef2f5'/><stop offset='.35' stop-color='#8f9aa3'/><stop offset='.6' stop-color='#2a3036'/><stop offset='1' stop-color='#a9b3bb'/></linearGradient>"
+      "<radialGradient id='sr' cx='.36' cy='.3' r='.8'><stop offset='0' stop-color='#ffffff'/><stop offset='.12' stop-color='#e6ecf0'/><stop offset='.4' stop-color='#7d8790'/><stop offset='.7' stop-color='#262b30'/><stop offset='.9' stop-color='#59626a'/><stop offset='1' stop-color='#b07a46'/></radialGradient>"
+      "<linearGradient id='warm' x1='0' x2='1'><stop offset='0' stop-color='#ff9a3c' stop-opacity='.2'/><stop offset='.45' stop-color='#ff9a3c' stop-opacity='0'/><stop offset='1' stop-color='#3a6aa0' stop-opacity='.12'/></linearGradient>"
+      "<linearGradient id='shade' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.08'/><stop offset='.6' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.45'/></linearGradient>"
+      "<linearGradient id='gl' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='.5' stop-color='#fff' stop-opacity='.9'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></linearGradient>"
+      "<filter id='wh'><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter>")
+E = "stroke='#121518' stroke-width='1.3' stroke-linejoin='round'"
+def rivets(pts): return "".join(f"<circle cx='{x}' cy='{y}' r='1.7' fill='#dfe5ea' stroke='#202428' stroke-width='.7'/>" for x, y in pts)
+arm = (
+ # legs: cuisses, poleyns (knees), greaves, sabatons
+ f"<path d='M78 258 L73 318 L84 320 L98 262 Z' fill='url(#st)' {E}/><path d='M122 258 L127 318 L116 320 L102 262 Z' fill='url(#st)' {E}/>"
+ f"<path d='M73 334 L71 386 L91 386 L94 334 Z' fill='url(#st)' {E}/><path d='M127 334 L129 386 L109 386 L106 334 Z' fill='url(#st)' {E}/>"
+ f"<path d='M82 336 V384 M118 336 V384' stroke='#fff' stroke-opacity='.5' stroke-width='1'/>"
+ f"<ellipse cx='83' cy='326' rx='13' ry='11' fill='url(#sr)' {E}/><ellipse cx='117' cy='326' rx='13' ry='11' fill='url(#sr)' {E}/>"
+ f"<path d='M72 322 l-6 4 l6 4 Z M128 322 l6 4 l-6 4 Z' fill='url(#stv)' {E}/>"
+ + "".join(f"<path d='M{x0} {y} L{x1} {y} L{x1 + d} {y + 6} L{x0 - d2} {y + 6} Z' fill='url(#st)' {E}/>" for x0, x1, d, d2, y in [(68, 94, 2, 2, 386), (66, 96, 2, 4, 392), (106, 132, 4, 2, 386), (104, 134, 4, 2, 392)]) +
+ # tassets (skirt plates)
+ "".join(f"<path d='M{66 - k*1.5} {232 + k*9} H{134 + k*1.5} L{136 + k*1.5} {242 + k*9} H{64 - k*1.5} Z' fill='url(#st)' {E}/>" for k in range(3)) +
+ f"<path d='M67 206 H133 L134 236 H66 Z' fill='url(#st)' {E}/>"
+ # breastplate with central ridge and fluting
+ f"<path d='M64 140 C64 124 80 116 100 116 C120 116 136 124 136 140 L134 196 C130 214 118 226 100 230 C82 226 70 214 66 196 Z' fill='url(#st)' {E}/>"
+ "<path d='M100 120 V228' stroke='#fff' stroke-opacity='.85' stroke-width='1.6'/><path d='M101.6 120 V228' stroke='#14171a' stroke-opacity='.7' stroke-width='1.2'/>"
+ "<path d='M84 124 C80 160 82 196 90 222 M116 124 C120 160 118 196 110 222' stroke='#14171a' stroke-opacity='.45' stroke-width='1.2' fill='none'/>"
+ "<path d='M86 124 C82 160 84 196 92 222 M114 124 C118 160 116 196 108 222' stroke='#fff' stroke-opacity='.4' stroke-width='1' fill='none'/>"
+ f"<path d='M68 200 C80 208 120 208 132 200 L130 212 C118 220 82 220 70 212 Z' fill='url(#stv)' {E}/>"
+ # gorget
+ f"<path d='M82 112 H118 L122 122 C112 128 88 128 78 122 Z' fill='url(#stv)' {E}/>"
+ # pauldrons (layered lames)
+ + "".join(f"<path d='M{cx - 22 + k*2} {136 + k*8} C{cx - 22 + k*2} {124 + k*8} {cx + 22 - k*2} {124 + k*8} {cx + 22 - k*2} {136 + k*8} L{cx + 20 - k*2} {142 + k*8} C{cx + 10} {136 + k*8} {cx - 10} {136 + k*8} {cx - 20 + k*2} {142 + k*8} Z' fill='url(#sr)' {E}/>" for cx in (58, 142) for k in range(3)) +
+ # left arm hanging, gauntlet
+ f"<path d='M46 158 L42 204 L56 206 L60 160 Z' fill='url(#st)' {E}/><ellipse cx='49' cy='208' rx='9' ry='7' fill='url(#sr)' {E}/>"
+ f"<path d='M42 212 L44 244 L58 244 L56 212 Z' fill='url(#st)' {E}/><path d='M42 244 C40 256 46 262 52 262 C58 262 62 256 58 244 Z' fill='url(#sr)' {E}/>"
+ "<path d='M45 250 h12 M45 255 h12' stroke='#15181b' stroke-width='.9'/>"
+ # right arm raised to the halberd
+ f"<path d='M150 156 L158 186 L166 182 L156 152 Z' fill='url(#st)' {E}/><ellipse cx='161' cy='186' rx='7' ry='6' fill='url(#sr)' {E}/>"
+ f"<path d='M156 188 L158 132 L168 132 L166 190 Z' fill='url(#st)' {E}/><path d='M155 132 C153 118 171 118 170 132 Z' fill='url(#sr)' {E}/>"
+ # helmet (armet) with visor, breaths, comb
+ f"<path d='M78 112 C72 80 84 58 100 58 C116 58 128 80 122 112 C114 120 86 120 78 112 Z' fill='url(#sr)' {E}/>"
+ f"<path d='M80 86 C86 80 114 80 120 86 L120 100 C112 106 88 106 80 100 Z' fill='url(#stv)' {E}/>"
+ "<path d='M82 92 H118' stroke='#050607' stroke-width='3.2'/><path d='M82 92.8 H118' stroke='#fff' stroke-opacity='.25' stroke-width='.6' transform='translate(0 2.6)'/>"
+ + "".join(f"<circle cx='{x}' cy='108' r='1.1' fill='#050607'/>" for x in range(90, 112, 4)) +
+ "<path d='M100 58 V118' stroke='#fff' stroke-opacity='.7' stroke-width='1.2'/>"
+ + rivets([(70, 140), (130, 140), (69, 190), (131, 190), (84, 117), (116, 117), (82, 92), (118, 92), (66, 236), (134, 236)])
+)
+ART["armor"] = (f"<svg {W} viewBox='0 0 200 420'><defs>{st}<g id='arm'>{arm}</g><mask id='am' maskUnits='userSpaceOnUse' x='0' y='0' width='200' height='420'><use href='#arm' filter='url(#wh)'/></mask></defs>"
+ "<ellipse cx='100' cy='414' rx='70' ry='6' fill='#000' opacity='.5'/>"
  # halberd behind
- "<path d='M160 24 V410' stroke='#4a2e16' stroke-width='5'/><path d='M160 30 L176 46 L176 74 L160 66 Z M160 40 L144 50 L148 58 L160 54 Z' fill='url(#st)'/><path d='M160 6 L164 30 L156 30 Z' fill='url(#st)'/>"
- # base plinth
- "<rect x='52' y='396' width='96' height='16' rx='2' fill='#2a2522'/>"
- # legs
- "<path d='M78 260 L72 330 L70 392 L92 392 L94 330 L98 262 Z' fill='url(#st)'/><path d='M122 260 L128 330 L130 392 L108 392 L106 330 L102 262 Z' fill='url(#st)'/>"
- "<ellipse cx='82' cy='326' rx='12' ry='10' fill='url(#sr)'/><ellipse cx='118' cy='326' rx='12' ry='10' fill='url(#sr)'/>"
- "<path d='M66 392 L96 392 L98 400 L60 400 Z M104 392 L134 392 L140 400 L102 400 Z' fill='url(#st)'/>"
- # tassets/skirt
- "<path d='M68 230 L132 230 L138 262 L62 262 Z' fill='url(#st)'/><path d='M66 244 H134 M64 254 H136' stroke='#3a3f44' stroke-width='1'/>"
- # torso
- "<path d='M64 140 C64 126 80 118 100 118 C120 118 136 126 136 140 L132 230 L68 230 Z' fill='url(#st)'/>"
- "<path d='M100 122 V226' stroke='#5a6168' stroke-width='1.2'/><path d='M72 200 H128 M74 214 H126' stroke='#3a3f44' stroke-width='1'/>"
- # pauldrons + arms (gauntlet resting on halberd)
- "<ellipse cx='60' cy='136' rx='20' ry='16' fill='url(#sr)'/><ellipse cx='140' cy='136' rx='20' ry='16' fill='url(#sr)'/>"
- "<path d='M48 146 L44 204 L56 206 L62 150 Z' fill='url(#st)'/><path d='M44 204 L46 240 L58 240 L56 206 Z' fill='url(#st)'/><ellipse cx='52' cy='246' rx='9' ry='11' fill='url(#sr)'/>"
- "<path d='M150 146 L156 180 L160 178 L152 144 Z' fill='url(#st)'/><path d='M156 180 L160 126 L168 126 L164 182 Z' fill='url(#st)'/><ellipse cx='163' cy='122' rx='8' ry='9' fill='url(#sr)'/>"
- # helmet with visor slits and plume
- "<path d='M78 112 C74 82 84 62 100 62 C116 62 126 82 122 112 C116 120 84 120 78 112 Z' fill='url(#sr)'/>"
- "<path d='M80 92 H120 M80 98 H120' stroke='#111' stroke-width='2.4'/><path d='M100 64 V116' stroke='#5a6168' stroke-width='1.2'/>"
- "<path d='M100 62 C96 40 110 26 128 28 C116 34 112 44 116 56 C110 50 106 54 104 62 Z' fill='#9a1c22'><animateTransform attributeName='transform' type='rotate' values='0 100 62;4 100 62;0 100 62' dur='5s' repeatCount='indefinite'/></path>"
- # glint that slides down the armor now and then
- "<rect x='60' y='-40' width='90' height='14' fill='#fff' opacity='.0' transform='skewY(-20)'><animate attributeName='y' values='40;420' dur='6s' repeatCount='indefinite'/><animate attributeName='opacity' values='0;.35;0;0' keyTimes='0;.15;.3;1' dur='6s' repeatCount='indefinite'/></rect>"
+ "<path d='M164 24 V410' stroke='#3a2412' stroke-width='5'/><path d='M165 24 V410' stroke='#7a5030' stroke-width='1.4'/>"
+ f"<path d='M164 30 L182 46 L182 76 L164 66 Z M164 40 L146 50 L150 58 L164 54 Z' fill='url(#st)' {E}/><path d='M164 4 L169 30 L159 30 Z' fill='url(#stv)' {E}/>"
+ "<rect x='52' y='398' width='96' height='14' rx='2' fill='#2a2522'/><rect x='52' y='398' width='96' height='2' fill='#4a413a'/>"
+ "<use href='#arm'/>"
+ "<g mask='url(#am)'><rect width='200' height='420' fill='url(#warm)'/><rect width='200' height='420' fill='url(#shade)'/>"
+ "<rect x='-40' y='-60' width='280' height='46' fill='url(#gl)' opacity='0' transform='rotate(-24 100 210)'><animate attributeName='y' values='-60;460' dur='7s' repeatCount='indefinite'/><animate attributeName='opacity' values='0;.55;.55;0;0' keyTimes='0;.05;.4;.5;1' dur='7s' repeatCount='indefinite'/></rect></g>"
+ # plume
+ "<path d='M100 60 C94 36 110 20 132 22 C118 30 114 42 118 54 C110 48 106 52 104 60 Z' fill='#9a1c22'><animateTransform attributeName='transform' type='rotate' values='0 100 60;4 100 60;0 100 60' dur='5s' repeatCount='indefinite'/></path>"
+ "<path d='M104 56 C102 40 112 30 126 26' stroke='#d0444a' stroke-width='1.4' fill='none' opacity='.7'/>"
  "</svg>")
 def banner(bg, fg, emblem):
     return (f"<svg {W} viewBox='0 0 140 340'><defs><linearGradient id='fold' x1='0' x2='1'><stop offset='0' stop-color='#000' stop-opacity='.35'/><stop offset='.2' stop-color='#000' stop-opacity='0'/><stop offset='.5' stop-color='#fff' stop-opacity='.08'/><stop offset='.8' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.35'/></linearGradient>"
