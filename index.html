@@ -765,7 +765,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.51";
+const APP_VERSION = "2026.11.05.52";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2773,7 +2773,7 @@ document.addEventListener("click", e => {
   e.preventDefault(); e.stopPropagation();
   const which = rp.classList.contains("rb") ? "island" : "moon";
   if(window.MummulaArcade) return MummulaArcade.open(which);
-  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=2"; sc.onload = () => MummulaArcade.open(which);
+  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=3"; sc.onload = () => MummulaArcade.open(which);
   sc.onerror = () => toast("Couldn't load the game."); document.head.appendChild(sc);
 }, true);
 // On a computer, a piece opens as a pop-up over the page you're on. Edit turns the pop-up into the form;

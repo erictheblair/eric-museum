@@ -103,6 +103,7 @@ function draw(g, rows, x, y, pal, s){
 
 /* ---------- shell: overlay, canvas, input ---------- */
 let cur = null;
+const BASE = (document.currentScript && document.currentScript.src) || location.href;
 function open(which){
   if(cur) cur.close();
   const game = which === "island" ? ISLAND : MOON;
@@ -120,15 +121,26 @@ function open(which){
     .mm-arcade .pad button{font:700 16px "Courier New",monospace;color:#fff;background:#24104a;border:2px solid ${game.glow};border-radius:12px;min-width:64px;height:54px;touch-action:none}
     .mm-arcade .pad button:active{background:${game.glow};color:#000}
     .mm-arcade .x{position:absolute;top:calc(12px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.4);color:#fff;font-size:20px;cursor:pointer}
+    .mm-arcade .mu{position:absolute;top:calc(12px + env(safe-area-inset-top));right:66px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.4);color:#fff;font-size:20px;cursor:pointer}
+    .mm-arcade .mu.off{opacity:.45;text-decoration:line-through}
     @media (hover:none),(pointer:coarse){.mm-arcade .pad{display:flex}}
   </style>
-  <button class="x" aria-label="Close the game">✕</button>
+  <button class="x" aria-label="Close the game">✕</button><button class="mu" aria-label="Music on or off">♪</button>
   <div class="cab"><div class="mq">MUMMULA<small>${game.sub}</small></div>
     <canvas width="${game.W}" height="${game.H}"></canvas>
     <div class="hud"><span class="sc">SCORE 0</span><span class="hi">HI ${hiGet(game.key)}</span></div>
     <div class="pad">${game.pad.map(([k, l]) => `<button data-k="${k}">${l}</button>`).join("")}</div>
-    <div class="help">${game.help} · Esc to leave</div></div>`;
+    <div class="help">${game.help} · M for music · Esc to leave</div></div>`;
   document.body.appendChild(ov);
+  // Music: loops while the game is open. Starts right away if the browser allows it, otherwise on the first key or tap.
+  const song = new Audio(new URL("music/" + game.key + ".mp3?v=1", BASE).href); song.loop = true; song.volume = .6;
+  const muBtn = ov.querySelector(".mu");
+  let muted = false; try{ muted = localStorage.getItem("mummula.mute") === "1"; }catch(e){}
+  const play = () => { if(!muted && alive && song.paused) song.play().catch(() => {}); };
+  const setMute = m => { muted = m; muBtn.classList.toggle("off", m); try{ localStorage.setItem("mummula.mute", m ? "1" : "0"); }catch(e){} m ? song.pause() : play(); };
+  muBtn.classList.toggle("off", muted);
+  muBtn.onclick = e => { e.stopPropagation(); setMute(!muted); };
+  ov.addEventListener("pointerdown", play, true);
   const cv = ov.querySelector("canvas"), g = cv.getContext("2d"), scEl = ov.querySelector(".sc"), hiEl = ov.querySelector(".hi");
   const fit = () => { const padH = matchMedia("(hover:none),(pointer:coarse)").matches ? 70 : 0;
     const s = Math.max(1, Math.min((innerWidth - 32) / game.W, (innerHeight - 170 - padH) / game.H));
@@ -137,6 +149,8 @@ function open(which){
   const keys = {}, pressed = {};
   const map = e => ({ArrowLeft:"left", a:"left", A:"left", ArrowRight:"right", d:"right", D:"right", ArrowUp:"up", w:"up", W:"up", " ":"fire", Enter:"fire", ArrowDown:"down", s:"down", S:"down"})[e.key];
   const kd = e => { if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); close(); return; }
+    if(e.key === "m" || e.key === "M"){ e.preventDefault(); e.stopPropagation(); setMute(!muted); return; }
+    play();
     const k = map(e); if(!k) return; e.preventDefault(); e.stopPropagation(); if(!keys[k]) pressed[k] = true; keys[k] = true; };
   const ku = e => { const k = map(e); if(!k) return; e.preventDefault(); e.stopPropagation(); keys[k] = false; };
   addEventListener("keydown", kd, true); addEventListener("keyup", ku, true);
@@ -148,12 +162,13 @@ function open(which){
   cv.addEventListener("pointerdown", e => { e.preventDefault(); pressed.tap = true; keys.tap = true; });
   addEventListener("pointerup", () => { keys.tap = false; });
   ov.querySelector(".x").onclick = () => close();
+  let alive = true; play();
   const st = {mode:"title", t:0, score:0, hi:hiGet(game.key)};
   game.reset(st);
-  let last = performance.now(), raf = 0, alive = true;
+  let last = performance.now(), raf = 0;
   const frame = now => {
     if(!alive) return;
-    const dt = Math.min(.05, (now - last) / 1000); last = now; st.t += dt;
+    const dt = Math.max(0, Math.min(.05, (now - last) / 1000)); last = now; st.t += dt;
     const go = pressed.fire || pressed.tap || pressed.up;
     if(st.mode === "title" || st.mode === "over"){
       if(go && st.t > .4){ game.reset(st); st.mode = "play"; st.score = 0; st.t = 0; }
@@ -166,7 +181,7 @@ function open(which){
     raf = requestAnimationFrame(frame);
   };
   raf = requestAnimationFrame(frame);
-  function close(){ if(!alive) return; alive = false; cancelAnimationFrame(raf); removeEventListener("keydown", kd, true); removeEventListener("keyup", ku, true); removeEventListener("resize", fit); ov.remove(); cur = null; }
+  function close(){ if(!alive) return; alive = false; cancelAnimationFrame(raf); removeEventListener("keydown", kd, true); removeEventListener("keyup", ku, true); removeEventListener("resize", fit); song.pause(); song.removeAttribute("src"); song.load(); ov.remove(); cur = null; }
   cur = {close};
 }
 function overlayText(g, game, st){
@@ -393,7 +408,7 @@ const ISLAND = {
       g.fillStyle = "rgba(255,120,30,.5)"; g.fillRect(bx + 2, by - 6, 3, 5);
     }
     const m = st.m;
-    if(!(st.mode === "over" && st.how !== "fell")){ if(!(m.stun && Math.floor(st.t * 16) % 2)) draw(g, RUN[m.on ? Math.floor(st.t * 10) % 2 : 1], m.x, m.y); }
+    if(!(st.mode === "over" && st.how !== "fell")){ if(!(m.stun && Math.floor(st.t * 16) % 2)) draw(g, RUN[m.on ? Math.floor(st.t * 10) & 1 : 1], m.x, m.y); }
     ISLAND.monster(g, st);
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
     g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace"; g.fillText("☥ " + st.coins, 290, 12);
