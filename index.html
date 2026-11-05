@@ -730,7 +730,7 @@ body.wallmode #fsc{display:none}
 .wall.r-diner .rp.rb{background-image:url(rooms/prop-malts.svg);--h:13vh;--ar:1.733;bottom:auto;top:15vh;filter:none}
 .wall.r-neon .bay>.rp{--h:62vh;z-index:3;--ar:.474;filter:none}
 .wall.r-neon .bay>.rp{pointer-events:auto;cursor:pointer;transition:filter .2s} .wall.r-neon .bay>.rp:hover{filter:brightness(1.25) drop-shadow(0 0 18px rgba(255,60,200,.6))}
-.wall.r-neon .rp[data-g=moon]{background-image:url(rooms/prop-arcade1.svg?v=3)} .wall.r-neon .rp[data-g=island]{background-image:url(rooms/prop-arcade2.svg?v=3)} .wall.r-neon .rp[data-g=curse]{background-image:url(rooms/prop-arcade3.svg?v=1)}
+.wall.r-neon .rp[data-g=moon]{background-image:url(rooms/prop-arcade1.svg?v=3)} .wall.r-neon .rp[data-g=island]{background-image:url(rooms/prop-arcade2.svg?v=3)} .wall.r-neon .rp[data-g=curse]{background-image:url(rooms/prop-arcade3.svg?v=2)}
 .bay>.rp>.hs{display:none}
 /* each cabinet's real high score, on its attract screen (viewBox 180x380; screen is x30-150, y86-186) */
 .wall.r-neon .bay>.rp>.hs{display:block;position:absolute;top:22.4%;left:18.5%;right:18.5%;font:700 calc(var(--h) * var(--k,1) * .021)/1 "Courier New",monospace;color:#fff;white-space:nowrap;text-shadow:0 0 4px rgba(255,255,255,.5)}
@@ -791,7 +791,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.05.59";
+const APP_VERSION = "2026.11.05.60";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2822,7 +2822,7 @@ document.addEventListener("click", e => {
   e.preventDefault(); e.stopPropagation();
   const which = rp.dataset.g || "moon";
   if(window.MummulaArcade) return MummulaArcade.open(which);
-  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=9"; sc.onload = () => MummulaArcade.open(which);
+  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=10"; sc.onload = () => MummulaArcade.open(which);
   sc.onerror = () => toast("Couldn't load the game."); document.head.appendChild(sc);
 }, true);
 // On a computer, a piece opens as a pop-up over the page you're on. Edit turns the pop-up into the form;

@@ -182,8 +182,9 @@ scr2 = ("<rect x='30' y='86' width='120' height='100' fill='#ff7a3a'/><rect x='3
  "<text x='90' y='112' text-anchor='middle' font-family='Courier New,monospace' font-weight='700' font-size='8' fill='#fff'>INSERT COIN<animate attributeName='opacity' values='1;1;0;0' keyTimes='0;.5;.5;1' dur='1.2s' repeatCount='indefinite'/></text>")
 # Screen 3: The Curse of Mummula — Old Man Mummula paces his ledge lobbing cursed jars, a skull bounces, the caped mummy dodges.
 def oldman(x, y, s):
-    px = ["..WWW..", ".WgWgW.", "..WWW..", ".uWWWu.", "uuwwwuu", ".wwwww.d", "..w.w..d", ".ww.ww.d"]
-    cols = {'W': '#ffffff', 'g': '#7dff5a', 'u': '#8a4ad0', 'w': '#d8cca0', 'd': '#8a4a1c'}
+    # red fez, gauze drapes, purple shades, black collar with red lining, purple robe, green sash, cane
+    px = ["...ff...", "..fff...", ".wwwww..", "rkpkpkr.", "rwsssw.r", "rwuuuwrd", "ruGGGurd", ".uuuuu.d", "..k.k..d"]
+    cols = {'f': '#d01c3a', 'w': '#efe6cf', 'k': '#17121a', 'p': '#b45cff', 's': '#f0b8a8', 'r': '#b0101a', 'u': '#6a2aa8', 'G': '#1f6a3a', 'd': '#8a4a1c'}
     return "".join(f"<rect x='{f(x + c*s)}' y='{f(y + r*s)}' width='{s}' height='{s}' fill='{cols[ch]}'/>" for r, row in enumerate(px) for c, ch in enumerate(row) if ch in cols)
 blocks = "".join(f"<rect x='{30 + c*20 + (10 if r % 2 else 0)}' y='{118 + r*8}' width='19' height='7' fill='{'#2f1e30' if (r+c) % 3 else '#2a1a2c'}'/>" for r in range(8) for c in range(-1, 7))
 scr3 = ("<rect x='30' y='86' width='120' height='100' fill='#1a0f22'/>" + blocks +
@@ -192,7 +193,7 @@ scr3 = ("<rect x='30' y='86' width='120' height='100' fill='#1a0f22'/>" + blocks
  + "".join(f"<rect x='{x-1}' y='140' width='2' height='7' fill='#5a3a1c'/><rect x='{x-2}' y='134' width='4' height='6' fill='#ff7a1a'><animate attributeName='height' values='6;4;7;5;6' dur='.5s' repeatCount='indefinite'/></rect><circle cx='{x}' cy='138' r='14' fill='#ff9a3c' opacity='.18'/>" for x in (36, 144)) +
  "<rect x='30' y='180' width='120' height='6' fill='#3a2430'/><rect x='30' y='180' width='120' height='1' fill='#c89a5a'/>"
  # Old Man Mummula shuffles along the ledge
- "<g><animateTransform attributeName='transform' type='translate' values='0 0;46 0;46 0;10 0;0 0' keyTimes='0;.4;.5;.9;1' dur='6s' repeatCount='indefinite'/>" + oldman(56, 98, 1.75) + "</g>"
+ "<g><animateTransform attributeName='transform' type='translate' values='0 0;46 0;46 0;10 0;0 0' keyTimes='0;.4;.5;.9;1' dur='6s' repeatCount='indefinite'/>" + oldman(56, 96, 1.75) + "</g>"
  # cursed jars falling, splashing green
  "<g><rect width='5' height='7' rx='1' fill='#ff8a1a' stroke='#0a0612' stroke-width='.8'/><rect y='-2' width='5' height='2' fill='#7dff5a'/>"
  "<animateTransform attributeName='transform' type='translate' values='104 112;96 150;90 174' keyTimes='0;.6;1' dur='1.6s' repeatCount='indefinite'/></g>"

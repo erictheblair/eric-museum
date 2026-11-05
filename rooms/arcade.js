@@ -485,41 +485,55 @@ const ISLAND = {
 };
 /* ---------- Game 3: The Curse of Mummula ---------- */
 // Old Man Mummula paces a ledge at the top of his tomb and hurls curses down. Dodge them, cape-dash through them, grab the ankhs.
-const OLD_PAL = {w:"#d8cca0", b:"#958862", W:"#ffffff", g:"#7dff5a", d:"#8a4a1c", u:"#5a2a8a", U:"#8a4ad0"};
-// Hunched, yellowed bandages, bushy white brows and beard, tattered purple shawl, cane, glowing green eyes.
+const OLD_PAL = {f:"#d01c3a", F:"#17121a", w:"#efe6cf", b:"#b9ae94", k:"#17121a", p:"#b45cff", s:"#f0b8a8", W:"#ffffff", c:"#17121a", r:"#b0101a", u:"#4a1a78", U:"#6a2aa8", G:"#1f6a3a", d:"#8a4a1c", P:"#f0d8ff", q:"#7a2ac8"};
+// Old Man Mummula: red fez with a black tassel, gauze strips hanging down from his head either side of his face,
+// round black sunglasses with purple lenses, fangs, tall black vampire collar with a red lining, purple velvet robe
+// with a green sash, and a cane. Second frame: arm raised to throw.
 const OLD = [spr([
-  ".....wwwww......",
-  "....wbwwwbw.....",
-  "...WWWwwWWW.....",
-  "...wgkwwgkw.....",
-  "...wwwwbwww.....",
-  "...uWWWWWWWu....",
-  "..uuWWWWWWWuu...",
-  ".uuUuWWWWWuUuu..",
-  ".uUwwwWWWwwwUu.d",
-  ".uwwwwwWwwwwwudd",
-  "..ww.wwwwww.wwd.",
-  "..w..wbbbbw...d.",
-  ".....wwwwww...d.",
-  ".....wbwwbw...d.",
-  ".....ww..ww...d.",
-  "....www..www..d."]), spr([
-  ".ww..wwwww......",
-  ".ww.wbwwwbw.....",
-  "..wwWWwwWWW.....",
-  "..wwgkwwgkw.....",
-  "...wwwwbwww.....",
-  "...uWWWWWWWu....",
-  "...uWWWWWWWuu...",
-  "..uuuWWWWWuUuu..",
-  "..uUwwWWWwwwUu.d",
-  "..uwwwwWwwwwwudd",
-  "...w.wwwwww.wwd.",
-  ".....wbbbbw...d.",
-  ".....wwwwww...d.",
-  ".....wbwwbw...d.",
-  ".....ww..ww...d.",
-  "....www..www..d."])];
+  "......ffff......",
+  "......fffffF....",
+  ".....ffffffF....",
+  ".....ffffffF....",
+  "....wwwwwwww....",
+  ".c.wwbwwwwbww.c.",
+  ".crkkkkkkkkkrc..",
+  ".crkPppkPppkrc..",
+  ".crkqqqkqqqkrc..",
+  ".crwkkkskkkwrc..",
+  ".crw.sssss.wrc..",
+  ".crw.kkkkk.wrc..",
+  ".crw.sWsWs.wrc..",
+  "cuuw.uuuuu.wuucd",
+  "cuUw.uUuUu.wUusd",
+  "cuUw.uuUuu.wUu.d",
+  "cuUwuuuUuuuwUu.d",
+  "cuUuuGGGGGuuUu.d",
+  "c.uuuuGuGuuuu..d",
+  "..uuuuUuUuuuu..d",
+  "..uuuuuUuuuuu..d",
+  "...kk.....kk...d"]), spr([
+  "s.....ffff......",
+  "s.....fffffF....",
+  "u....ffffffF....",
+  "u....ffffffF....",
+  "u...wwwwwwww....",
+  "uc.wwbwwwwbww.c.",
+  "ucrkkkkkkkkkrc..",
+  "ucrkPppkPppkrc..",
+  "ucrkqqqkqqqkrc..",
+  "ucrwkkkskkkwrc..",
+  "ucrw.sssss.wrc..",
+  "ucrw.kkkkk.wrc..",
+  "ucrw.sWsWs.wrc..",
+  "cuuw.uuuuu.wuucd",
+  "cuUw.uUuUu.wUusd",
+  "cuUw.uuUuu.wUu.d",
+  "cuUwuuuUuuuwUu.d",
+  "cuUuuGGGGGuuUu.d",
+  "c.uuuuGuGuuuu..d",
+  "..uuuuUuUuuuu..d",
+  "..uuuuuUuuuuu..d",
+  "...kk.....kk...d"])];
 // Cursed things he throws. Bright fills, dark outlines (drawn by outl), so they pop off the dark stone.
 const JAR = spr([
   ".GGGG.",
@@ -575,7 +589,7 @@ const CURSE = {
   },
   kinds(lvl){ return ["jar", "skull", "jar", "skull"].concat(lvl >= 2 ? ["scarab", "scarab"] : [], lvl >= 3 ? ["bolt", "bolt"] : [], lvl >= 4 ? ["hex"] : []); },
   throw(st){
-    const o = st.old, p = st.p, hx = o.x + (o.face > 0 ? 4 : 28), hy = LEDGE - 26;
+    const o = st.old, p = st.p, hx = o.x + (o.face > 0 ? 28 : 4), hy = LEDGE - 42;
     const ks = CURSE.kinds(st.lvl), k = ks[Math.floor(Math.random() * ks.length)];
     const aim = (p.x + 12 + rnd(-30, 30)) - hx;
     if(k === "jar") st.things.push({k, x:hx - 6, y:hy, w:12, h:18, vx:aim * .55, vy:-40});
@@ -682,13 +696,13 @@ const CURSE = {
     // Old Man Mummula
     const o = st.old, ox = Math.round(o.x), bob = o.wind > 0 ? 0 : (Math.floor(st.t * 5) % 2);
     const oldRows = (o.wind > 0 ? OLD[1] : OLD[0]).map(r => o.face > 0 ? r.slice().reverse() : r);
-    const glow = o.wind > 0 ? "#ffffff" : (Math.floor(st.t * 3) % 2 ? "#7dff5a" : "#b6ff9a");
-    draw(g, oldRows, ox, LEDGE - 32 + bob, Object.assign({}, OLD_PAL, {g:glow}), 2);
-    if(o.wind > 0){ g.fillStyle = "rgba(125,255,90," + (.4 + .3 * Math.sin(st.t * 40)) + ")"; g.beginPath(); g.arc(ox + (o.face > 0 ? 28 : 4), LEDGE - 30, 5, 0, 6.28); g.fill(); }
+    const glow = o.wind > 0 ? (Math.floor(st.t * 20) % 2 ? "#7dff5a" : "#e8ffd8") : null;
+    outl(g, oldRows, ox, LEDGE - 44 + bob, glow ? Object.assign({}, OLD_PAL, {p:glow, q:glow}) : OLD_PAL, 2, "#5a3a80");
+    if(o.wind > 0){ g.fillStyle = "rgba(125,255,90," + (.4 + .3 * Math.sin(st.t * 40)) + ")"; g.beginPath(); g.arc(ox + (o.face > 0 ? 28 : 4), LEDGE - 42, 5, 0, 6.28); g.fill(); }
     if(o.sayT > 0){
       g.font = "bold 7px 'Courier New',monospace"; const tw = g.measureText(o.say).width + 8;
-      const bx = Math.max(2, Math.min(222 - tw, ox + 16 - tw / 2)), by = Math.max(2, LEDGE - 46);
-      g.fillStyle = "#fff"; g.fillRect(bx, by, tw, 11); g.fillRect(ox + 14, by + 11, 3, 3);
+      const bx = ox > 112 ? Math.max(2, ox - tw - 2) : Math.min(222 - tw, ox + 34), by = LEDGE - 44;
+      g.fillStyle = "#fff"; g.fillRect(bx, by, tw, 11); g.fillRect(ox > 112 ? bx + tw - 3 : bx, by + 11, 3, 3);
       g.fillStyle = "#1a0f22"; g.fillText(o.say, bx + 4, by + 8);
     }
     // curse clouds left by shattered jars
