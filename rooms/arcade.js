@@ -485,6 +485,8 @@ const ISLAND = {
 };
 /* ---------- Game 3: The Curse of Mummula ---------- */
 // Old Man Mummula paces a ledge at the top of his tomb and hurls curses down. Dodge them, cape-dash through them, grab the ankhs.
+// Mummula with his tall vampire collar popping up behind his head (used in The Curse of Mummula).
+const CMUM = MUM.map(f => { const r = f.map(x => x.slice()); r[0] = ".k..wwww..k.".split(""); r[1] = ".kvwbwwbwvk.".split(""); r[2] = ".kvwrwwrwvk.".split(""); return r; });
 const OLD_PAL = {f:"#d01c3a", F:"#17121a", w:"#efe6cf", b:"#b9ae94", k:"#17121a", p:"#b45cff", s:"#f0b8a8", W:"#ffffff", c:"#17121a", r:"#b0101a", u:"#4a1a78", U:"#6a2aa8", G:"#1f6a3a", d:"#8a4a1c", P:"#f0d8ff", q:"#7a2ac8"};
 // Old Man Mummula: red fez with a black tassel, gauze strips hanging down from his head either side of his face,
 // round black sunglasses with purple lenses, a bandaged face with a toothy grin, tall black vampire collar with a red lining, purple velvet robe
@@ -680,7 +682,7 @@ const CURSE = {
       if(t.k === "record"){ t.spin += dt * 14; t.nt = (t.nt || 0) - dt;
         if(t.nt <= 0){ t.nt = .11; st.notes.push({x:t.x + t.w / 2 - Math.sign(t.vx) * 8, y:t.y + rnd(-2, 4), vx:-t.vx * .15, life:.8, c:["#ffef3a", "#3cf0ff", "#ff4fd8"][Math.floor(Math.random() * 3)], two:Math.random() < .4}); }
         if(!t.roll){ t.vy += 150 * dt; t.x += t.vx * dt; t.y += t.vy * dt; if(t.x < 0 || t.x > 210){ t.vx = -t.vx; t.x = Math.max(0, Math.min(210, t.x)); }
-          if(t.y + t.h >= CFLOOR){ t.roll = true; t.y = CFLOOR - 14; t.x += 6; t.w = 6; t.h = 14; t.vx = Math.sign(t.vx) * 95; st.shake = .12; CURSE.pop(st, t.x + 3, CFLOOR - 2, "#3cf0ff", 8); } }
+          if(t.y + t.h >= CFLOOR){ t.roll = true; t.y = CFLOOR - 15; t.x += 2; t.w = 14; t.h = 15; t.vx = Math.sign(t.vx) * 95; st.shake = .12; CURSE.pop(st, t.x + 3, CFLOOR - 2, "#3cf0ff", 8); } }
         else { t.x += t.vx * dt; if(t.x < -20 || t.x > 240) t.gone = true; } }
       if(t.k === "bolt"){ t.x += t.vx * dt; t.y += t.vy * dt; if(t.y > CFLOOR - 4 || t.x < -10 || t.x > 234){ t.gone = true; CURSE.pop(st, t.x + 3, Math.min(t.y, CFLOOR - 3), "#7dff5a", 8); } }
       if(t.good){ t.y += t.vy * dt; if(t.y > CFLOOR - t.h) t.vy = 0, t.life = (t.life ?? 2.5) - dt; if(t.life <= 0) t.gone = true; }
@@ -695,15 +697,15 @@ const CURSE = {
       if(t.k === "heart"){ t.gone = true; st.lives = Math.min(3, st.lives + 1); CURSE.pop(st, t.x + 3, t.y + 3, "#ff3b3b", 10); continue; }
       if(p.dash > 0 || p.inv > 0) continue;
       t.gone = true;
-      // the cape blocks what comes from above (not hexes, clouds or rolling records); a block in the first instant is a perfect block
-      if(p.shield && (t.k === "jar" || t.k === "skull" || t.k === "scarab" || t.k === "bolt")){
+      // the cape blocks everything; a block in the first instant is a perfect block
+      if(p.shield){
         CURSE.pop(st, t.x + t.w / 2, t.y + t.h / 2, "#ffffff", 10); CURSE.pop(st, t.x + t.w / 2, t.y + t.h / 2, "#d27bff", 8); st.shake = .1;
         if(p.shT < .2){ st.bonus += 25; st.texts.push({x:p.x + 12, y:p.y - 10, s:"PERFECT +25", life:.9}); }
         continue; }
       if(t.k === "hex"){ st.curse = 4; st.shake = .3; CURSE.pop(st, p.x + 12, p.y + 12, "#d27bff", 18); continue; }
       CURSE.hurt(st);
     }
-    if(p.dash <= 0 && p.inv <= 0) for(const u of st.puffs) if(u.life > .15 && hit(box, u)){ CURSE.hurt(st); break; }
+    if(p.dash <= 0 && p.inv <= 0 && !p.shield) for(const u of st.puffs) if(u.life > .15 && hit(box, u)){ CURSE.hurt(st); break; }
     st.things = st.things.filter(t => !t.gone);
     for(const n of st.notes){ n.x += n.vx * dt; n.y -= 14 * dt; n.life -= dt; } st.notes = st.notes.filter(n => n.life > 0);
     for(const x of st.texts){ x.y -= 18 * dt; x.life -= dt; } st.texts = st.texts.filter(x => x.life > 0);
@@ -787,10 +789,14 @@ const CURSE = {
           g.strokeStyle = "#4a4a58"; g.lineWidth = 1; g.beginPath(); g.ellipse(cx, cy, 6.5, ry * .7, 0, 0, 6.28); g.stroke(); g.beginPath(); g.ellipse(cx, cy, 4.5, ry * .5, 0, 0, 6.28); g.stroke();
           g.fillStyle = "#ff3b3b"; g.beginPath(); g.ellipse(cx, cy, 2.6, Math.max(1, ry * .35), 0, 0, 6.28); g.fill(); g.fillStyle = "#fff"; g.fillRect(cx, cy, 1, 1);
           g.fillStyle = "#fff"; g.fillRect(Math.round(cx + Math.cos(t.spin) * 7), Math.round(cy + Math.sin(t.spin) * ry * .8), 2, 1);
-        } else { // on its edge, rolling: a thin upright disc with a flickering label
-          g.fillStyle = "#c8c8d8"; g.fillRect(tx - 1, ty - 1, 8, 16); g.fillStyle = "#111"; g.fillRect(tx, ty, 6, 14);
-          g.fillStyle = Math.floor(t.spin) % 2 ? "#ff3b3b" : "#7a1010"; g.fillRect(tx + 2, ty + 5, 2, 4);
-          g.fillStyle = "#4a4a58"; g.fillRect(tx + 1, ty + 1 + Math.floor(t.spin * 2) % 12, 4, 1);
+        } else { // rolling across the floor: a round disc, face on, turning as it goes
+          const cx = tx + 7, cy = ty + 7, a = t.x / 7 * Math.sign(t.vx);
+          g.fillStyle = "#c8c8d8"; g.beginPath(); g.arc(cx, cy, 8, 0, 6.28); g.fill();
+          g.fillStyle = "#111"; g.beginPath(); g.arc(cx, cy, 7, 0, 6.28); g.fill();
+          g.strokeStyle = "#4a4a58"; g.lineWidth = 1; g.beginPath(); g.arc(cx, cy, 5, 0, 6.28); g.stroke(); g.beginPath(); g.arc(cx, cy, 3.6, 0, 6.28); g.stroke();
+          g.fillStyle = "#ff3b3b"; g.beginPath(); g.arc(cx, cy, 2.4, 0, 6.28); g.fill();
+          g.fillStyle = "#ffcf3a"; g.fillRect(Math.round(cx + Math.cos(a) * 1.4) - 1, Math.round(cy + Math.sin(a) * 1.4) - 1, 1, 1); g.fillStyle = "#000"; g.fillRect(cx, cy, 1, 1);
+          g.fillStyle = "#fff"; g.fillRect(Math.round(cx + Math.cos(a) * 6) - 1, Math.round(cy + Math.sin(a) * 6) - 1, 2, 2);
         } }
       if(t.k === "hex"){ g.save(); g.translate(tx + 7, ty + 7); g.rotate(st.t * 5);
         g.fillStyle = "rgba(210,123,255,.3)"; g.beginPath(); g.arc(0, 0, 10, 0, 6.28); g.fill();
@@ -802,11 +808,11 @@ const CURSE = {
     // Mummula (cape trail while dashing, flicker while recovering, purple while hexed)
     const p = st.p, hexed = st.curse > 0;
     const mpal = hexed ? {w:"#d9b8ff", b:"#9a6ad0", v:"#7a1ab0"} : null;
-    for(const t of p.trail){ g.globalAlpha = t.life * 2; draw(g, MUM[0], t.x, p.y, {w:"#6a3a9a", b:"#6a3a9a", r:"#6a3a9a", k:"#3a1a5a", v:"#6a3a9a"}, 2); }
+    for(const t of p.trail){ g.globalAlpha = t.life * 2; draw(g, CMUM[0], t.x, p.y, {w:"#6a3a9a", b:"#6a3a9a", r:"#6a3a9a", k:"#3a1a5a", v:"#6a3a9a"}, 2); }
     g.globalAlpha = 1;
     if(p.shield && st.mode === "play"){ g.fillStyle = `rgba(210,123,255,${.22 + .1 * Math.sin(st.t * 30)})`; g.beginPath(); g.arc(p.x + 12, p.y + 12, 19, Math.PI, 0); g.fill();
       outl(g, SHIELD, p.x - 4, p.y - 6, Object.assign({M:"#3a2a5a"}, mpal), 2, "#d27bff"); }
-    else if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, MUM[(Math.floor(st.t * 8) % 2) * ((st.mode === "play" && p.dash <= 0) ? 1 : 0)], p.x, p.y, mpal, 2);
+    else if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") outl(g, CMUM[(Math.floor(st.t * 8) % 2) * ((st.mode === "play" && p.dash <= 0) ? 1 : 0)], p.x, p.y, mpal, 2, "#6a4a90");
     if(p.sh < 1 && st.mode === "play"){ g.fillStyle = "#1a2a3a"; g.fillRect(p.x + 6, p.y - 9, 12, 2); g.fillStyle = p.shLock ? "#ff4f4f" : "#3cf0ff"; g.fillRect(p.x + 6, p.y - 9, Math.round(12 * p.sh), 2); }
     g.textAlign = "center"; g.font = "bold 8px 'Courier New',monospace";
     for(const x of st.texts){ g.fillStyle = "#0a0612"; g.fillText(x.s, x.x + 1, x.y + 1); g.fillStyle = "#ffcf3a"; g.fillText(x.s, x.x, x.y); }
