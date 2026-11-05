@@ -609,7 +609,8 @@ function outl(g, rows, x, y, pal, s, oc){
   draw(g, rows, x, y, pal, s);
 }
 const CFLOOR = 270, LEDGE = 58;
-const TAUNTS = ["CURSE YOU!", "BAH!", "KIDS THESE DAYS!", "OFF MY PYRAMID!", "IN MY DAY...", "HEH HEH HEH", "MY BACK!", "BEGONE!"];
+// What Old Man Mummula shouts (Eric's list). Picked at random, never the same line twice in a row.
+const TAUNTS = ["CURSE YOU!", "GET CURSED!", "BAH!", "BOOOOYYYYS!", "LEAVE MY MANOR!", "MIND YOUR MANORS.", "MUAH HA HA!", "MY HIP!", "MY ACHING HIP!", "YOU'RE CURSED!", "KISS MY WRAPS!"];
 const CURSE = {
   key:"curse", W:224, H:288, glow:"#b45cff", pre:"THE CURSE OF", sub:"", song:"curse",
   help:"← → dodge · Space, ↑ or tap to cape-dash · hold ↓ to shield (it runs out) · grab ankhs",
@@ -669,7 +670,7 @@ const CURSE = {
       o.tt -= dt; if(o.tt <= 0){ o.wind = .4; o.tt = Math.max(.42, 1.45 - st.lvl * .13) * rnd(.75, 1.25); }
     }
     o.sayT -= dt; o.sayNext -= dt;
-    if(o.sayNext <= 0){ o.say = TAUNTS[Math.floor(Math.random() * TAUNTS.length)]; o.sayT = 1.6; o.sayNext = rnd(5, 9); }
+    if(o.sayNext <= 0){ { let w; do w = TAUNTS[Math.floor(Math.random() * TAUNTS.length)]; while(w === o.say && TAUNTS.length > 1); o.say = w; } o.sayT = 1.6; o.sayNext = rnd(5, 9); }
     // ankhs and the odd heart drop from cracks in the ceiling
     st.nextAnkh -= dt;
     if(st.nextAnkh <= 0){ const heart = st.lives < 3 && Math.random() < .18;
@@ -716,7 +717,7 @@ const CURSE = {
     st.boom = st.boom.filter(b => b.life > 0);
   },
   hurt(st){ const p = st.p; st.lives--; p.inv = 1.6; st.shake = .4; CURSE.pop(st, p.x + 12, p.y + 12, "#efe6cf", 16);
-    if(st.lives <= 0){ st.mode = "over"; st.old.say = "HEH HEH HEH!"; st.old.sayT = 9; } },
+    if(st.lives <= 0){ st.mode = "over"; st.old.say = "MUAH HA HA!"; st.old.sayT = 9; } },
   pop(st, x, y, col, n){ for(let i = 0; i < (n || 12); i++){ const a = Math.random() * 6.28, v = rnd(20, 70); st.boom.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v - 20, life:rnd(.3, .7), col}); } },
   render(g, st){
     g.save();
@@ -754,12 +755,6 @@ const CURSE = {
     const glow = o.wind > 0 ? (Math.floor(st.t * 20) % 2 ? "#7dff5a" : "#e8ffd8") : null;
     outl(g, oldRows, ox, LEDGE - 44 + bob, glow ? Object.assign({}, OLD_PAL, {p:glow, q:glow}) : OLD_PAL, 2, "#5a3a80");
     if(o.wind > 0){ g.fillStyle = "rgba(125,255,90," + (.4 + .3 * Math.sin(st.t * 40)) + ")"; g.beginPath(); g.arc(ox + (o.face > 0 ? 28 : 4), LEDGE - 42, 5, 0, 6.28); g.fill(); }
-    if(o.sayT > 0){
-      g.font = "bold 7px 'Courier New',monospace"; const tw = g.measureText(o.say).width + 8;
-      const bx = ox > 112 ? Math.max(2, ox - tw - 2) : Math.min(222 - tw, ox + 34), by = LEDGE - 44;
-      g.fillStyle = "#fff"; g.fillRect(bx, by, tw, 11); g.fillRect(ox > 112 ? bx + tw - 3 : bx, by + 11, 3, 3);
-      g.fillStyle = "#1a0f22"; g.fillText(o.say, bx + 4, by + 8);
-    }
     // curse clouds left by shattered jars
     for(const u of st.puffs){ const a = Math.min(1, u.life / u.max * 1.6);
       for(let i = 0; i < 5; i++){ g.fillStyle = `rgba(${i % 2 ? "125,255,90" : "60,200,80"},${.55 * a})`; g.beginPath(); g.arc(u.x + 4 + i * 4.5, u.y + 10 - Math.sin(st.t * 8 + i) * 2 - (i % 2) * 3, 5 + (i % 3), 0, 6.28); g.fill(); }
@@ -828,6 +823,15 @@ const CURSE = {
     g.textAlign = "left";
     if(p.cool > 0 && st.mode === "play"){ g.fillStyle = "#3a2440"; g.fillRect(p.x + 6, p.y - 5, 12, 2); g.fillStyle = "#b45cff"; g.fillRect(p.x + 6, p.y - 5, Math.round(12 * (1 - p.cool / .8)), 2); }
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
+    // speech bubble on top of everything flying about
+    { const o = st.old, ox = Math.round(o.x);
+    if(o.sayT > 0){
+      g.font = "bold 7px 'Courier New',monospace"; const tw = g.measureText(o.say).width + 8;
+      const bx = ox > 112 ? Math.max(2, ox - tw - 2) : Math.min(222 - tw, ox + 34), by = LEDGE - 44;
+      g.fillStyle = "#fff"; g.fillRect(bx, by, tw, 11); g.fillRect(ox > 112 ? bx + tw - 3 : bx, by + 11, 3, 3);
+      g.fillStyle = "#1a0f22"; g.fillText(o.say, bx + 4, by + 8);
+    }
+    }
     // HUD
     g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace"; g.fillText("CURSE " + st.lvl, 4, 284);
     for(let i = 0; i < st.lives; i++) outl(g, HEART, 196 + i * 9 - 9, 278, null);
