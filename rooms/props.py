@@ -4,6 +4,18 @@ W = "xmlns='http://www.w3.org/2000/svg'"
 ART = {}
 def f(v): return f"{v:.1f}"
 R = random.Random(7)
+# Eric's Mummula wordmark, cream with a dark outline, embedded so it works inside a CSS background image.
+def _wordmark():
+    import base64, io
+    from PIL import Image, ImageFilter
+    src = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "mummula-wordmark.png")).convert("RGBA")
+    m = src.resize((560, round(src.height * 560 / src.width)), Image.LANCZOS); pad = 10
+    A = Image.new("L", (m.width + 2 * pad, m.height + 2 * pad), 0); A.paste(m.getchannel("A"), (pad, pad))
+    out = Image.new("RGBA", A.size, (42, 11, 56, 0)); out.putalpha(A.filter(ImageFilter.MaxFilter(13)))
+    fill = Image.new("RGBA", A.size, (255, 247, 194, 255)); fill.putalpha(A); out.alpha_composite(fill)
+    buf = io.BytesIO(); out.save(buf, "WEBP", quality=90, method=6)
+    return "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
+WORDMARK = _wordmark()
 
 # ======================= 50s DINER =======================
 # Jukebox: wood cabinet, chrome trim, glowing colour-cycling arch tubes with rising bubbles, spinning record, notes floating up.
@@ -116,7 +128,7 @@ def cabinet(key, title1, title2, c1, c2, screen):
      "<rect x='10' y='8' width='160' height='58' rx='6' fill='#0b0414'/>"
      "<rect x='14' y='12' width='152' height='50' rx='4' fill='url(#mq)'/>"
      "<rect x='14' y='12' width='152' height='50' rx='4' fill='#fff' opacity='.08'><animate attributeName='opacity' values='.04;.16;.04' dur='2.4s' repeatCount='indefinite'/></rect>"
-     f"<text x='90' y='37' text-anchor='middle' font-family=\"Impact,'Arial Black',sans-serif\" font-size='25' letter-spacing='1.5' fill='#fff7c2' stroke='#2a0b38' stroke-width='3' paint-order='stroke'>MUMMULA</text>"
+     f"<image x='25' y='12' width='130' height='32' href='{WORDMARK}'/>"  # Eric's wordmark, outlined (rooms/src/mummula-wordmark.png)
      f"<text x='90' y='54' text-anchor='middle' font-family=\"'Arial Black',Arial,sans-serif\" font-weight='900' font-size='{11 if len(title2) < 16 else 9.4}' fill='#fff' stroke='#2a0b38' stroke-width='2.4' paint-order='stroke'>{title1} {title2}</text>"
      # bezel + screen
      "<rect x='22' y='78' width='136' height='116' rx='10' fill='#05020a'/>"

@@ -730,7 +730,7 @@ body.wallmode #fsc{display:none}
 .wall.r-diner .rp.rb{background-image:url(rooms/prop-malts.svg);--h:13vh;--ar:1.733;bottom:auto;top:15vh;filter:none}
 .wall.r-neon .bay>.rp{--h:62vh;z-index:3;--ar:.474;filter:none}
 .wall.r-neon .bay>.rp{pointer-events:auto;cursor:pointer;transition:filter .2s} .wall.r-neon .bay>.rp:hover{filter:brightness(1.25) drop-shadow(0 0 18px rgba(255,60,200,.6))}
-.wall.r-neon .rp.ra{background-image:url(rooms/prop-arcade1.svg)} .wall.r-neon .rp.rb{background-image:url(rooms/prop-arcade2.svg)}
+.wall.r-neon .rp.ra{background-image:url(rooms/prop-arcade1.svg?v=2)} .wall.r-neon .rp.rb{background-image:url(rooms/prop-arcade2.svg?v=2)}
 .wall.r-museum .bay>.rp{--h:48vh} .wall.r-museum .rp.ra{background-image:url(rooms/prop-bust.svg?v=2)} .wall.r-museum .rp.rb{background-image:url(rooms/prop-sphinx.svg)}
 .wall.r-modern .rp.ra{background-image:url(rooms/prop-mobile.svg);background-position:center top;--h:26vh;--ar:.933;bottom:auto;top:4vh;filter:drop-shadow(0 18px 10px rgba(0,0,0,.18))}
 .wall.r-modern .rp.rb{background-image:url(rooms/prop-sculpture.svg?v=2);--h:38vh;filter:drop-shadow(0 8px 14px rgba(0,0,0,.18))}
@@ -765,7 +765,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.05.54";
+const APP_VERSION = "2026.11.05.55";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2780,7 +2780,7 @@ document.addEventListener("click", e => {
   e.preventDefault(); e.stopPropagation();
   const which = rp.classList.contains("rb") ? "island" : "moon";
   if(window.MummulaArcade) return MummulaArcade.open(which);
-  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=5"; sc.onload = () => MummulaArcade.open(which);
+  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=6"; sc.onload = () => MummulaArcade.open(which);
   sc.onerror = () => toast("Couldn't load the game."); document.head.appendChild(sc);
 }, true);
 // On a computer, a piece opens as a pop-up over the page you're on. Edit turns the pop-up into the form;

@@ -135,6 +135,7 @@ function open(which){
     .mm-arcade{position:fixed;inset:0;z-index:300;background:radial-gradient(ellipse at 50% 40%,#28104a,#05020c);display:flex;align-items:center;justify-content:center;font-family:"Courier New",monospace;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none}
     .mm-arcade .cab{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
     .mm-arcade .mq{font:900 clamp(20px,4.4vw,34px)/1 Impact,"Arial Black",sans-serif;letter-spacing:.06em;color:#fff7c2;text-shadow:0 0 10px ${game.glow},0 0 26px ${game.glow};text-align:center}
+    .mm-arcade .mq img{display:block;height:clamp(30px,6.5vw,52px);width:auto;margin:0 auto 4px;filter:drop-shadow(0 0 2px #2a0b38) drop-shadow(0 0 10px ${game.glow}) drop-shadow(0 0 22px ${game.glow})}
     .mm-arcade .mq small{display:block;font:900 clamp(11px,2.2vw,15px)/1.4 "Arial Black",Arial,sans-serif;letter-spacing:.12em;color:#fff}
     .mm-arcade canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;border-radius:10px;box-shadow:0 0 0 3px #05020a,0 0 0 6px ${game.glow},0 0 40px ${game.glow}}
     .mm-arcade .hud{display:flex;gap:18px;font-weight:700;font-size:14px;color:#ffe3f7}
@@ -148,7 +149,7 @@ function open(which){
     @media (hover:none),(pointer:coarse){.mm-arcade .pad{display:flex}}
   </style>
   <button class="x" aria-label="Close the game">✕</button><button class="mu" aria-label="Music on or off">♪</button>
-  <div class="cab"><div class="mq">MUMMULA<small>${game.sub}</small></div>
+  <div class="cab"><div class="mq"><img src="${new URL("mummula-wordmark.png?v=1", BASE).href}" alt="MUMMULA"><small>${game.sub}</small></div>
     <canvas width="${game.W}" height="${game.H}"></canvas>
     <div class="hud"><span class="sc">SCORE 0</span><span class="hi">HI ${hiGet(game.key)}</span></div>
     <div class="pad">${game.pad.map(([k, l]) => `<button data-k="${k}">${l}</button>`).join("")}</div>
@@ -207,12 +208,23 @@ function open(which){
   function close(){ if(!alive) return; alive = false; cancelAnimationFrame(raf); removeEventListener("keydown", kd, true); removeEventListener("keyup", ku, true); removeEventListener("resize", fit); song.pause(); song.removeAttribute("src"); song.load(); ov.remove(); cur = null; }
   cur = {close};
 }
+// Eric's wordmark, tinted to each cabinet's glow for the title screen (falls back to text until it loads).
+const WM = new Image(); WM.src = new URL("mummula-wordmark.png?v=1", BASE).href;
+const wmTint = {};
+function wordmark(col){
+  if(!WM.complete || !WM.naturalWidth) return null;
+  if(!wmTint[col]){ const c = document.createElement("canvas"); c.width = WM.naturalWidth; c.height = WM.naturalHeight; const x = c.getContext("2d");
+    x.drawImage(WM, 0, 0); x.globalCompositeOperation = "source-in"; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height); wmTint[col] = c; }
+  return wmTint[col];
+}
 function overlayText(g, game, st){
   g.fillStyle = "rgba(0,0,0,.45)"; g.fillRect(0, 0, game.W, game.H);
   g.textAlign = "center"; g.fillStyle = "#fff"; g.font = "bold 12px 'Courier New',monospace";
   const cx = game.W / 2, cy = game.H / 2;
   if(st.mode === "title"){
-    g.fillStyle = game.glow; g.font = "bold 16px Impact,'Arial Black',sans-serif"; g.fillText("MUMMULA", cx, cy - 26);
+    const wm = wordmark(game.glow), ww = Math.min(120, game.W - 40), wh = wm ? Math.round(ww * wm.height / wm.width) : 0;
+    if(wm) g.drawImage(wm, Math.round(cx - ww / 2), cy - 22 - wh, ww, wh);
+    else { g.fillStyle = game.glow; g.font = "bold 16px Impact,'Arial Black',sans-serif"; g.fillText("MUMMULA", cx, cy - 26); }
     g.fillStyle = "#fff"; g.font = "bold 10px 'Courier New',monospace"; g.fillText(game.sub, cx, cy - 12);
     if(Math.floor(st.t * 2) % 2 === 0){ g.fillStyle = "#ffef3a"; g.font = "bold 12px 'Courier New',monospace"; g.fillText(game.start, cx, cy + 14); }
   } else {
@@ -360,7 +372,7 @@ const ISLAND = {
     const box = {x:m.x + 2, y:m.y + 1, w:m.w - 4, h:m.h - 1};
     for(const o of st.obs) if(o.kind !== "pit" && !o.gone && hit(box, o)){ o.gone = true; m.stun = .45; m.x -= 34; m.vy = -120; st.shake = .3; ISLAND.pop(st, o.x + 5, o.y + 3, o.kind === "crab" ? "#3cf0ff" : "#8a7a8a"); }
     for(const b of st.balls) if(hit(box, b)) return ISLAND.die(st, "burned");
-    for(const a of st.ankhs) if(hit(box, a)){ a.got = true; st.coins++; ISLAND.pop(st, a.x + 2, a.y + 4, "#ffd04a"); }
+    for(const a of st.ankhs) if(hit(box, a)){ a.got = true; st.coins++; ISLAND.pop(st, a.x + 2, a.y + 4, "#7dff5a"); }
     for(const w of st.waves){ w.x -= sp * dt * (.2 + (w.y - GROUND + 14) * .02); if(w.x < -20){ w.x += 16 * 22; w.y = Math.round(rnd(GROUND - 13, GROUND - 4)); w.w = Math.round(rnd(5, 12)); } }
     st.shake = Math.max(0, st.shake - dt);
     for(const b of st.boom){ b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 120 * dt; b.life -= dt; }
@@ -444,7 +456,7 @@ const ISLAND = {
       if(o.kind === "rock"){ g.fillStyle = "#5a4a5a"; g.beginPath(); g.moveTo(ox, o.y + o.h); g.lineTo(ox + 2, o.y + 2); g.lineTo(ox + 7, o.y); g.lineTo(ox + 12, o.y + 4); g.lineTo(ox + 12, o.y + o.h); g.fill(); g.fillStyle = "#8a7a8a"; g.fillRect(ox + 3, o.y + 3, 3, 2); }
     }
     // ankhs float steadily with a slow glint
-    for(const a of st.ankhs){ draw(g, ANKH, a.x, a.y); if(Math.floor(st.t * 3 + a.y) % 6 === 0){ g.fillStyle = "#fff"; g.fillRect(Math.round(a.x) + 1, a.y + 1, 1, 1); } }
+    for(const a of st.ankhs){ for(const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) draw(g, ANKH, a.x + dx, a.y + dy, {O:"#1a0a2a"}); draw(g, ANKH, a.x, a.y, {O:"#7dff5a"}); if(Math.floor(st.t * 3 + a.y) % 6 === 0){ g.fillStyle = "#fff"; g.fillRect(Math.round(a.x) + 1, a.y + 1, 1, 1); } }
     for(const b of st.balls){
       g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(Math.round(b.x) - 1, GROUND - 1, 9, 2);
       const bx = Math.round(b.x), by = Math.round(b.y);
