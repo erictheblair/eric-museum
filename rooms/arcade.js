@@ -600,23 +600,8 @@ const SHIELD = spr([
   "kk.kkk.kkk.kkkv.",
   "k...k...k...kk..",
   ".....ww..ww....."]);
-// Curse bolt: a jagged lightning bolt, drawn pointing down and turned to face the way it flies.
-const BOLT = spr([
-  ".....GGGGG",
-  "....GWWWG.",
-  "....GWWG..",
-  "...GWWG...",
-  "...GWWG...",
-  "..GWWGGGG.",
-  "..GWWWWWWG",
-  "..GGGGWWG.",
-  ".....GWG..",
-  "....GWWG..",
-  "....GWG...",
-  "...GWG....",
-  "...GG.....",
-  "..GG......",
-  "..G......."]);
+// Curse bolt: a slim lightning bolt, sharp at both ends, drawn pointing down (+y) and turned along its flight path.
+const BOLT = [[3.3, -11.7], [-6, 2.1], [.7, .3], [-3.4, 11.7], [6, -2.6], [1.4, -1.3]];
 const HEART = spr([".rr.rr.", "rrrrrrr", "rrrrrrr", ".rrrrr.", "..rrr..", "...r..."]);
 function outl(g, rows, x, y, pal, s, oc){
   s = s || 1; const o = Math.max(1, Math.round(s));
@@ -645,7 +630,8 @@ const CURSE = {
     if(k === "skull") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, vx:rnd(40, 75) * (aim < 0 ? -1 : 1), vy:-20, n:0});
     if(k === "scarab") st.things.push({k, x:hx - 11, y:hy, w:22, h:24, x0:hx - 11 + aim * .5, ph:Math.random() * 6, vy:62 + st.lvl * 5});
     if(k === "bolt"){ const dx = p.x + 12 - hx, dy = p.y + 12 - hy, d = Math.hypot(dx, dy), v = 120 + st.lvl * 8;
-      st.things.push({k, x:hx - 3, y:hy, w:6, h:6, vx:dx / d * v, vy:dy / d * v}); }
+      // lobbed in an arc that still comes down where Mummula is standing
+      const T = Math.max(.55, Math.min(1.5, d / v)); st.things.push({k, x:hx - 3, y:hy, w:6, h:6, vx:dx / T, vy:dy / T - 80 * T}); }
     // a vinyl record, flung like a frisbee: it sails down in an arc, lands on its edge and rolls away across the floor
     if(k === "record") st.things.push({k, x:hx - 9, y:hy, w:18, h:9, vx:Math.sign(aim || 1) * rnd(55, 85), vy:-30, spin:0, roll:false});
     if(k === "hex") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, x0:hx - 7 + aim * .6, ph:Math.random() * 6, vy:48});
@@ -701,7 +687,7 @@ const CURSE = {
         if(!t.roll){ t.vy += 150 * dt; t.x += t.vx * dt; t.y += t.vy * dt; if(t.x < 0 || t.x > 210){ t.vx = -t.vx; t.x = Math.max(0, Math.min(210, t.x)); }
           if(t.y + t.h >= CFLOOR){ t.roll = true; t.y = CFLOOR - 15; t.x += 2; t.w = 14; t.h = 15; t.vx = Math.sign(t.vx) * 95; st.shake = .12; CURSE.pop(st, t.x + 3, CFLOOR - 2, "#3cf0ff", 8); } }
         else { t.x += t.vx * dt; if(t.x < -20 || t.x > 240) t.gone = true; } }
-      if(t.k === "bolt"){ t.x += t.vx * dt; t.y += t.vy * dt; if(t.y > CFLOOR - 4 || t.x < -10 || t.x > 234){ t.gone = true; CURSE.pop(st, t.x + 3, Math.min(t.y, CFLOOR - 3), "#7dff5a", 8); } }
+      if(t.k === "bolt"){ t.vy += 160 * dt; t.x += t.vx * dt; t.y += t.vy * dt; if(t.y > CFLOOR - 4 || t.x < -10 || t.x > 234){ t.gone = true; CURSE.pop(st, t.x + 3, Math.min(t.y, CFLOOR - 3), "#7dff5a", 8); } }
       if(t.good){ t.y += t.vy * dt; if(t.y > CFLOOR - t.h) t.vy = 0, t.life = (t.life ?? 2.5) - dt; if(t.life <= 0) t.gone = true; }
     }
     for(const u of st.puffs) u.life -= dt;
@@ -797,7 +783,9 @@ const CURSE = {
       if(t.k === "bolt"){ const cx = tx + 3, cy = ty + 3;
         g.fillStyle = `rgba(125,255,90,${fl ? .35 : .2})`; g.beginPath(); g.arc(cx, cy, 10, 0, 6.28); g.fill();
         g.save(); g.translate(cx, cy); g.rotate(Math.atan2(t.vy, t.vx) - Math.PI / 2);
-        outl(g, BOLT, -7, -14, {G:"#7dff5a", W:fl ? "#ffffff" : "#e8ff8a"}, 1.5, "#0a0612"); g.restore(); }
+        const path = k => { g.beginPath(); BOLT.forEach(([x, y], n) => n ? g.lineTo(x * k * 1.25, y * k * 1.25) : g.moveTo(x * k * 1.25, y * k * 1.25)); g.closePath(); };
+        g.lineJoin = "miter"; path(1); g.strokeStyle = "#0a0612"; g.lineWidth = 2.5; g.stroke(); g.fillStyle = "#7dff5a"; g.fill();
+        path(.55); g.fillStyle = fl ? "#ffffff" : "#e8ff8a"; g.fill(); g.restore(); }
       if(t.k === "record"){
         if(!t.roll){ // a flying disc seen at an angle, wobbling: black vinyl, a pale rim, groove rings, red label, glint
           const cx = tx + 9, cy = ty + 4, ry = 3.4 + Math.sin(t.spin * .5) * 1.4;
