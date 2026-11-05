@@ -575,6 +575,15 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 #po .chip.on{color:var(--bg)}
 #po .chip i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(128,128,128,.6);display:inline-block}
 @media (min-width:700px) and (min-height:520px){#po .pobody{grid-template-columns:1fr 300px;overflow:visible}#po .poview{height:min(68vh,660px)}#po .poopts{overflow:auto;max-height:min(68vh,660px)}}
+/* Full edit as a pop-up over the page */
+#ed{align-items:center;padding:3vh 24px}
+#ed>.panel{width:100%;max-width:820px;max-height:94vh;overflow:auto;margin:0;border-radius:16px;padding:22px 26px 0;box-shadow:0 30px 90px rgba(0,0,0,.55);animation:popIn .18s ease-out;overscroll-behavior:contain}
+#ed>.panel::before{display:none}
+#ed #edX{position:sticky;top:0;float:right;z-index:3;margin:-6px -10px 0 0;background:var(--surface)}
+#ed .crumbs{display:none}
+#ed form.edit{max-width:none;padding-bottom:0}
+#ed .savebar{position:sticky;bottom:0;margin:18px -26px 0;padding:12px 26px;border-radius:0 0 16px 16px;background:var(--surface)}
+#ed .savebar .wrap{padding:0;max-width:none}
 @keyframes popIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
 /* Bootleg banner across the corner of the artwork */
 .frame.boot,.pframe.boot{position:relative;overflow:hidden}
@@ -719,6 +728,7 @@ body.wallmode #fsc{display:none}
   <a class="iconbtn setbtn" href="#/settings" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl">Settings</span></a>
 </div></header>
 <main><div class="wrap" id="app"></div></main>
+<div id="edlayer"></div>
 <div id="layer"></div>
 
 <script>
@@ -2395,7 +2405,8 @@ function wireChoices(root, onAdd){
 }
 
 /* ---------- Edit form ---------- */
-function viewEdit(id, params){
+function viewEdit(id, params, ov){
+  const app = ov ? ov.host : document.getElementById("app");   // ov: shown in a pop-up over the current page instead of as its own page
   const existing = id ? item(id) : null;
   if(id && !existing) return notFound();
   const from = params.get("from") ? item(params.get("from")) : null;
@@ -2459,7 +2470,7 @@ function viewEdit(id, params){
       <datalist id="makers">${[...new Set(cat.items.filter(i=>i.collectionId===it.collectionId).map(i=>i.maker).filter(Boolean))].sort().map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
       <div class="savebar noprint"><div class="wrap">
         <span style="flex:1"></span>
-        <a class="iconbtn" href="${existing ? "#/i/"+it.id : "#/"}" style="height:46px">Cancel</a>
+        <a class="iconbtn" id="edCancel" href="${existing ? "#/i/"+it.id : "#/"}" style="height:46px">Cancel</a>
         ${existing ? "" : `<button class="iconbtn" type="submit" data-next="${params.get("scan") ? "scan" : "add"}" style="height:46px;padding:0 14px">${params.get("scan") ? "Save &amp; scan next" : "Save &amp; add next"}</button>`}
         <button class="iconbtn primary" type="submit" data-next="" style="height:46px;padding:0 22px">Save</button>
       </div></div>
@@ -2479,6 +2490,7 @@ function viewEdit(id, params){
       const fld = coll(it.collectionId).fields.find(x => "x_" + x.k === name); if(fld){ fld.opts = [...(fld.opts||[]), v]; }
     });
     f.onsubmit = async e => { e.preventDefault(); collect(); await save((e.submitter && e.submitter.dataset.next) || ""); };
+    if(ov) document.getElementById("edCancel").onclick = e => { e.preventDefault(); ov.close(); };
     const startScan = () => { collect(); scanBarcode(code => lookupInto(code)); };
     document.getElementById("scanBtn").onclick = startScan;
     { // "Sort as" follows the artist's name until it's changed by hand; Flip turns "Alan Sherman" into "Sherman, Alan" and back.
@@ -2652,6 +2664,15 @@ function viewEdit(id, params){
     finally{ done(); if(document.getElementById("media")) renderMedia(); }
   }
 
+  // In the pop-up, a plain Save closes it and refreshes the page underneath; otherwise go where Save leads.
+  function goNext(h, next){ dirty = () => false;
+    if(ov && !next) return ov.done();
+    if(ov) ov.close(true);
+    if(location.hash === h) route(); else location.hash = h; }
+  let snap = "";
+  const formState = () => [...app.querySelectorAll("input,select,textarea")].map(x => x.type === "checkbox" ? x.checked : x.type === "file" ? "" : x.value).join("\u0001") + "|" + it.media.length + "|" + pending.length;
+  let dirty = () => !!snap && formState() !== snap;
+  if(ov) ov.dirty = () => dirty();
   async function save(next){
     if(!it.title) return toast("Please add a title.");
     if(!existing){
@@ -2670,7 +2691,7 @@ function viewEdit(id, params){
           try{ await persist(); }catch(e){ if(was > 1) d.qty = was; else delete d.qty; if(prevCopies) d.copies = prevCopies; else delete d.copies; done(); return alert(e.message); }
           done(); pending.length = 0;
           toast("You now have " + d.qty + " of “" + d.title + "”");
-          location.hash = next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + d.id;
+          goNext(next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + d.id, next);
           return;
         }
       }
@@ -2686,12 +2707,47 @@ function viewEdit(id, params){
       for(const m of removed){ if(m.remote) continue; store.deleteFile(m.path).catch(()=>{}); if(m.thumb) store.deleteFile(m.thumb).catch(()=>{}); }
       pending.length = 0;
       toast(next ? "Saved “" + it.title + "”" : "Saved");
-      location.hash = next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + it.id;
+      goNext(next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + it.id, next);
     }catch(e){ alert(e.message); } finally{ done(); }
   }
   render();
+  setTimeout(() => { snap = formState(); }, 0);
   if(params.get("scan") && !existing) setTimeout(() => document.getElementById("scanTop")?.click(), 50);
+  if(!ov){ // Esc on the full edit page works like Cancel
+    const here = location.hash;
+    document.addEventListener("keydown", function k(e){
+      if(location.hash !== here || !app.querySelector("#ef")) return document.removeEventListener("keydown", k);
+      if(e.key !== "Escape" || e.defaultPrevented || document.getElementById("layer").children.length || document.querySelector(".busy")) return;
+      if(dirty() && !confirm("Leave without saving your changes?")) return;
+      document.removeEventListener("keydown", k); location.hash = document.getElementById("edCancel").getAttribute("href");
+    });
+  }
 }
+// "Edit" opens the full form in a pop-up over the page you're on (on a computer); Esc or ✕ closes it.
+function openEditOverlay(id){
+  const E = document.getElementById("edlayer"), y = scrollY, it = item(id); if(!it) return;
+  document.getElementById("qeC")?.click(); document.getElementById("layer").innerHTML = "";
+  E.innerHTML = `<div class="lightbox" id="ed" style="background:rgba(10,8,6,.6)"><div class="panel" role="dialog" aria-label="Edit ${esc(it.title)}">
+    <button class="iconbtn" id="edX" aria-label="Close">✕</button><div id="edHost"></div></div></div>`;
+  document.body.style.overflow = "hidden";
+  const ov = {host: document.getElementById("edHost"), dirty: () => false};
+  const onKey = e => { if(e.key !== "Escape" || e.defaultPrevented || document.getElementById("layer").children.length || document.querySelector(".busy")) return; e.preventDefault(); ov.close(); };
+  const shut = () => { document.removeEventListener("keydown", onKey); E.innerHTML = ""; document.body.style.overflow = ""; };
+  ov.close = force => { if(!force && ov.dirty() && !confirm("Close without saving your changes?")) return; shut(); route(); restore(); };
+  ov.done = () => { shut(); route(); restore(); };
+  const restore = () => { const go = () => scrollTo(0, y); requestAnimationFrame(go); setTimeout(go, 120); setTimeout(go, 400); };
+  document.addEventListener("keydown", onKey);
+  document.getElementById("edX").onclick = () => ov.close();
+  document.getElementById("ed").addEventListener("mousedown", e => { if(e.target.id === "ed") ov.close(); });
+  viewEdit(id, new URLSearchParams(), ov);
+  setTimeout(() => { const t = ov.host.querySelector("#title"); t && t.focus({preventScroll:true}); }, 30);
+}
+const edPopup = () => matchMedia("(min-width:700px) and (min-height:520px) and (hover:hover)").matches;
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest('a[href^="#/edit/"]');
+  if(!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button || !edPopup() || a.closest("#ed")) return;
+  e.preventDefault(); e.stopPropagation(); openEditOverlay(a.getAttribute("href").slice(7).split("?")[0]);
+}, true);
 
 /* ---------- Settings ---------- */
 function viewSettings(){
@@ -3250,6 +3306,7 @@ function route(){
   const [path, qs] = h.split("?"), params = new URLSearchParams(qs || "");
   const parts = path.split("/").filter(Boolean);
   document.getElementById("layer").innerHTML = "";
+  if(document.getElementById("edlayer").children.length){ document.getElementById("edlayer").innerHTML = ""; document.body.style.overflow = ""; }
   document.body.classList.remove("wallmode");
   fillGalNav(parts[0] === "c" || parts[0] === "wall" ? parts[1] : parts[0] === "i" || parts[0] === "edit" ? ((cat && cat.items.find(i => i.id === parts[1])) || {}).collectionId : "");
   window.scrollTo(0, 0);
