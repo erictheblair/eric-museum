@@ -195,7 +195,7 @@ scr3 = ("<rect x='30' y='86' width='120' height='100' fill='#1a0f22'/>" + blocks
  # Old Man Mummula shuffles along the ledge
  "<g><animateTransform attributeName='transform' type='translate' values='0 0;46 0;46 0;10 0;0 0' keyTimes='0;.4;.5;.9;1' dur='6s' repeatCount='indefinite'/>" + oldman(56, 96, 1.75) + "</g>"
  # cursed jars falling, splashing green
- "<g><rect width='5' height='7' rx='1' fill='#ff8a1a' stroke='#0a0612' stroke-width='.8'/><rect y='-2' width='5' height='2' fill='#7dff5a'/>"
+ "<g><circle cx='2.5' cy='4' r='3.4' fill='#7dff5a' stroke='#d8f0ff' stroke-width='.8'/><rect x='1.6' y='-1.6' width='1.8' height='2.4' fill='#b07a44'/>"
  "<animateTransform attributeName='transform' type='translate' values='104 112;96 150;90 174' keyTimes='0;.6;1' dur='1.6s' repeatCount='indefinite'/></g>"
  "<circle cx='92' cy='178' r='6' fill='#7dff5a' opacity='0'><animate attributeName='opacity' values='0;0;.7;0' keyTimes='0;.9;.95;1' dur='1.6s' repeatCount='indefinite'/></circle>"
  # a skull bouncing
