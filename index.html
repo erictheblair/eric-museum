@@ -736,7 +736,7 @@ body.wallmode #fsc{display:none}
 .wall.r-neon .bay>.rp>.hs{display:block;position:absolute;top:22.4%;left:18.5%;right:18.5%;font:700 calc(var(--h) * var(--k,1) * .021)/1 "Courier New",monospace;color:#fff;white-space:nowrap;text-shadow:0 0 4px rgba(255,255,255,.5)}
 .wall.r-neon .bay>.rp:not([data-g=moon])>.hs{text-align:center}
 .wall.r-neon .bay>.rp>.hs i{font-style:normal;color:#ff4f4f}
-.wall.r-museum .bay>.rp{--h:48vh} .wall.r-museum .rp.ra{background-image:url(rooms/prop-bust.svg?v=2)} .wall.r-museum .rp.rb{background-image:url(rooms/prop-sphinx.svg)}
+.wall.r-museum .bay>.rp{--h:48vh;--fit:1} .wall.r-museum .bay>.rp.rb{--h:40vh} .wall.r-museum .rp.ra{background-image:url(rooms/prop-bust.svg?v=2)} .wall.r-museum .rp.rb{background-image:url(rooms/prop-sphinx.svg)}
 .wall.r-modern .rp.ra{background-image:url(rooms/prop-mobile.svg);background-position:center top;--h:26vh;--ar:.933;bottom:auto;top:4vh;filter:drop-shadow(0 18px 10px rgba(0,0,0,.18))}
 .wall.r-modern .rp.rb{background-image:url(rooms/prop-sculpture.svg?v=2);--h:38vh;filter:drop-shadow(0 8px 14px rgba(0,0,0,.18))}
 .wall.r-library .rp.ra{background-image:url(rooms/prop-globe.svg);--h:36vh} .wall.r-library .rp.rb{background-image:url(rooms/prop-lamp.svg?v=2);--h:36vh;--ar:.55}
@@ -791,7 +791,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.05.58";
+const APP_VERSION = "2026.11.05.59";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1489,8 +1489,17 @@ function viewWall(id, params){
   const placeProps = () => bays.forEach((b, n) => { const rp = b.querySelector(":scope>.rp"); if(!rp) return;
     const prev = n && bays[n-1].querySelector(".pframe"), fr = b.querySelector(".pframe");
     if(!prev || !fr || !getComputedStyle(rp).backgroundImage.includes("url")){ rp.style.translate = ""; return; }
-    const bl = b.getBoundingClientRect().left, mid = (prev.getBoundingClientRect().right + fr.getBoundingClientRect().left) / 2 - bl;
-    rp.style.translate = Math.round(mid) + "px 0"; });
+    const bl = b.getBoundingClientRect().left, pa = prev.getBoundingClientRect(), fa = fr.getBoundingClientRect(), mid = (pa.right + fa.left) / 2 - bl;
+    rp.style.translate = Math.round(mid) + "px 0"; rp.style.scale = "";
+    // Rooms that opt in (--fit:1) shrink a prop that would overlap the frames on either side: just enough that it fits the gap between them,
+    // or sits below their bottom edges, whichever needs less shrinking. (Hanging props hang from the top instead.)
+    if(getComputedStyle(rp).getPropertyValue("--fit").trim() !== "1") return;
+    const ra = rp.getBoundingClientRect(), hang = getComputedStyle(rp).bottom === "auto";
+    const kw = (fa.left - pa.right) * .9 / ra.width;
+    const kh = hang ? (Math.min(pa.top, fa.top) - 8 - ra.top) / ra.height : (ra.bottom - Math.max(pa.bottom, fa.bottom) - 8) / ra.height;
+    const k = Math.max(.35, Math.min(1, Math.max(kw, kh)));
+    rp.style.transformOrigin = hang ? "50% 0" : "50% 100%";
+    rp.style.scale = k < 1 ? k.toFixed(3) : ""; });
   placeRail(); placeGhosts(); placeProps(); arcadeHi(); wall.addEventListener("load", () => { placeRail(); placeGhosts(); placeProps(); }, true);
   window.addEventListener("resize", function pp(){ if(!wall.isConnected) return window.removeEventListener("resize", pp); placeProps(); });
   window.addEventListener("resize", function pg(){ if(!wall.isConnected) return window.removeEventListener("resize", pg); placeGhosts(); });
