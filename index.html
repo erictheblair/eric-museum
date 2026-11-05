@@ -699,7 +699,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.36";
+const APP_VERSION = "2026.11.04.37";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1190,7 +1190,7 @@ function viewHall(id, params){
   const groups = []; list.forEach(it => { const g = groupOf(it); const last = groups[groups.length-1]; if(last && last.g === g) last.items.push(it); else groups.push({g, items:[it]}); });
   const grouped = groups.length > 1 && list.length >= 12 && groups[0].g !== null;
   const sorts = [["title","Title (A–Z)"],["maker",c.maker||"Maker"],["year","Year (oldest)"],["yeard","Year (newest)"],["recent","Recently added"],["updated","Recently edited"],["condition","Condition"]].concat(priv?[]:[["value","Value (highest)"]]);
-  app.innerHTML = `<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><a href="#/gallery/${c.id}">✎ Edit gallery</a></div>
+  app.innerHTML = `<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><span style="display:flex;gap:16px"><a href="#" id="exportG">⤓ Export</a><a href="#/gallery/${c.id}">✎ Edit gallery</a></span></div>
   <section class="hero" style="padding-top:4px;padding-bottom:10px"><h1>${c.icon} ${esc(c.name)}</h1>
     <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
     <form class="search" id="sf"><input type="search" name="q" placeholder="Search ${esc(c.name.toLowerCase())}…" value="${esc(q)}" aria-label="Search">
@@ -1228,6 +1228,7 @@ function viewHall(id, params){
     next();
   };
   if(document.getElementById("pickBtn")) document.getElementById("pickBtn").onclick = () => spinPick(list, c);
+  document.getElementById("exportG").onclick = e => { e.preventDefault(); exportGallery(c, list); };
   app.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => document.getElementById("grp" + b.dataset.jump).scrollIntoView({behavior:"smooth"}));
   hydrate(app);
 }
@@ -2815,15 +2816,56 @@ function viewSettings(){
 }
 
 function download(blob, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
-function csvBlob(){
-  const fieldCols = []; cat.collections.forEach(c => c.fields.forEach(f => { if(!fieldCols.some(x=>x.l===f.l)) fieldCols.push(f); }));
-  const head = ["Gallery","Title","Maker","Year","Barcode","Condition","Location","Acquired","Source","Price paid","Estimated value","Tags","Notes","More details", ...fieldCols.map(f=>f.l), "Photos","Documents"];
+// One gallery (in the order you're looking at it) or everything. A single gallery uses its own column names, and private mode leaves out prices, values and private fields.
+function csvBlob(items, g){
+  const hide = !!g && priv;
+  const fieldCols = []; (g ? [g] : cat.collections).forEach(c => c.fields.forEach(f => { if(!(hide && f.priv) && !fieldCols.some(x=>x.l===f.l)) fieldCols.push(f); }));
+  const head = ["Gallery","Title",g ? (g.maker||"Maker") : "Maker","Year","Barcode","Condition","Location","Acquired","Source", ...(hide ? [] : ["Price paid","Estimated value"]),"Tags","Notes","More details", ...fieldCols.map(f=>f.l), "Photos","Documents"];
   const q = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; };
-  const rows = sortItems(cat.items,"title").map(i => { const c = coll(i.collectionId);
-    return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, i.price, i.value, (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "),
+  const rows = (items || sortItems(cat.items,"title")).map(i => { const c = coll(i.collectionId);
+    return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, ...(hide ? [] : [i.price, i.value]), (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "),
       ...fieldCols.map(fc => { const f = c.fields.find(x=>x.l===fc.l); return f ? (i.fields||{})[f.k] : ""; }),
       (i.media||[]).filter(m=>m.kind==="photo").length, (i.media||[]).filter(m=>m.kind!=="photo").map(m=>m.label||m.name).join("; ")]; });
-  return new Blob(["﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"});
+  return new Blob(["\ufeff" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"});
+}
+const fileSafe = t => String(t||"gallery").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "gallery";
+function exportGallery(c, items){
+  const L = document.getElementById("layer"), withCover = sortItems(items, "maker").filter(i => cover(i));
+  L.innerHTML = `<div class="lightbox" id="ex" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" style="width:100%;max-width:520px;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Export ${c.icon} ${esc(c.name)}</h2><button class="iconbtn" id="exX" aria-label="Close">✕</button></div>
+    <p style="color:var(--muted);font-size:.88rem">Exports the ${items.length} ${items.length === 1 ? "piece" : "pieces"} you're looking at${priv ? ". Private mode is on, so prices, values and private fields are left out of the spreadsheet" : ""}.</p>
+    <div style="display:grid;gap:10px;margin-top:12px">
+      <button class="iconbtn" id="exCsv" style="justify-content:flex-start;height:auto;padding:12px 16px;text-align:left">📄 <span><b>Spreadsheet (CSV)</b><br><small style="color:var(--muted)">Opens in Excel, Numbers or Google Sheets, in the current order</small></span></button>
+      <button class="iconbtn" id="exPic" style="justify-content:flex-start;height:auto;padding:12px 16px;text-align:left" ${withCover.length ? "" : "disabled"}>🖼 <span><b>Cover poster (image)</b><br><small style="color:var(--muted)">Every cover in one picture, by ${esc((c.maker||"artist").toLowerCase())}, no text${withCover.length < items.length ? ` · ${items.length - withCover.length} without a photo left out` : ""}</small></span></button>
+    </div></div></div>`;
+  const close = () => L.innerHTML = "";
+  document.getElementById("exX").onclick = close;
+  document.getElementById("ex").onclick = e => { if(e.target.id === "ex") close(); };
+  const day = new Date().toISOString().slice(0,10);
+  document.getElementById("exCsv").onclick = () => { download(csvBlob(items, c), fileSafe(c.name) + "-" + day + ".csv"); close(); };
+  document.getElementById("exPic").onclick = async () => { close(); try{ const b = await coverPoster(withCover); download(b, fileSafe(c.name) + "-covers-" + day + ".jpg"); }catch(e){ alert("Couldn't make the poster: " + e.message); } };
+}
+// Draws every cover into one tight grid (dark background, no text) and returns it as a JPEG.
+async function coverPoster(items){
+  const n = items.length, cols = Math.max(1, Math.ceil(Math.sqrt(n * 1.6))), rows = Math.ceil(n / cols);
+  const gap = 6, tile = Math.max(60, Math.min(300, Math.floor((14000 - gap) / cols) - gap, Math.floor((14000 - gap) / rows) - gap));
+  const cv = document.createElement("canvas"); cv.width = gap + cols * (tile + gap); cv.height = gap + rows * (tile + gap);
+  const g = cv.getContext("2d"); g.fillStyle = "#141210"; g.fillRect(0, 0, cv.width, cv.height);
+  const pb = progressBox("Making your poster…"); let done = 0, next = 0;
+  const getBlob = async m => { const path = tile <= 200 && m.thumb ? m.thumb : m.path;
+    if(/^https?:\/\//.test(path)){ const r = await fetchT(path, {}, 15000); if(!r.ok) throw 0; return r.blob(); }
+    return (await store.getBlob(path)) || (store.url ? fetch(await store.url(path)).then(r => r.blob()) : null); };
+  const one = async k => {
+    const x = gap + (k % cols) * (tile + gap), y = gap + Math.floor(k / cols) * (tile + gap);
+    try{ const bmp = await createImageBitmap(await getBlob(cover(items[k])));
+      const s = Math.min(tile / bmp.width, tile / bmp.height), w = bmp.width * s, h = bmp.height * s;
+      g.drawImage(bmp, x + (tile - w) / 2, y + (tile - h) / 2, w, h); bmp.close && bmp.close(); }
+    catch{ g.fillStyle = "#2a2622"; g.fillRect(x, y, tile, tile); }
+    pb.set(`Making your poster… ${++done} of ${n}`);
+  };
+  try{ await Promise.all(Array.from({length: Math.min(6, n)}, async () => { while(next < n) await one(next++); })); }
+  finally{ pb.done(); }
+  return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("the image is too large")), "image/jpeg", .9));
 }
 function exportCSV(){ download(csvBlob(), "collection-" + new Date().toISOString().slice(0,10) + ".csv"); }
 
