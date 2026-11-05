@@ -730,11 +730,11 @@ body.wallmode #fsc{display:none}
 .wall.r-diner .rp.rb{background-image:url(rooms/prop-malts.svg);--h:13vh;--ar:1.733;bottom:auto;top:15vh;filter:none}
 .wall.r-neon .bay>.rp{--h:62vh;z-index:3;--ar:.474;filter:none}
 .wall.r-neon .bay>.rp{pointer-events:auto;cursor:pointer;transition:filter .2s} .wall.r-neon .bay>.rp:hover{filter:brightness(1.25) drop-shadow(0 0 18px rgba(255,60,200,.6))}
-.wall.r-neon .rp.ra{background-image:url(rooms/prop-arcade1.svg?v=3)} .wall.r-neon .rp.rb{background-image:url(rooms/prop-arcade2.svg?v=3)}
+.wall.r-neon .rp[data-g=moon]{background-image:url(rooms/prop-arcade1.svg?v=3)} .wall.r-neon .rp[data-g=island]{background-image:url(rooms/prop-arcade2.svg?v=3)} .wall.r-neon .rp[data-g=curse]{background-image:url(rooms/prop-arcade3.svg?v=1)}
 .bay>.rp>.hs{display:none}
 /* each cabinet's real high score, on its attract screen (viewBox 180x380; screen is x30-150, y86-186) */
 .wall.r-neon .bay>.rp>.hs{display:block;position:absolute;top:22.4%;left:18.5%;right:18.5%;font:700 calc(var(--h) * var(--k,1) * .021)/1 "Courier New",monospace;color:#fff;white-space:nowrap;text-shadow:0 0 4px rgba(255,255,255,.5)}
-.wall.r-neon .bay>.rp.rb>.hs{text-align:center}
+.wall.r-neon .bay>.rp:not([data-g=moon])>.hs{text-align:center}
 .wall.r-neon .bay>.rp>.hs i{font-style:normal;color:#ff4f4f}
 .wall.r-museum .bay>.rp{--h:48vh} .wall.r-museum .rp.ra{background-image:url(rooms/prop-bust.svg?v=2)} .wall.r-museum .rp.rb{background-image:url(rooms/prop-sphinx.svg)}
 .wall.r-modern .rp.ra{background-image:url(rooms/prop-mobile.svg);background-position:center top;--h:26vh;--ar:.933;bottom:auto;top:4vh;filter:drop-shadow(0 18px 10px rgba(0,0,0,.18))}
@@ -770,7 +770,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.05.57";
+const APP_VERSION = "2026.11.05.58";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1343,7 +1343,7 @@ function viewWall(id, params){
   app.innerHTML = `<div class="wall r-${room}" id="wall">
     <div class="floor"></div><div class="fish" aria-hidden="true"><div class="shade"></div><div class="cz"></div><div class="cz c2"></div><div class="rays"></div></div>
     <div class="wtrack" id="wtrack"><div class="swim" aria-hidden="true"></div>${pieces.map((it,n) => `<section class="bay${n%3===2 ? " hw" : ""}" data-n="${n}" aria-label="${esc(it.title||"")}">
-      ${n%3===2 ? `<i class="hwin" style="--wd:${-((n*4.7)%13).toFixed(1)}s;--wtd:${-((n*11.3)%37).toFixed(1)}s"><b class="wi"></b><b class="wb"></b><b class="wt"></b></i>` : ""}<i class="ghost ${n%2 ? "gr" : "gl"}" style="--gd:${-((n*7.7)%26).toFixed(1)}s"></i>${n%2 ? `<i class="spider" style="--sd:${-((n*5.3)%22).toFixed(1)}s;--sl:${26+(n*7)%14}vh"></i>` : ""}${n%2 === 0 ? `<i class="mhole" style="--hx:${[14,30,62][n%3]}%"><b style="--rd:${-((n*9.1)%31 + (n%4 ? 31 : 0)).toFixed(1)}s"></b></i>` : ""}${n%3===2 ? `<i class="xw ${n%6===2 ? "sm" : "sl"}"><b class="sc"></b><b class="fr"></b><b class="wr"></b></i>` : n%3===1 ? `<i class="xt"></i>` : `<i class="xp ${n%6 ? "so" : "nu"}"><b></b></i>`}<i class="xg"></i><i class="rp ${n%2 ? "rb" : "ra"}"><b class="hs"></b></i><i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
+      ${n%3===2 ? `<i class="hwin" style="--wd:${-((n*4.7)%13).toFixed(1)}s;--wtd:${-((n*11.3)%37).toFixed(1)}s"><b class="wi"></b><b class="wb"></b><b class="wt"></b></i>` : ""}<i class="ghost ${n%2 ? "gr" : "gl"}" style="--gd:${-((n*7.7)%26).toFixed(1)}s"></i>${n%2 ? `<i class="spider" style="--sd:${-((n*5.3)%22).toFixed(1)}s;--sl:${26+(n*7)%14}vh"></i>` : ""}${n%2 === 0 ? `<i class="mhole" style="--hx:${[14,30,62][n%3]}%"><b style="--rd:${-((n*9.1)%31 + (n%4 ? 31 : 0)).toFixed(1)}s"></b></i>` : ""}${n%3===2 ? `<i class="xw ${n%6===2 ? "sm" : "sl"}"><b class="sc"></b><b class="fr"></b><b class="wr"></b></i>` : n%3===1 ? `<i class="xt"></i>` : `<i class="xp ${n%6 ? "so" : "nu"}"><b></b></i>`}<i class="xg"></i><i class="rp ${n%2 ? "rb" : "ra"}" data-g="${["moon","island","curse"][n%3]}"><b class="hs"></b></i><i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
       <button type="button" class="pframe${it.bootleg ? " boot" : ""}" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
       ${placard(it)}</section>`).join("")}</div>
     ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
@@ -2783,16 +2783,16 @@ function viewEdit(id, params, ov){
 // Their attract screens show the real high scores (saved on this device by the games).
 function arcadeHi(){
   const hi = k => { try{ return +localStorage.getItem("mummula.hi." + k) || 0; }catch(e){ return 0; } };
-  document.querySelectorAll(".bay>.rp>.hs").forEach(el => { const k = el.parentNode.classList.contains("rb") ? "island" : "moon";
+  document.querySelectorAll(".bay>.rp>.hs").forEach(el => { const k = el.parentNode.dataset.g || "moon";
     el.innerHTML = `<i>HI</i> ${String(hi(k)).padStart(6, "0")}`; });
 }
 window.addEventListener("mummula-closed", arcadeHi);
 document.addEventListener("click", e => {
   const rp = e.target.closest && e.target.closest(".wall.r-neon .bay>.rp"); if(!rp) return;
   e.preventDefault(); e.stopPropagation();
-  const which = rp.classList.contains("rb") ? "island" : "moon";
+  const which = rp.dataset.g || "moon";
   if(window.MummulaArcade) return MummulaArcade.open(which);
-  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=8"; sc.onload = () => MummulaArcade.open(which);
+  const sc = document.createElement("script"); sc.src = "rooms/arcade.js?v=9"; sc.onload = () => MummulaArcade.open(which);
   sc.onerror = () => toast("Couldn't load the game."); document.head.appendChild(sc);
 }, true);
 // On a computer, a piece opens as a pop-up over the page you're on. Edit turns the pop-up into the form;

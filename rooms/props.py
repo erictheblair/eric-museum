@@ -110,7 +110,7 @@ def mummy(x, y, s=1, col='#efe6cf'):
 def ufo(cx, cy, col):
     return (f"<g transform='translate({cx} {cy})'><ellipse rx='9' ry='3' fill='{col}'/><ellipse cy='-2.5' rx='4.5' ry='3.2' fill='#9ff'/>"
             "<rect x='-6' y='1' width='2' height='2' fill='#ff0'/><rect x='-1' y='1' width='2' height='2' fill='#ff0'/><rect x='4' y='1' width='2' height='2' fill='#ff0'/></g>")
-def cabinet(key, title1, title2, c1, c2, screen):
+def cabinet(key, title1, title2, c1, c2, screen, pre=None):
     return (f"<svg {W} viewBox='0 0 180 380'><defs>"
      f"<linearGradient id='sd' x1='0' x2='1'><stop offset='0' stop-color='#120624'/><stop offset='.5' stop-color='#24104a'/><stop offset='1' stop-color='#0c0418'/></linearGradient>"
      f"<linearGradient id='mq' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='{c1}'/><stop offset='1' stop-color='{c2}'/></linearGradient>"
@@ -128,8 +128,10 @@ def cabinet(key, title1, title2, c1, c2, screen):
      "<rect x='10' y='8' width='160' height='58' rx='6' fill='#0b0414'/>"
      "<rect x='14' y='12' width='152' height='50' rx='4' fill='url(#mq)'/>"
      "<rect x='14' y='12' width='152' height='50' rx='4' fill='#fff' opacity='.08'><animate attributeName='opacity' values='.04;.16;.04' dur='2.4s' repeatCount='indefinite'/></rect>"
+     + (f"<text x='90' y='25' text-anchor='middle' font-family=\"'Arial Black',Arial,sans-serif\" font-weight='900' font-size='10' letter-spacing='1.5' fill='#fff' stroke='#2a0b38' stroke-width='2.4' paint-order='stroke'>{pre}</text>"
+        f"<image x='27' y='26' width='126' height='31' href='{WORDMARK}'/>" if pre else
      f"<image x='25' y='12' width='130' height='32' href='{WORDMARK}'/>"  # Eric's wordmark, outlined (rooms/src/mummula-wordmark.png)
-     f"<text x='90' y='54' text-anchor='middle' font-family=\"'Arial Black',Arial,sans-serif\" font-weight='900' font-size='{11 if len(title2) < 16 else 9.4}' fill='#fff' stroke='#2a0b38' stroke-width='2.4' paint-order='stroke'>{title1} {title2}</text>"
+     f"<text x='90' y='54' text-anchor='middle' font-family=\"'Arial Black',Arial,sans-serif\" font-weight='900' font-size='{11 if len(title2) < 16 else 9.4}' fill='#fff' stroke='#2a0b38' stroke-width='2.4' paint-order='stroke'>{title1} {title2}</text>") +
      # bezel + screen
      "<rect x='22' y='78' width='136' height='116' rx='10' fill='#05020a'/>"
      f"<g clip-path='url(#sc)'>{screen}<rect x='30' y='86' width='120' height='100' fill='url(#sl)'/><rect x='30' y='86' width='120' height='100' fill='url(#scr)'/>"
@@ -178,8 +180,32 @@ scr2 = ("<rect x='30' y='86' width='120' height='100' fill='#ff7a3a'/><rect x='3
  "<path d='M30 178 C60 172 90 176 110 186 L30 186 Z' fill='#e8c878'/>"
  + mummy(48, 162, 1.5) +
  "<text x='90' y='112' text-anchor='middle' font-family='Courier New,monospace' font-weight='700' font-size='8' fill='#fff'>INSERT COIN<animate attributeName='opacity' values='1;1;0;0' keyTimes='0;.5;.5;1' dur='1.2s' repeatCount='indefinite'/></text>")
+# Screen 3: The Curse of Mummula — Old Man Mummula paces his ledge lobbing cursed jars, a skull bounces, the caped mummy dodges.
+def oldman(x, y, s):
+    px = ["..WWW..", ".WgWgW.", "..WWW..", ".uWWWu.", "uuwwwuu", ".wwwww.d", "..w.w..d", ".ww.ww.d"]
+    cols = {'W': '#ffffff', 'g': '#7dff5a', 'u': '#8a4ad0', 'w': '#d8cca0', 'd': '#8a4a1c'}
+    return "".join(f"<rect x='{f(x + c*s)}' y='{f(y + r*s)}' width='{s}' height='{s}' fill='{cols[ch]}'/>" for r, row in enumerate(px) for c, ch in enumerate(row) if ch in cols)
+blocks = "".join(f"<rect x='{30 + c*20 + (10 if r % 2 else 0)}' y='{118 + r*8}' width='19' height='7' fill='{'#2f1e30' if (r+c) % 3 else '#2a1a2c'}'/>" for r in range(8) for c in range(-1, 7))
+scr3 = ("<rect x='30' y='86' width='120' height='100' fill='#1a0f22'/>" + blocks +
+ "<rect x='30' y='86' width='120' height='26' fill='#0e0814'/><rect x='30' y='112' width='120' height='4' fill='#5a3c3a'/><rect x='30' y='112' width='120' height='1' fill='#ffcf3a'/>"
+ # torches
+ + "".join(f"<rect x='{x-1}' y='140' width='2' height='7' fill='#5a3a1c'/><rect x='{x-2}' y='134' width='4' height='6' fill='#ff7a1a'><animate attributeName='height' values='6;4;7;5;6' dur='.5s' repeatCount='indefinite'/></rect><circle cx='{x}' cy='138' r='14' fill='#ff9a3c' opacity='.18'/>" for x in (36, 144)) +
+ "<rect x='30' y='180' width='120' height='6' fill='#3a2430'/><rect x='30' y='180' width='120' height='1' fill='#c89a5a'/>"
+ # Old Man Mummula shuffles along the ledge
+ "<g><animateTransform attributeName='transform' type='translate' values='0 0;46 0;46 0;10 0;0 0' keyTimes='0;.4;.5;.9;1' dur='6s' repeatCount='indefinite'/>" + oldman(56, 98, 1.75) + "</g>"
+ # cursed jars falling, splashing green
+ "<g><rect width='5' height='7' rx='1' fill='#ff8a1a' stroke='#0a0612' stroke-width='.8'/><rect y='-2' width='5' height='2' fill='#7dff5a'/>"
+ "<animateTransform attributeName='transform' type='translate' values='104 112;96 150;90 174' keyTimes='0;.6;1' dur='1.6s' repeatCount='indefinite'/></g>"
+ "<circle cx='92' cy='178' r='6' fill='#7dff5a' opacity='0'><animate attributeName='opacity' values='0;0;.7;0' keyTimes='0;.9;.95;1' dur='1.6s' repeatCount='indefinite'/></circle>"
+ # a skull bouncing
+ "<g><circle r='3.6' fill='#fff' stroke='#0a0612' stroke-width='.8'/><rect x='-2' y='-1' width='1.4' height='1.4' fill='#7dff5a'/><rect x='.6' y='-1' width='1.4' height='1.4' fill='#7dff5a'/>"
+ "<animateTransform attributeName='transform' type='translate' values='70 116;60 176;52 156;44 176;38 168;34 176' keyTimes='0;.3;.5;.7;.85;1' dur='2.4s' repeatCount='indefinite'/></g>"
+ # the caped mummy dodging
+ "<g><animateTransform attributeName='transform' type='translate' values='0 0;34 0;34 0;-10 0;0 0' keyTimes='0;.25;.55;.8;1' dur='3.2s' repeatCount='indefinite'/>"
+ "<path d='M88 172 L84 182 L100 182 L96 172 Z' fill='#17121a'/><path d='M89 173 L86 181 L98 181 L95 173 Z' fill='#b0101a'/>" + mummy(88, 165, 1.1) + "</g>")
 ART["arcade1"] = cabinet("1", "vs.", "THE MOON MEN", "#ff3cc8", "#2ee6ff", scr1)
 ART["arcade2"] = cabinet("2", "vs.", "MONSTER ISLAND", "#3cff7a", "#ffcf3a", scr2)
+ART["arcade3"] = cabinet("3", "", "", "#b45cff", "#ffcf3a", scr3, pre="THE CURSE OF")
 
 if __name__ == "__main__":
     out = sys.argv[1]; os.makedirs(out, exist_ok=True)
