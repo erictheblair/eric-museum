@@ -687,7 +687,7 @@ const CURSE = {
         if(!t.roll){ t.vy += 150 * dt; t.x += t.vx * dt; t.y += t.vy * dt; if(t.x < 0 || t.x > 210){ t.vx = -t.vx; t.x = Math.max(0, Math.min(210, t.x)); }
           if(t.y + t.h >= CFLOOR){ t.roll = true; t.y = CFLOOR - 15; t.x += 2; t.w = 14; t.h = 15; t.vx = Math.sign(t.vx) * 95; st.shake = .12; CURSE.pop(st, t.x + 3, CFLOOR - 2, "#3cf0ff", 8); } }
         else { t.x += t.vx * dt; if(t.x < -20 || t.x > 240) t.gone = true; } }
-      if(t.k === "bolt"){ t.vy += 160 * dt; t.x += t.vx * dt; t.y += t.vy * dt; if(t.y > CFLOOR - 4 || t.x < -10 || t.x > 234){ t.gone = true; CURSE.pop(st, t.x + 3, Math.min(t.y, CFLOOR - 3), "#7dff5a", 8); } }
+      if(t.k === "bolt"){ t.vy += 160 * dt; t.x += t.vx * dt; t.y += t.vy * dt; (t.tr = t.tr || []).unshift({x:t.x + 3, y:t.y + 3, a:Math.atan2(t.vy, t.vx)}); if(t.tr.length > 9) t.tr.pop(); if(t.y > CFLOOR - 4 || t.x < -10 || t.x > 234){ t.gone = true; CURSE.pop(st, t.x + 3, Math.min(t.y, CFLOOR - 3), "#7dff5a", 8); } }
       if(t.good){ t.y += t.vy * dt; if(t.y > CFLOOR - t.h) t.vy = 0, t.life = (t.life ?? 2.5) - dt; if(t.life <= 0) t.gone = true; }
     }
     for(const u of st.puffs) u.life -= dt;
@@ -781,10 +781,14 @@ const CURSE = {
       if(t.k === "skull"){ outl(g, SKULL, tx, ty, {W:"#ffffff", k:"#1a0f22"}, 2); if(fl){ g.fillStyle = "#7dff5a"; g.fillRect(tx + 2, ty + 4, 2, 2); g.fillRect(tx + 8, ty + 4, 2, 2); } }
       if(t.k === "scarab") outl(g, SCARAB[fl], tx, ty, {t:"#3a2a1e", S:"#8a6a48", B:"#7a5a3a", C:"#b89870", d:"#2a1e14", G:"#4a3828"}, 2, "#d8c8a8");
       if(t.k === "bolt"){ const cx = tx + 3, cy = ty + 3;
-        g.fillStyle = `rgba(125,255,90,${fl ? .35 : .2})`; g.beginPath(); g.arc(cx, cy, 10, 0, 6.28); g.fill();
-        g.save(); g.translate(cx, cy); g.rotate(Math.atan2(t.vy, t.vx) - Math.PI / 2);
         const path = k => { g.beginPath(); BOLT.forEach(([x, y], n) => n ? g.lineTo(x * k * 1.25, y * k * 1.25) : g.moveTo(x * k * 1.25, y * k * 1.25)); g.closePath(); };
-        g.lineJoin = "miter"; path(1); g.strokeStyle = "#0a0612"; g.lineWidth = 2.5; g.stroke(); g.fillStyle = "#7dff5a"; g.fill();
+        // fading trail of smaller, dimmer bolts along the path it just flew
+        (t.tr || []).forEach((q, n) => { if(n % 2) return; g.save(); g.translate(q.x, q.y); g.rotate(q.a - Math.PI / 2); g.globalAlpha = .45 * (1 - n / 9);
+          path(.9 - n * .06); g.fillStyle = "#7dff5a"; g.shadowColor = "#7dff5a"; g.shadowBlur = 6; g.fill(); g.restore(); });
+        // the bolt itself, with a soft glow that hugs its shape
+        g.save(); g.translate(cx, cy); g.rotate(Math.atan2(t.vy, t.vx) - Math.PI / 2);
+        g.lineJoin = "miter"; path(1); g.shadowColor = "#7dff5a"; g.shadowBlur = fl ? 10 : 7; g.fillStyle = "#7dff5a"; g.fill();
+        g.shadowBlur = 0; g.strokeStyle = "#0a0612"; g.lineWidth = 2; g.stroke(); g.fill();
         path(.55); g.fillStyle = fl ? "#ffffff" : "#e8ff8a"; g.fill(); g.restore(); }
       if(t.k === "record"){
         if(!t.roll){ // a flying disc seen at an angle, wobbling: black vinyl, a pale rim, groove rings, red label, glint
