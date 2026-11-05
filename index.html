@@ -475,6 +475,9 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .spin-act{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 .spin-act .iconbtn:not(.primary){background:#2a241e;color:#f3ead9;border-color:#4a4036}
 .setbtn{height:42px;padding:0 14px 0 11px;font-weight:600}
+/* Gallery jump menu in the top bar (the bar stays put as you scroll, so it's always in reach) */
+#galnav{height:42px;max-width:min(240px,42vw);padding:0 30px 0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:.9rem;cursor:pointer;text-overflow:ellipsis}
+#galnav:empty{display:none}
 .setbtn svg{flex:0 0 auto}
 @media (max-width:400px){.setbtn .lbl{display:none}.setbtn{width:44px;padding:0}}
 /* Starship portholes: star field, shooting stars, the odd rocket or UFO */
@@ -688,6 +691,7 @@ body.wallmode #fsc{display:none}
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="#/" id="brand">The Collection<small>Private museum</small></a>
+  <select id="galnav" aria-label="Go to a gallery" title="Go to a gallery"></select>
   <a class="iconbtn setbtn" href="#/settings" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl">Settings</span></a>
 </div></header>
 <main><div class="wrap" id="app"></div></main>
@@ -695,7 +699,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.35";
+const APP_VERSION = "2026.11.04.36";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1004,8 +1008,8 @@ function quickEdit(id){
     it.updated = new Date().toISOString();
     close();
     try{ await persist(); }catch(err){ Object.assign(it, JSON.parse(before)); alert("Couldn't save: " + err.message); return; }
-    // Update just this piece's card in place, so the gallery stays exactly where it was.
-    document.querySelectorAll(`#app a.card[href="#/i/${it.id}"]`).forEach(el => { const t = document.createElement("div"); t.innerHTML = plate(it); const n = t.firstElementChild; el.replaceWith(n); hydrate(n); });
+    // Redraw the page so the change shows everywhere (sort order, groups, list rows), then put the scroll back where it was.
+    const y = scrollY; route(); const back = () => scrollTo(0, y); back(); requestAnimationFrame(back); setTimeout(back, 80); setTimeout(back, 300);
     toast("Saved");
   };
 }
@@ -3035,6 +3039,12 @@ function viewGallery(id){
 }
 
 function notFound(){ app.innerHTML = `<div class="empty">That piece isn't here. <a href="#/">Back to the museum</a></div>`; }
+function fillGalNav(cur){
+  const g = document.getElementById("galnav"); if(!g || !cat) return;
+  const cs = [...cat.collections].sort((a, b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"}));
+  g.innerHTML = `<option value="">${cur ? "🏛 All galleries" : "Go to a gallery…"}</option>` + cs.map(c => `<option value="${esc(c.id)}" ${c.id === cur ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join("");
+  g.onchange = () => { location.hash = g.value ? "#/c/" + g.value : "#/"; };
+}
 function setBrand(){ document.getElementById("brand").firstChild.textContent = cat.title || "The Collection"; }
 
 /* ---------- Samples ---------- */
@@ -3066,6 +3076,7 @@ function route(){
   const parts = path.split("/").filter(Boolean);
   document.getElementById("layer").innerHTML = "";
   document.body.classList.remove("wallmode");
+  fillGalNav(parts[0] === "c" || parts[0] === "wall" ? parts[1] : parts[0] === "i" || parts[0] === "edit" ? ((cat && cat.items.find(i => i.id === parts[1])) || {}).collectionId : "");
   window.scrollTo(0, 0);
   if(!parts.length) return viewHome(params);
   if(parts[0]==="c"){ const r = viewHall(parts[1], params);
