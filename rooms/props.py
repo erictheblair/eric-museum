@@ -160,7 +160,7 @@ scr1 = ("<rect x='30' y='86' width='120' height='100' fill='#06031a'/>" + stars 
  "<g><animateTransform attributeName='transform' type='translate' values='0 0;70 0;20 0;0 0' dur='6s' repeatCount='indefinite'/>"
  + mummy(40, 160, 1.6) +
  "<rect x='46' y='150' width='1.6' height='6' fill='#ffef5a'><animate attributeName='y' values='156;92' dur='.9s' repeatCount='indefinite'/></rect></g>"
- "<text x='34' y='95' font-family='Courier New,monospace' font-weight='700' font-size='7' fill='#ff4f4f'>1UP</text><text x='52' y='95' font-family='Courier New,monospace' font-weight='700' font-size='7' fill='#fff'>004200</text>"
+ ""
  "<text x='112' y='95' font-family='Courier New,monospace' font-weight='700' font-size='7' fill='#7dff5a'>♥♥♥</text>")
 # Screen 2: Monster Island — volcano puffs, a giant lizard rises from the sea and roars, mummy on the beach, INSERT COIN blinks.
 scr2 = ("<rect x='30' y='86' width='120' height='100' fill='#ff7a3a'/><rect x='30' y='86' width='120' height='50' fill='#4a1458'/><rect x='30' y='120' width='120' height='30' fill='#c8366a' opacity='.6'/>"
@@ -177,7 +177,7 @@ scr2 = ("<rect x='30' y='86' width='120' height='100' fill='#ff7a3a'/><rect x='3
  "<rect x='30' y='150' width='120' height='3' fill='#7cc4ff' opacity='.6'/>"
  "<path d='M30 178 C60 172 90 176 110 186 L30 186 Z' fill='#e8c878'/>"
  + mummy(48, 162, 1.5) +
- "<text x='90' y='98' text-anchor='middle' font-family='Courier New,monospace' font-weight='700' font-size='8' fill='#fff'>INSERT COIN<animate attributeName='opacity' values='1;1;0;0' keyTimes='0;.5;.5;1' dur='1.2s' repeatCount='indefinite'/></text>")
+ "<text x='90' y='112' text-anchor='middle' font-family='Courier New,monospace' font-weight='700' font-size='8' fill='#fff'>INSERT COIN<animate attributeName='opacity' values='1;1;0;0' keyTimes='0;.5;.5;1' dur='1.2s' repeatCount='indefinite'/></text>")
 ART["arcade1"] = cabinet("1", "vs.", "THE MOON MEN", "#ff3cc8", "#2ee6ff", scr1)
 ART["arcade2"] = cabinet("2", "vs.", "MONSTER ISLAND", "#3cff7a", "#ffcf3a", scr2)
 

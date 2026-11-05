@@ -206,7 +206,7 @@ function open(which){
     raf = requestAnimationFrame(frame);
   };
   raf = requestAnimationFrame(frame);
-  function close(){ if(!alive) return; alive = false; cancelAnimationFrame(raf); removeEventListener("keydown", kd, true); removeEventListener("keyup", ku, true); removeEventListener("resize", fit); song.pause(); song.removeAttribute("src"); song.load(); ov.remove(); cur = null; }
+  function close(){ if(!alive) return; alive = false; cancelAnimationFrame(raf); removeEventListener("keydown", kd, true); removeEventListener("keyup", ku, true); removeEventListener("resize", fit); song.pause(); song.removeAttribute("src"); song.load(); ov.remove(); cur = null; dispatchEvent(new Event("mummula-closed")); }
   cur = {close};
 }
 // Eric's wordmark, tinted to each cabinet's glow for the title screen (falls back to text until it loads).
