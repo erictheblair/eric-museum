@@ -720,6 +720,29 @@ body.wallmode #fsc{display:none}
   .wall.r-xmas .bay>.xp{left:-70px;width:124px;height:92px}.wall.r-xmas .xp b{width:40px;height:113px;right:-44px}.wall.r-xmas .xp.so b{left:-38px}
   .wall.r-xmas .pframe::before{width:46px;height:32px;top:-12px;left:-14px}
   .wall.r-xmas .xg{top:calc(env(safe-area-inset-top) + 46px);height:46px}.wall.r-xmas .bay{padding-top:calc(84px + env(safe-area-inset-top))}}
+/* Room props: a piece of furniture or decor between each pair of pictures (two kinds that alternate) */
+.wall .rp{display:none}
+.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{display:block;position:absolute;z-index:1;pointer-events:none;background:center bottom/contain no-repeat;
+  --h:40vh;--ar:.5;height:var(--h);width:calc(var(--h) * var(--ar));left:calc(var(--h) * var(--ar) * -.5);bottom:calc(var(--fl,11vh) - 1.4vh);filter:drop-shadow(0 10px 12px rgba(0,0,0,.4))}
+.wall.r-diner{--fl:8vh} .wall.r-neon{--fl:14vh}
+.wall.r-diner .rp.ra{background-image:url(rooms/prop-jukebox.svg);--h:44vh}
+.wall.r-diner .rp.rb{background-image:url(rooms/prop-malts.svg);--h:13vh;--ar:1.733;bottom:auto;top:15vh;filter:none}
+.wall.r-neon .rp{--h:46vh;--ar:.474;filter:none}
+.wall.r-neon .rp.ra{background-image:url(rooms/prop-arcade1.svg)} .wall.r-neon .rp.rb{background-image:url(rooms/prop-arcade2.svg)}
+.wall.r-museum .rp.ra{background-image:url(rooms/prop-bust.svg)} .wall.r-museum .rp.rb{background-image:url(rooms/prop-amphora.svg)}
+.wall.r-modern .rp.ra{background-image:url(rooms/prop-mobile.svg);background-position:center top;--h:26vh;--ar:.933;bottom:auto;top:4vh;filter:drop-shadow(0 18px 10px rgba(0,0,0,.18))}
+.wall.r-modern .rp.rb{background-image:url(rooms/prop-sculpture.svg);--h:38vh;filter:drop-shadow(0 8px 14px rgba(0,0,0,.18))}
+.wall.r-library .rp.ra{background-image:url(rooms/prop-globe.svg);--h:36vh} .wall.r-library .rp.rb{background-image:url(rooms/prop-lamp.svg);--h:36vh;--ar:.55}
+.wall.r-castle .rp.ra{background-image:url(rooms/prop-armor.svg);--h:50vh;--ar:.476}
+.wall.r-castle .rp.rb{background-image:url(rooms/prop-banner1.svg);--h:42vh;--ar:.412;bottom:auto;top:29vh}
+.wall.r-castle .bay:nth-child(4n) .rp.rb{background-image:url(rooms/prop-banner2.svg)}
+.wall.r-cabin .rp.ra{background-image:url(rooms/prop-fireplace.svg);--h:44vh;--ar:.6;bottom:calc(var(--fl,11vh) - 2.2vh)} .wall.r-cabin .rp.rb{background-image:url(rooms/prop-rocker.svg);--h:28vh;--ar:.667}
+.wall.r-greenhouse .rp{z-index:3}
+.wall.r-greenhouse .rp.ra{background-image:url(rooms/prop-planter.svg);background-position:center top;--h:46vh;--ar:.556;bottom:auto;top:0;filter:drop-shadow(0 10px 8px rgba(0,0,0,.3))}
+.wall.r-greenhouse .rp.rb{background-image:url(rooms/prop-butterflies.svg);--h:40vh;--ar:1;bottom:auto;top:12vh;filter:none}
+/* Phones: one picture fills the screen, so the props are smaller and peek in from the edges */
+@media (max-width:899px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{--k:.62;height:calc(var(--h) * var(--k));width:calc(var(--h) * var(--k) * var(--ar));left:calc(var(--h) * var(--k) * var(--ar) * -.5)}}
+@media (orientation:landscape) and (max-height:560px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{--k:.8}}
 /* Phone on its side: the garland hangs along the very top, behind the buttons, instead of across the pictures */
 @media (orientation:landscape) and (max-height:560px){.wall.r-xmas .xg{top:env(safe-area-inset-top);height:34px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45))}
   .wall.r-xmas .xg,.wall.r-xmas .xg::before,.wall.r-xmas .xg::after{background-size:50% 100%}}
@@ -740,7 +763,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.42";
+const APP_VERSION = "2026.11.04.43";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1313,7 +1336,7 @@ function viewWall(id, params){
   app.innerHTML = `<div class="wall r-${room}" id="wall">
     <div class="floor"></div><div class="fish" aria-hidden="true"><div class="shade"></div><div class="cz"></div><div class="cz c2"></div><div class="rays"></div></div>
     <div class="wtrack" id="wtrack"><div class="swim" aria-hidden="true"></div>${pieces.map((it,n) => `<section class="bay${n%3===2 ? " hw" : ""}" data-n="${n}" aria-label="${esc(it.title||"")}">
-      ${n%3===2 ? `<i class="hwin" style="--wd:${-((n*4.7)%13).toFixed(1)}s;--wtd:${-((n*11.3)%37).toFixed(1)}s"><b class="wi"></b><b class="wb"></b><b class="wt"></b></i>` : ""}<i class="ghost ${n%2 ? "gr" : "gl"}" style="--gd:${-((n*7.7)%26).toFixed(1)}s"></i>${n%2 ? `<i class="spider" style="--sd:${-((n*5.3)%22).toFixed(1)}s;--sl:${26+(n*7)%14}vh"></i>` : ""}${n%2 === 0 ? `<i class="mhole" style="--hx:${[14,30,62][n%3]}%"><b style="--rd:${-((n*9.1)%31 + (n%4 ? 31 : 0)).toFixed(1)}s"></b></i>` : ""}${n%3===2 ? `<i class="xw ${n%6===2 ? "sm" : "sl"}"><b class="sc"></b><b class="fr"></b><b class="wr"></b></i>` : n%3===1 ? `<i class="xt"></i>` : `<i class="xp ${n%6 ? "so" : "nu"}"><b></b></i>`}<i class="xg"></i><i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
+      ${n%3===2 ? `<i class="hwin" style="--wd:${-((n*4.7)%13).toFixed(1)}s;--wtd:${-((n*11.3)%37).toFixed(1)}s"><b class="wi"></b><b class="wb"></b><b class="wt"></b></i>` : ""}<i class="ghost ${n%2 ? "gr" : "gl"}" style="--gd:${-((n*7.7)%26).toFixed(1)}s"></i>${n%2 ? `<i class="spider" style="--sd:${-((n*5.3)%22).toFixed(1)}s;--sl:${26+(n*7)%14}vh"></i>` : ""}${n%2 === 0 ? `<i class="mhole" style="--hx:${[14,30,62][n%3]}%"><b style="--rd:${-((n*9.1)%31 + (n%4 ? 31 : 0)).toFixed(1)}s"></b></i>` : ""}${n%3===2 ? `<i class="xw ${n%6===2 ? "sm" : "sl"}"><b class="sc"></b><b class="fr"></b><b class="wr"></b></i>` : n%3===1 ? `<i class="xt"></i>` : `<i class="xp ${n%6 ? "so" : "nu"}"><b></b></i>`}<i class="xg"></i><i class="rp ${n%2 ? "rb" : "ra"}"></i><i class="swin wl" style="--d:${-(n*7.3)%60}s"></i><i class="swin wr" style="--d:${-(n*7.3+3.1)%60}s"></i><i class="reef rl v${(n+0)%3}"><b class="k${(n+0)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+0+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+0+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i><i class="reef rr v${(n+1)%3}"><b class="k${(n+1)%3}" style="--x:6%;--h:96%;--sw:5.2s;--dl:-${n%4}s"></b><b class="k${(n+1+1)%3}" style="--x:58%;--h:78%;--sw:4.3s;--dl:-${(n+2)%4}s"></b><b class="k${(n+1+2)%3}" style="--x:30%;--h:60%;--sw:6.1s;--dl:-1.5s;--kf:brightness(.75)"></b></i>
       <button type="button" class="pframe${it.bootleg ? " boot" : ""}" data-open="${it.id}" aria-label="View ${esc(it.title||"piece")} full size"><span class="pmat"><img alt="${esc(it.title||"")}" data-wpath="${esc(cover(it).path)}" data-wthumb="${esc(cover(it).thumb||"")}"></span></button>
       ${placard(it)}</section>`).join("")}</div>
     ${pieces.length ? "" : `<div class="wempty"><div>Nothing to hang yet. Gallery mode shows pieces that have a photo.</div><a class="wbtn" href="#/c/${id}">Back to ${esc(c.name)}</a></div>`}
