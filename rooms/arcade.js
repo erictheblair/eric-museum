@@ -1,6 +1,7 @@
 /* Mummula arcade: two little games hidden in the Neon arcade room's cabinets.
    MummulaArcade.open("moon")   -> Mummula vs. The Moon Men (shoot the saucers before they land)
-   MummulaArcade.open("island") -> Mummula vs. Monster Island (run the beach, jump the crabs and lava, dodge the fireballs) */
+   MummulaArcade.open("island") -> Mummula vs. Monster Island (run the beach, jump the crabs and lava, dodge the fireballs)
+   MummulaArcade.open("curse")  -> The Curse of Mummula (dodge the curses Old Man Mummula hurls down from his ledge) */
 (function(){
 "use strict";
 const hiGet = k => { try{ return +localStorage.getItem("mummula.hi." + k) || 0; }catch(e){ return 0; } };
@@ -129,7 +130,7 @@ let cur = null;
 const BASE = (document.currentScript && document.currentScript.src) || location.href;
 function open(which){
   if(cur) cur.close();
-  const game = which === "island" ? ISLAND : MOON;
+  const game = ({island:ISLAND, curse:CURSE})[which] || MOON;
   const ov = document.createElement("div");
   ov.className = "mm-arcade";
   ov.innerHTML = `<style>
@@ -137,6 +138,7 @@ function open(which){
     .mm-arcade .cab{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
     .mm-arcade .mq{font:900 clamp(20px,4.4vw,34px)/1 Impact,"Arial Black",sans-serif;letter-spacing:.06em;color:#fff7c2;text-shadow:0 0 10px ${game.glow},0 0 26px ${game.glow};text-align:center}
     .mm-arcade .mq img{display:block;height:clamp(30px,6.5vw,52px);width:auto;margin:0 auto 4px;filter:drop-shadow(0 0 2px #2a0b38) drop-shadow(0 0 10px ${game.glow}) drop-shadow(0 0 22px ${game.glow})}
+    .mm-arcade .mq b{display:block;font:900 clamp(11px,2.2vw,15px)/1.2 "Arial Black",Arial,sans-serif;letter-spacing:.18em;color:#fff;margin-bottom:2px}
     .mm-arcade .mq small{display:block;font:900 clamp(11px,2.2vw,15px)/1.4 "Arial Black",Arial,sans-serif;letter-spacing:.12em;color:#fff}
     .mm-arcade canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;border-radius:10px;box-shadow:0 0 0 3px #05020a,0 0 0 6px ${game.glow},0 0 40px ${game.glow}}
     .mm-arcade .hud{display:flex;gap:18px;font-weight:700;font-size:14px;color:#ffe3f7}
@@ -149,16 +151,18 @@ function open(which){
     .mm-arcade .mu.off{opacity:.45;text-decoration:line-through}
     @media (hover:none),(pointer:coarse){.mm-arcade .pad{display:flex}}
   </style>
-  <button class="x" aria-label="Close the game">✕</button><button class="mu" aria-label="Music on or off">♪</button>
-  <div class="cab"><div class="mq"><img src="${new URL("mummula-wordmark.png?v=1", BASE).href}" alt="MUMMULA"><small>${game.sub}</small></div>
+  <button class="x" aria-label="Close the game">✕</button>${game.song === null ? "" : `<button class="mu" aria-label="Music on or off">♪</button>`}
+  <div class="cab"><div class="mq">${game.pre ? `<b>${game.pre}</b>` : ""}<img src="${new URL("mummula-wordmark.png?v=1", BASE).href}" alt="MUMMULA">${game.sub ? `<small>${game.sub}</small>` : ""}</div>
     <canvas width="${game.W}" height="${game.H}"></canvas>
     <div class="hud"><span class="sc">SCORE 0</span><span class="hi">HI ${hiGet(game.key)}</span></div>
     <div class="pad">${game.pad.map(([k, l]) => `<button data-k="${k}">${l}</button>`).join("")}</div>
-    <div class="help">${game.help} · M for music · Esc to leave</div></div>`;
+    <div class="help">${game.help}${game.song === null ? "" : " · M for music"} · Esc to leave</div></div>`;
   document.body.appendChild(ov);
   // Music: loops while the game is open. Starts right away if the browser allows it, otherwise on the first key or tap.
-  const song = new Audio(new URL("music/" + game.key + ".mp3?v=1", BASE).href); song.loop = true; song.volume = .6;
-  const muBtn = ov.querySelector(".mu");
+  // A game without its own song (song:null) plays silently and has no music button.
+  const song = game.song === null ? {paused:false, play(){ return Promise.resolve(); }, pause(){}, removeAttribute(){}, load(){}} : new Audio(new URL("music/" + (game.song || game.key) + ".mp3?v=1", BASE).href);
+  song.loop = true; song.volume = .6;
+  const muBtn = ov.querySelector(".mu") || document.createElement("button");
   let muted = false; try{ muted = localStorage.getItem("mummula.mute") === "1"; }catch(e){}
   const play = () => { if(!muted && alive && song.paused) song.play().catch(() => {}); };
   const setMute = m => { muted = m; muBtn.classList.toggle("off", m); try{ localStorage.setItem("mummula.mute", m ? "1" : "0"); }catch(e){} m ? song.pause() : play(); };
@@ -224,9 +228,10 @@ function overlayText(g, game, st){
   const cx = game.W / 2, cy = game.H / 2;
   if(st.mode === "title"){
     const wm = wordmark(game.glow), ww = Math.min(120, game.W - 40), wh = wm ? Math.round(ww * wm.height / wm.width) : 0;
+    if(game.pre){ g.fillStyle = "#fff"; g.font = "bold 10px 'Courier New',monospace"; g.fillText(game.pre, cx, cy - 26 - (wm ? wh : 18)); }
     if(wm) g.drawImage(wm, Math.round(cx - ww / 2), cy - 22 - wh, ww, wh);
     else { g.fillStyle = game.glow; g.font = "bold 16px Impact,'Arial Black',sans-serif"; g.fillText("MUMMULA", cx, cy - 26); }
-    g.fillStyle = "#fff"; g.font = "bold 10px 'Courier New',monospace"; g.fillText(game.sub, cx, cy - 12);
+    g.fillStyle = "#fff"; g.font = "bold 10px 'Courier New',monospace"; if(game.sub) g.fillText(game.sub, cx, cy - 12);
     if(Math.floor(st.t * 2) % 2 === 0){ g.fillStyle = "#ffef3a"; g.font = "bold 12px 'Courier New',monospace"; g.fillText(game.start, cx, cy + 14); }
   } else {
     g.fillStyle = "#ff4f4f"; g.font = "bold 18px Impact,'Arial Black',sans-serif"; g.fillText("GAME OVER", cx, cy - 8);
@@ -475,6 +480,256 @@ const ISLAND = {
     ISLAND.monster(g, st);
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
     g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace"; g.fillText("☥ " + st.coins, 290, 12);
+    g.restore();
+  }
+};
+/* ---------- Game 3: The Curse of Mummula ---------- */
+// Old Man Mummula paces a ledge at the top of his tomb and hurls curses down. Dodge them, cape-dash through them, grab the ankhs.
+const OLD_PAL = {w:"#d8cca0", b:"#958862", W:"#ffffff", g:"#7dff5a", d:"#8a4a1c", u:"#5a2a8a", U:"#8a4ad0"};
+// Hunched, yellowed bandages, bushy white brows and beard, tattered purple shawl, cane, glowing green eyes.
+const OLD = [spr([
+  ".....wwwww......",
+  "....wbwwwbw.....",
+  "...WWWwwWWW.....",
+  "...wgkwwgkw.....",
+  "...wwwwbwww.....",
+  "...uWWWWWWWu....",
+  "..uuWWWWWWWuu...",
+  ".uuUuWWWWWuUuu..",
+  ".uUwwwWWWwwwUu.d",
+  ".uwwwwwWwwwwwudd",
+  "..ww.wwwwww.wwd.",
+  "..w..wbbbbw...d.",
+  ".....wwwwww...d.",
+  ".....wbwwbw...d.",
+  ".....ww..ww...d.",
+  "....www..www..d."]), spr([
+  ".ww..wwwww......",
+  ".ww.wbwwwbw.....",
+  "..wwWWwwWWW.....",
+  "..wwgkwwgkw.....",
+  "...wwwwbwww.....",
+  "...uWWWWWWWu....",
+  "...uWWWWWWWuu...",
+  "..uuuWWWWWuUuu..",
+  "..uUwwWWWwwwUu.d",
+  "..uwwwwWwwwwwudd",
+  "...w.wwwwww.wwd.",
+  ".....wbbbbw...d.",
+  ".....wwwwww...d.",
+  ".....wbwwbw...d.",
+  ".....ww..ww...d.",
+  "....www..www..d."])];
+// Cursed things he throws. Bright fills, dark outlines (drawn by outl), so they pop off the dark stone.
+const JAR = spr([
+  ".GGGG.",
+  "GgGGgG",
+  ".kkkk.",
+  "OOOOOO",
+  "OyOOyO",
+  "OOkkOO",
+  "OOOOOO",
+  ".OOOO.",
+  "..OO.."]);
+const SKULL = spr([
+  ".WWWWW.",
+  "WWWWWWW",
+  "WkkWkkW",
+  "WkkWkkW",
+  "WWWkWWW",
+  ".WkWkW.",
+  ".WWWWW."]);
+const SCARAB = [spr([
+  "G.....G",
+  ".GtttG.",
+  "..ttt..",
+  "GtCtCtG",
+  ".ttCtt.",
+  "GtttttG",
+  ".tt.tt."]), spr([
+  ".G...G.",
+  "G.tttG.",
+  "..ttt..",
+  ".tCtCt.",
+  "GttCttG",
+  ".tttttG",
+  "Gt...tG"])];
+const HEART = spr([".rr.rr.", "rrrrrrr", "rrrrrrr", ".rrrrr.", "..rrr..", "...r..."]);
+function outl(g, rows, x, y, pal, s, oc){
+  s = s || 1; const o = Math.max(1, Math.round(s));
+  for(const [dx, dy] of [[-o,0],[o,0],[0,-o],[0,o]]) draw(g, rows, x + dx, y + dy, new Proxy({}, {get:() => oc || "#0a0612"}), s);
+  draw(g, rows, x, y, pal, s);
+}
+const CFLOOR = 270, LEDGE = 58;
+const TAUNTS = ["CURSE YOU!", "BAH!", "KIDS THESE DAYS!", "OFF MY PYRAMID!", "IN MY DAY...", "HEH HEH HEH", "MY BACK!", "BEGONE!"];
+const CURSE = {
+  key:"curse", W:224, H:288, glow:"#b45cff", pre:"THE CURSE OF", sub:"", song:null,
+  help:"← → to dodge · Space, ↑ or tap to cape-dash through a curse · grab the ankhs · the purple hex scrambles your controls",
+  start:"PRESS START", pad:[["left","◀"],["fire","DASH"],["right","▶"]],
+  reset(st){
+    st.p = {x:100, y:CFLOOR - 24, w:24, h:24, inv:0, dash:0, cool:0, face:1, trail:[]};
+    st.old = {x:100, tx:100, wind:0, tt:1.6, face:1, say:"", sayT:0, sayNext:2.5};
+    st.lives = 3; st.lvl = 1; st.surv = 0; st.bonus = 0; st.curse = 0; st.banner = 1.6; st.shake = 0;
+    st.things = []; st.puffs = []; st.boom = []; st.nextAnkh = 3; st.saved = false; st.newHi = false;
+    st.dust = Array.from({length:24}, () => ({x:rnd(0, 224), y:rnd(60, 270), v:rnd(3, 9)}));
+  },
+  kinds(lvl){ return ["jar", "skull", "jar", "skull"].concat(lvl >= 2 ? ["scarab", "scarab"] : [], lvl >= 3 ? ["bolt", "bolt"] : [], lvl >= 4 ? ["hex"] : []); },
+  throw(st){
+    const o = st.old, p = st.p, hx = o.x + (o.face > 0 ? 4 : 28), hy = LEDGE - 26;
+    const ks = CURSE.kinds(st.lvl), k = ks[Math.floor(Math.random() * ks.length)];
+    const aim = (p.x + 12 + rnd(-30, 30)) - hx;
+    if(k === "jar") st.things.push({k, x:hx - 6, y:hy, w:12, h:18, vx:aim * .55, vy:-40});
+    if(k === "skull") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, vx:rnd(40, 75) * (aim < 0 ? -1 : 1), vy:-20, n:0});
+    if(k === "scarab") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, x0:hx - 7 + aim * .5, ph:Math.random() * 6, vy:62 + st.lvl * 5});
+    if(k === "bolt"){ const dx = p.x + 12 - hx, dy = p.y + 12 - hy, d = Math.hypot(dx, dy), v = 120 + st.lvl * 8;
+      st.things.push({k, x:hx - 3, y:hy, w:6, h:6, vx:dx / d * v, vy:dy / d * v}); }
+    if(k === "hex") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, x0:hx - 7 + aim * .6, ph:Math.random() * 6, vy:48});
+  },
+  update(st, dt, k, pr){
+    const p = st.p, o = st.old;
+    st.surv += dt;
+    const lvl = 1 + Math.floor(st.surv / 20);
+    if(lvl !== st.lvl){ st.lvl = lvl; st.banner = 1.6; st.bonus += 100 * (lvl - 1); }
+    st.banner = Math.max(0, st.banner - dt); st.shake = Math.max(0, st.shake - dt);
+    st.score = Math.floor(st.surv * 10) + st.bonus;
+    for(const d of st.dust){ d.y += d.v * dt; d.x += Math.sin(st.t + d.v) * 2 * dt; if(d.y > 270){ d.y = 62; d.x = rnd(0, 224); } }
+    // Mummula: left/right (swapped while hexed), dash = a quick, untouchable swoop of the cape
+    st.curse = Math.max(0, st.curse - dt);
+    let dir = (k.right ? 1 : 0) - (k.left ? 1 : 0); if(st.curse > 0) dir = -dir;
+    if(dir) p.face = dir;
+    p.cool -= dt; p.inv -= dt;
+    if((pr.fire || pr.tap || pr.up) && p.cool <= 0){ p.dash = .18; p.cool = .8; }
+    if(p.dash > 0){ p.dash -= dt; p.x += p.face * 330 * dt; p.trail.push({x:p.x, life:.25}); }
+    else p.x += dir * 110 * dt;
+    p.x = Math.max(0, Math.min(200, p.x));
+    for(const t of p.trail) t.life -= dt; p.trail = p.trail.filter(t => t.life > 0);
+    // Old Man Mummula shuffles along the ledge, winds up, throws. Faster and meaner each level; doubles up from level 5.
+    if(o.wind > 0){ o.wind -= dt; if(o.wind <= 0){ CURSE.throw(st); if(st.lvl >= 5 && Math.random() < Math.min(.6, .15 * (st.lvl - 4))) CURSE.throw(st); } }
+    else {
+      const sp = 26 + st.lvl * 5;
+      if(Math.abs(o.tx - o.x) < 2) o.tx = rnd(8, 184);
+      o.face = o.tx > o.x ? 1 : -1; o.x += o.face * Math.min(sp * dt, Math.abs(o.tx - o.x));
+      o.tt -= dt; if(o.tt <= 0){ o.wind = .4; o.tt = Math.max(.42, 1.45 - st.lvl * .13) * rnd(.75, 1.25); }
+    }
+    o.sayT -= dt; o.sayNext -= dt;
+    if(o.sayNext <= 0){ o.say = TAUNTS[Math.floor(Math.random() * TAUNTS.length)]; o.sayT = 1.6; o.sayNext = rnd(5, 9); }
+    // ankhs and the odd heart drop from cracks in the ceiling
+    st.nextAnkh -= dt;
+    if(st.nextAnkh <= 0){ const heart = st.lives < 3 && Math.random() < .18;
+      st.things.push({k:heart ? "heart" : "ankh", x:rnd(10, 200), y:LEDGE + 4, w:heart ? 14 : 10, h:heart ? 12 : 16, vy:45, good:true}); st.nextAnkh = rnd(2.5, 4.5); }
+    // move the curses
+    for(const t of st.things){
+      if(t.k === "jar"){ t.vy += 240 * dt; t.x += t.vx * dt; t.y += t.vy * dt;
+        if(t.y + t.h >= CFLOOR){ t.gone = true; st.shake = .18; st.puffs.push({x:t.x - 7, y:CFLOOR - 16, w:26, h:16, life:.8, max:.8}); CURSE.pop(st, t.x + 6, CFLOOR - 4, "#7dff5a", 14); } }
+      if(t.k === "skull"){ t.vy += 300 * dt; t.x += t.vx * dt; t.y += t.vy * dt;
+        if(t.x < 0 || t.x > 210){ t.vx = -t.vx; t.x = Math.max(0, Math.min(210, t.x)); }
+        if(t.y + t.h >= CFLOOR){ t.y = CFLOOR - t.h; t.n++; t.vy = -[210, 150, 0][Math.min(2, t.n - 1)]; if(t.n >= 3){ t.gone = true; CURSE.pop(st, t.x + 7, t.y + 7, "#fff", 10); } } }
+      if(t.k === "scarab" || t.k === "hex"){ t.y += t.vy * dt; t.ph += dt * (t.k === "hex" ? 2.4 : 4); t.x = Math.max(0, Math.min(210, t.x0 + Math.sin(t.ph) * (t.k === "hex" ? 22 : 34))); if(t.y > CFLOOR - t.h){ t.gone = true; CURSE.pop(st, t.x + 7, t.y + 7, t.k === "hex" ? "#d27bff" : "#3cf0ff", 10); } }
+      if(t.k === "bolt"){ t.x += t.vx * dt; t.y += t.vy * dt; if(t.y > CFLOOR - 4 || t.x < -10 || t.x > 234){ t.gone = true; CURSE.pop(st, t.x + 3, Math.min(t.y, CFLOOR - 3), "#7dff5a", 8); } }
+      if(t.good){ t.y += t.vy * dt; if(t.y > CFLOOR - t.h) t.vy = 0, t.life = (t.life ?? 2.5) - dt; if(t.life <= 0) t.gone = true; }
+    }
+    for(const u of st.puffs) u.life -= dt;
+    st.puffs = st.puffs.filter(u => u.life > 0);
+    // collisions
+    const box = {x:p.x + 5, y:p.y + 4, w:14, h:20};
+    for(const t of st.things){
+      if(t.gone || !hit(box, t)) continue;
+      if(t.k === "ankh"){ t.gone = true; st.bonus += 50; CURSE.pop(st, t.x + 5, t.y + 8, "#ffcf3a", 10); continue; }
+      if(t.k === "heart"){ t.gone = true; st.lives = Math.min(3, st.lives + 1); CURSE.pop(st, t.x + 3, t.y + 3, "#ff3b3b", 10); continue; }
+      if(p.dash > 0 || p.inv > 0) continue;
+      t.gone = true;
+      if(t.k === "hex"){ st.curse = 4; st.shake = .3; CURSE.pop(st, p.x + 12, p.y + 12, "#d27bff", 18); continue; }
+      CURSE.hurt(st);
+    }
+    if(p.dash <= 0 && p.inv <= 0) for(const u of st.puffs) if(u.life > .15 && hit(box, u)){ CURSE.hurt(st); break; }
+    st.things = st.things.filter(t => !t.gone);
+    for(const b of st.boom){ b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 90 * dt; b.life -= dt; }
+    st.boom = st.boom.filter(b => b.life > 0);
+  },
+  hurt(st){ const p = st.p; st.lives--; p.inv = 1.6; st.shake = .4; CURSE.pop(st, p.x + 12, p.y + 12, "#efe6cf", 16);
+    if(st.lives <= 0){ st.mode = "over"; st.old.say = "HEH HEH HEH!"; st.old.sayT = 9; } },
+  pop(st, x, y, col, n){ for(let i = 0; i < (n || 12); i++){ const a = Math.random() * 6.28, v = rnd(20, 70); st.boom.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v - 20, life:rnd(.3, .7), col}); } },
+  render(g, st){
+    g.save();
+    if(st.shake > 0) g.translate(Math.round(rnd(-2, 2)), Math.round(rnd(-2, 2)));
+    // the tomb: dim sandstone blocks with faint hieroglyphs, torchlight from both sides
+    g.fillStyle = "#1a0f22"; g.fillRect(-4, -4, 232, 296);
+    for(let r = 0; r < 20; r++) for(let c = -1; c < 8; c++){
+      const x = c * 32 + (r % 2 ? 16 : 0), y = 60 + r * 11;
+      g.fillStyle = (r * 7 + c * 3) % 5 ? "#2a1a2c" : "#2f1e30"; g.fillRect(x + 1, y + 1, 30, 9);
+    }
+    g.fillStyle = "#3a2738";
+    const gl = ["☥", "◉", "△", "≋", "☥", "◎"];
+    g.font = "9px serif"; g.textAlign = "center";
+    for(let i = 0; i < 12; i++) g.fillText(gl[i % gl.length], 22 + (i % 6) * 36, 110 + Math.floor(i / 6) * 70);
+    g.textAlign = "left";
+    for(const tx of [10, 214]){
+      const fl = Math.sin(st.t * 17 + tx) * .5 + Math.sin(st.t * 9.3 + tx) * .5;
+      const lg = g.createRadialGradient(tx, 150, 2, tx, 150, 70 + fl * 6); lg.addColorStop(0, "rgba(255,150,60,.35)"); lg.addColorStop(1, "rgba(255,150,60,0)");
+      g.fillStyle = lg; g.fillRect(tx - 80, 70, 160, 160);
+      g.fillStyle = "#5a3a1c"; g.fillRect(tx - 2, 152, 4, 12); g.fillStyle = "#8a6232"; g.fillRect(tx - 4, 150, 8, 3);
+      g.fillStyle = "#ff7a1a"; g.fillRect(tx - 3, 143 - Math.round(fl), 6, 7 + Math.round(fl)); g.fillStyle = "#ffd04a"; g.fillRect(tx - 1, 145, 3, 5);
+    }
+    // floating dust in the torchlight
+    g.fillStyle = "rgba(255,220,170,.35)"; for(const d of st.dust) g.fillRect(d.x | 0, d.y | 0, 1, 1);
+    // ceiling + ledge Old Man Mummula walks on
+    g.fillStyle = "#0e0814"; g.fillRect(-4, -4, 232, LEDGE + 4);
+    g.fillStyle = "#3b2440"; for(let x = 0; x < 224; x += 16){ g.fillRect(x + 1, 6, 14, 10); g.fillRect(x + 9, 18, 14, 10); }
+    g.fillStyle = "#5a3c3a"; g.fillRect(-4, LEDGE, 232, 6); g.fillStyle = "#ffcf3a"; g.fillRect(-4, LEDGE, 232, 1); g.fillStyle = "#2a1520"; g.fillRect(-4, LEDGE + 6, 232, 2);
+    // floor
+    g.fillStyle = "#3a2430"; g.fillRect(-4, CFLOOR, 232, 22); g.fillStyle = "#c89a5a"; g.fillRect(-4, CFLOOR, 232, 1);
+    g.fillStyle = "#2a1820"; for(let x = 0; x < 224; x += 28) g.fillRect(x, CFLOOR + 1, 1, 18);
+    // Old Man Mummula
+    const o = st.old, ox = Math.round(o.x), bob = o.wind > 0 ? 0 : (Math.floor(st.t * 5) % 2);
+    const oldRows = (o.wind > 0 ? OLD[1] : OLD[0]).map(r => o.face > 0 ? r.slice().reverse() : r);
+    const glow = o.wind > 0 ? "#ffffff" : (Math.floor(st.t * 3) % 2 ? "#7dff5a" : "#b6ff9a");
+    draw(g, oldRows, ox, LEDGE - 32 + bob, Object.assign({}, OLD_PAL, {g:glow}), 2);
+    if(o.wind > 0){ g.fillStyle = "rgba(125,255,90," + (.4 + .3 * Math.sin(st.t * 40)) + ")"; g.beginPath(); g.arc(ox + (o.face > 0 ? 28 : 4), LEDGE - 30, 5, 0, 6.28); g.fill(); }
+    if(o.sayT > 0){
+      g.font = "bold 7px 'Courier New',monospace"; const tw = g.measureText(o.say).width + 8;
+      const bx = Math.max(2, Math.min(222 - tw, ox + 16 - tw / 2)), by = Math.max(2, LEDGE - 46);
+      g.fillStyle = "#fff"; g.fillRect(bx, by, tw, 11); g.fillRect(ox + 14, by + 11, 3, 3);
+      g.fillStyle = "#1a0f22"; g.fillText(o.say, bx + 4, by + 8);
+    }
+    // curse clouds left by shattered jars
+    for(const u of st.puffs){ const a = Math.min(1, u.life / u.max * 1.6);
+      for(let i = 0; i < 5; i++){ g.fillStyle = `rgba(${i % 2 ? "125,255,90" : "60,200,80"},${.55 * a})`; g.beginPath(); g.arc(u.x + 4 + i * 4.5, u.y + 10 - Math.sin(st.t * 8 + i) * 2 - (i % 2) * 3, 5 + (i % 3), 0, 6.28); g.fill(); }
+      g.fillStyle = `rgba(230,255,220,${a})`; g.fillRect(Math.round(u.x + 8), Math.round(u.y + 4 - st.t * 3 % 3), 1, 1); g.fillRect(Math.round(u.x + 16), Math.round(u.y + 7), 1, 1); }
+    // the curses
+    const fl = Math.floor(st.t * 8) % 2;
+    for(const t of st.things){
+      const tx = Math.round(t.x), ty = Math.round(t.y);
+      if(t.good && t.life < 1 && fl) continue;
+      if(t.k === "jar"){ g.fillStyle = "rgba(125,255,90,.25)"; g.beginPath(); g.arc(tx + 6, ty + 10, 11, 0, 6.28); g.fill(); outl(g, JAR, tx, ty, {G:"#7dff5a", g:"#e8ffd8", O:"#ff8a1a", y:"#ffd04a"}, 2); }
+      if(t.k === "skull"){ outl(g, SKULL, tx, ty, {W:"#ffffff", k:"#1a0f22"}, 2); if(fl){ g.fillStyle = "#7dff5a"; g.fillRect(tx + 2, ty + 4, 2, 2); g.fillRect(tx + 8, ty + 4, 2, 2); } }
+      if(t.k === "scarab") outl(g, SCARAB[fl], tx, ty, {G:"#3cf0ff", t:"#0bd6ff", C:"#e8ffff"}, 2);
+      if(t.k === "bolt"){ g.fillStyle = "rgba(125,255,90,.35)"; g.fillRect(tx - 3, ty - 3, 12, 12);
+        g.fillStyle = "#0a0612"; g.fillRect(tx - 1, ty - 1, 8, 8); g.fillStyle = "#7dff5a"; g.fillRect(tx, ty, 6, 6); g.fillStyle = "#fff"; g.fillRect(tx + 2, ty + 2, 2, 2);
+        g.strokeStyle = "#7dff5a"; g.lineWidth = 1; g.beginPath(); g.moveTo(tx + 3, ty + 3);
+        for(let i = 1; i < 5; i++) g.lineTo(tx + 3 - t.vx * .018 * i + (i % 2 ? 3 : -3) * (fl ? 1 : -1), ty + 3 - t.vy * .018 * i); g.stroke(); }
+      if(t.k === "hex"){ g.save(); g.translate(tx + 7, ty + 7); g.rotate(st.t * 5);
+        g.fillStyle = "rgba(210,123,255,.3)"; g.beginPath(); g.arc(0, 0, 10, 0, 6.28); g.fill();
+        g.strokeStyle = "#0a0612"; g.lineWidth = 4; g.beginPath(); for(let a = 0; a < 12; a += .3) g.lineTo(Math.cos(a) * a * .6, Math.sin(a) * a * .6); g.stroke();
+        g.strokeStyle = "#e08cff"; g.lineWidth = 2; g.beginPath(); for(let a = 0; a < 12; a += .3) g.lineTo(Math.cos(a) * a * .6, Math.sin(a) * a * .6); g.stroke(); g.restore(); }
+      if(t.k === "ankh"){ outl(g, ANKH, tx, ty, {O:"#ffcf3a"}, 2); if(Math.floor(st.t * 3 + t.x) % 5 === 0){ g.fillStyle = "#fff"; g.fillRect(tx + 2, ty + 2, 2, 2); } }
+      if(t.k === "heart") outl(g, HEART, tx, ty, null, 2);
+    }
+    // Mummula (cape trail while dashing, flicker while recovering, purple while hexed)
+    const p = st.p, hexed = st.curse > 0;
+    const mpal = hexed ? {w:"#d9b8ff", b:"#9a6ad0", v:"#7a1ab0"} : null;
+    for(const t of p.trail){ g.globalAlpha = t.life * 2; draw(g, MUM[0], t.x, p.y, {w:"#6a3a9a", b:"#6a3a9a", r:"#6a3a9a", k:"#3a1a5a", v:"#6a3a9a"}, 2); }
+    g.globalAlpha = 1;
+    if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, MUM[(Math.floor(st.t * 8) % 2) * ((st.mode === "play" && p.dash <= 0) ? 1 : 0)], p.x, p.y, mpal, 2);
+    if(p.cool > 0 && st.mode === "play"){ g.fillStyle = "#3a2440"; g.fillRect(p.x + 6, p.y - 5, 12, 2); g.fillStyle = "#b45cff"; g.fillRect(p.x + 6, p.y - 5, Math.round(12 * (1 - p.cool / .8)), 2); }
+    for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
+    // HUD
+    g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace"; g.fillText("CURSE " + st.lvl, 4, 284);
+    for(let i = 0; i < st.lives; i++) outl(g, HEART, 196 + i * 9 - 9, 278, null);
+    if(hexed){ g.fillStyle = `rgba(180,92,255,${.12 + .08 * Math.sin(st.t * 10)})`; g.fillRect(-4, -4, 232, 296);
+      if(Math.floor(st.t * 4) % 2){ g.textAlign = "center"; g.fillStyle = "#e08cff"; g.font = "bold 12px Impact,'Arial Black',sans-serif"; g.fillText("HEXED! CONTROLS FLIPPED", 112, 82); g.textAlign = "left"; } }
+    if(st.banner > 0 && st.mode === "play"){ g.textAlign = "center"; g.fillStyle = "#ffcf3a"; g.font = "bold 14px Impact,'Arial Black',sans-serif"; g.fillText("CURSE LEVEL " + st.lvl, 112, 150);
+      const note = ["", "", "WATCH FOR SCARABS", "CURSE BOLTS AIM AT YOU", "BEWARE THE PURPLE HEX", "DOUBLE CURSES!"][st.lvl] || "";
+      if(note){ g.fillStyle = "#fff"; g.font = "bold 9px 'Courier New',monospace"; g.fillText(note, 112, 164); } g.textAlign = "left"; }
     g.restore();
   }
 };
