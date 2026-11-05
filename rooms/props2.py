@@ -100,7 +100,7 @@ ART["globe"] = (f"<svg {W} viewBox='0 0 200 400'><defs>"
  "<circle cx='100' cy='160' r='4' fill='url(#bz)'/><path d='M100 232 V248' stroke='#c9a24a' stroke-width='7'/>"
  "</svg>")
 ART["lamp"] = (f"<svg {W} viewBox='0 0 220 400'><defs>"
- "<radialGradient id='lg' cx='.5' cy='.4' r='.5'><stop offset='0' stop-color='#ffe2a0' stop-opacity='.7'/><stop offset='1' stop-color='#ffb84a' stop-opacity='0'/></radialGradient>"
+ "<radialGradient id='lg' cx='.5' cy='.42' r='.5'><stop offset='0' stop-color='#ffe2a0' stop-opacity='.45'/><stop offset='.35' stop-color='#ffc86a' stop-opacity='.14'/><stop offset='1' stop-color='#ffb84a' stop-opacity='0'/></radialGradient>"
  "<linearGradient id='gs' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#3d8a52'/><stop offset='.6' stop-color='#14532a'/><stop offset='1' stop-color='#0c3a1c'/></linearGradient>"
  "<linearGradient id='bz' x1='0' x2='1'><stop offset='0' stop-color='#7a5418'/><stop offset='.5' stop-color='#f5d27a'/><stop offset='1' stop-color='#6b4612'/></linearGradient>"
  "<linearGradient id='wd' x1='0' x2='1'><stop offset='0' stop-color='#2e1608'/><stop offset='.5' stop-color='#7a4420'/><stop offset='1' stop-color='#2a1407'/></linearGradient></defs>"

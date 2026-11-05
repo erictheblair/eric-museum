@@ -423,12 +423,13 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 /* Library: walnut panelling, bookcases between the pieces */
 .wall.r-library{background:radial-gradient(ellipse 72% 62% at 50% 38%,rgba(30,15,5,.05),rgba(8,4,1,.78)),url(rooms/panels.jpg) 0 0/420px auto,#2a170b}
 .wall.r-library .bay::before{background:radial-gradient(ellipse 40% 54% at 50% 36%,rgba(255,215,140,.3),rgba(255,190,100,.06) 55%,transparent 75%)}
-.wall.r-library .bay::after{content:"";position:absolute;top:0;bottom:0;left:-80px;right:-80px;pointer-events:none;z-index:0;
-  background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05) 30%,rgba(0,0,0,.35)),url(rooms/bookcase.jpg) left top/160px auto repeat-y,url(rooms/bookcase.jpg) right top/160px auto repeat-y;
+.wall.r-library .bay::after{content:"";position:absolute;top:0;bottom:calc(11vh - 2px);left:-80px;right:-80px;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,#3a210f,#1c0e05) left bottom/160px 16px no-repeat,linear-gradient(180deg,#3a210f,#1c0e05) right bottom/160px 16px no-repeat,linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05) 30%,rgba(0,0,0,.35) 92%,rgba(0,0,0,.7)),url(rooms/bookcase.jpg) left top/160px auto repeat-y,url(rooms/bookcase.jpg) right top/160px auto repeat-y;
   -webkit-mask:linear-gradient(90deg,#000 160px,transparent 160px calc(100% - 160px),#000 calc(100% - 160px));mask:linear-gradient(90deg,#000 160px,transparent 160px calc(100% - 160px),#000 calc(100% - 160px))}
 .wall.r-library .pmat img{max-width:min(66vw,520px)}
+@media (orientation:landscape) and (max-height:560px){.wall.r-library .bay::after{bottom:calc(8vh - 2px)}}
 @media (min-width:900px){.wall.r-library .pmat img{max-width:min(28vw,460px)}}
-@media (max-width:899px){.wall.r-library .bay::after{left:0;right:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05) 30%,rgba(0,0,0,.35)),url(rooms/bookcase.jpg) left -58px top/116px auto repeat-y,url(rooms/bookcase.jpg) right -58px top/116px auto repeat-y;
+@media (max-width:899px){.wall.r-library .bay::after{left:0;right:0;background:linear-gradient(180deg,#3a210f,#1c0e05) left bottom/58px 12px no-repeat,linear-gradient(180deg,#3a210f,#1c0e05) right bottom/58px 12px no-repeat,linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05) 30%,rgba(0,0,0,.35) 92%,rgba(0,0,0,.7)),url(rooms/bookcase.jpg) left -58px top/116px auto repeat-y,url(rooms/bookcase.jpg) right -58px top/116px auto repeat-y;
   -webkit-mask:linear-gradient(90deg,#000 58px,transparent 58px calc(100% - 58px),#000 calc(100% - 58px));mask:linear-gradient(90deg,#000 58px,transparent 58px calc(100% - 58px),#000 calc(100% - 58px))}}
 .wall.r-library .pframe{background:linear-gradient(135deg,#5a3d12 0%,#c9a356 22%,#7a5718 42%,#e2c27a 56%,#6d4c15 76%,#b38f45 92%,#4d330d);box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),inset 0 0 8px rgba(0,0,0,.5),0 22px 46px rgba(0,0,0,.85)}
 .wall.r-library .pmat{background:#efe6d2}
@@ -732,7 +733,7 @@ body.wallmode #fsc{display:none}
 .wall.r-museum .rp.ra{background-image:url(rooms/prop-bust.svg)} .wall.r-museum .rp.rb{background-image:url(rooms/prop-amphora.svg)}
 .wall.r-modern .rp.ra{background-image:url(rooms/prop-mobile.svg);background-position:center top;--h:26vh;--ar:.933;bottom:auto;top:4vh;filter:drop-shadow(0 18px 10px rgba(0,0,0,.18))}
 .wall.r-modern .rp.rb{background-image:url(rooms/prop-sculpture.svg);--h:38vh;filter:drop-shadow(0 8px 14px rgba(0,0,0,.18))}
-.wall.r-library .rp.ra{background-image:url(rooms/prop-globe.svg);--h:36vh} .wall.r-library .rp.rb{background-image:url(rooms/prop-lamp.svg);--h:36vh;--ar:.55}
+.wall.r-library .rp.ra{background-image:url(rooms/prop-globe.svg);--h:36vh} .wall.r-library .rp.rb{background-image:url(rooms/prop-lamp.svg?v=2);--h:36vh;--ar:.55}
 .wall.r-castle .rp.ra{background-image:url(rooms/prop-armor.svg?v=2);--h:50vh;--ar:.476}
 .wall.r-castle .rp.rb{background-image:url(rooms/prop-banner1.svg);--h:42vh;--ar:.412;bottom:auto;top:29vh}
 .wall.r-castle .bay:nth-child(4n) .rp.rb{background-image:url(rooms/prop-banner2.svg)}
@@ -763,7 +764,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.46";
+const APP_VERSION = "2026.11.04.47";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
