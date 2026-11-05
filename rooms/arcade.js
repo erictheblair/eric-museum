@@ -1,4 +1,4 @@
-/* Mummula arcade: two little games hidden in the Neon arcade room's cabinets.
+/* Mummula arcade: three little games hidden in the Neon arcade room's cabinets.
    MummulaArcade.open("moon")   -> Mummula vs. The Moon Men (shoot the saucers before they land)
    MummulaArcade.open("island") -> Mummula vs. Monster Island (run the beach, jump the crabs and lava, dodge the fireballs)
    MummulaArcade.open("curse")  -> The Curse of Mummula (dodge the curses Old Man Mummula hurls down from his ledge) */
