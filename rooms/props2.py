@@ -172,9 +172,9 @@ ART["banner2"] = banner('#1d2a5a', '#e6b84a', tower)
 
 # ======================= CABIN =======================
 def flame(cx, base, h, w, col, dur, begin):
-    return (f"<path d='M{cx-w} {base} C{cx-w} {base-h*.5} {cx-w*.2} {base-h*.6} {cx} {base-h} C{cx+w*.3} {base-h*.6} {cx+w} {base-h*.5} {cx+w} {base} Z' fill='{col}'>"
-            f"<animateTransform attributeName='transform' type='scale' additive='sum' values='1 1;1.06 .82;.94 1.12;1.04 .9;1 1' dur='{dur}s' begin='{begin}s' repeatCount='indefinite'/>"
-            f"<animateTransform attributeName='transform' type='translate' additive='sum' values='0 0;{-cx*.06} {base*.18};{cx*.06} {-base*.12};{-cx*.04} {base*.1};0 0' dur='{dur}s' begin='{begin}s' repeatCount='indefinite'/></path>")
+    return (f"<g transform='translate({cx} {base})'><path d='M{-w} 0 C{-w} {-h*.5} {-w*.2} {-h*.6} 0 {-h} C{w*.3} {-h*.6} {w} {-h*.5} {w} 0 Z' fill='{col}'>"
+            f"<animateTransform attributeName='transform' type='scale' values='1 1;1.06 .82;.94 1.12;1.04 .9;1 1' dur='{dur}s' begin='{begin}s' repeatCount='indefinite'/>"
+            f"<animateTransform attributeName='transform' type='skewX' additive='sum' values='0;4;-5;3;0' dur='{dur*1.3:.2f}s' begin='{begin}s' repeatCount='indefinite'/></path></g>")
 rs = random.Random(11)
 stones = "".join(f"<rect x='{x}' y='{y}' width='{w}' height='{h}' rx='{min(w,h)*.4:.1f}' fill='{c}' stroke='#2a2420' stroke-width='1.2'/>"
                  for x, y, w, h, c in [(rs.randint(6, 214), rs.randint(70, 380), rs.randint(18, 34), rs.randint(12, 20), rs.choice(['#7a6e62', '#8d8174', '#6a5f55', '#9a8d7d', '#5f554c'])) for _ in range(150)])
@@ -188,8 +188,8 @@ ART["fireplace"] = (f"<svg {W} viewBox='0 0 240 400'><defs>"
  "<rect x='6' y='70' width='228' height='326' fill='#000' opacity='.15'/>"
  # mantel with candles + clock
  "<rect x='0' y='196' width='240' height='18' rx='2' fill='url(#mt)'/><rect x='6' y='214' width='228' height='6' fill='#2a1407'/>"
- "<rect x='30' y='168' width='10' height='28' fill='#f2ead6'/><path d='M35 168 C31 160 35 154 35 150 C37 156 39 160 35 168Z' fill='#ffcf5a'><animateTransform attributeName='transform' type='skewX' values='0;6;-4;0' dur='1.3s' repeatCount='indefinite'/></path>"
- "<rect x='200' y='176' width='10' height='20' fill='#f2ead6'/><path d='M205 176 C201 168 205 162 205 158 C207 164 209 168 205 176Z' fill='#ffcf5a'><animateTransform attributeName='transform' type='skewX' values='0;-5;5;0' dur='1.1s' repeatCount='indefinite'/></path>"
+ "<rect x='30' y='168' width='10' height='28' fill='#f2ead6'/><path d='M35 168 V165' stroke='#2a1a10' stroke-width='1'/><g transform='translate(35 166)'><ellipse cy='-6' rx='7' ry='9' fill='#ffcf5a' opacity='.25'/><path d='M0 0 C-3.6 -3 -2.6 -9 0 -15 C2.6 -9 3.6 -3 0 0Z' fill='#ffcf5a'><animateTransform attributeName='transform' type='skewX' values='0;6;-4;0' dur='1.3s' repeatCount='indefinite'/><animateTransform attributeName='transform' type='scale' additive='sum' values='1 1;.92 1.12;1.05 .9;1 1' dur='0.91s' repeatCount='indefinite'/></path><path d='M0 -1 C-1.4 -3 -1 -6 0 -8 C1 -6 1.4 -3 0 -1Z' fill='#fff6d0'/></g>"
+ "<rect x='200' y='176' width='10' height='20' fill='#f2ead6'/><path d='M205 176 V173' stroke='#2a1a10' stroke-width='1'/><g transform='translate(205 174)'><ellipse cy='-6' rx='7' ry='9' fill='#ffcf5a' opacity='.25'/><path d='M0 0 C-3.6 -3 -2.6 -9 0 -15 C2.6 -9 3.6 -3 0 0Z' fill='#ffcf5a'><animateTransform attributeName='transform' type='skewX' values='0;-5;5;0' dur='1.1s' repeatCount='indefinite'/><animateTransform attributeName='transform' type='scale' additive='sum' values='1 1;.92 1.12;1.05 .9;1 1' dur='0.77s' repeatCount='indefinite'/></path><path d='M0 -1 C-1.4 -3 -1 -6 0 -8 C1 -6 1.4 -3 0 -1Z' fill='#fff6d0'/></g>"
  "<path d='M104 196 V160 C104 146 136 146 136 160 V196 Z' fill='#5a3216'/><circle cx='120' cy='166' r='11' fill='#f4ead2' stroke='#c9a24a' stroke-width='2'/><path d='M120 166 V158 M120 166 L126 168' stroke='#222' stroke-width='1.4'/>"
  # firebox
  "<path d='M50 396 V290 C50 252 82 236 120 236 C158 236 190 252 190 290 V396 Z' fill='#3a312b'/>"
