@@ -600,6 +600,23 @@ const SHIELD = spr([
   "kk.kkk.kkk.kkkv.",
   "k...k...k...kk..",
   ".....ww..ww....."]);
+// Curse bolt: a jagged lightning bolt, drawn pointing down and turned to face the way it flies.
+const BOLT = spr([
+  ".....GGGGG",
+  "....GWWWG.",
+  "....GWWG..",
+  "...GWWG...",
+  "...GWWG...",
+  "..GWWGGGG.",
+  "..GWWWWWWG",
+  "..GGGGWWG.",
+  ".....GWG..",
+  "....GWWG..",
+  "....GWG...",
+  "...GWG....",
+  "...GG.....",
+  "..GG......",
+  "..G......."]);
 const HEART = spr([".rr.rr.", "rrrrrrr", "rrrrrrr", ".rrrrr.", "..rrr..", "...r..."]);
 function outl(g, rows, x, y, pal, s, oc){
   s = s || 1; const o = Math.max(1, Math.round(s));
@@ -777,10 +794,10 @@ const CURSE = {
         outl(g, JAR, tx, ty, {c:"#b07a44", C:"#d8a868", L:"#d8f0ff", g:"#5a8a98", W:"#ffffff", G:fl ? "#7dff5a" : "#5ae04a"}, 2); }
       if(t.k === "skull"){ outl(g, SKULL, tx, ty, {W:"#ffffff", k:"#1a0f22"}, 2); if(fl){ g.fillStyle = "#7dff5a"; g.fillRect(tx + 2, ty + 4, 2, 2); g.fillRect(tx + 8, ty + 4, 2, 2); } }
       if(t.k === "scarab") outl(g, SCARAB[fl], tx, ty, {t:"#3a2a1e", S:"#8a6a48", B:"#7a5a3a", C:"#b89870", d:"#2a1e14", G:"#4a3828"}, 2, "#d8c8a8");
-      if(t.k === "bolt"){ g.fillStyle = "rgba(125,255,90,.35)"; g.fillRect(tx - 3, ty - 3, 12, 12);
-        g.fillStyle = "#0a0612"; g.fillRect(tx - 1, ty - 1, 8, 8); g.fillStyle = "#7dff5a"; g.fillRect(tx, ty, 6, 6); g.fillStyle = "#fff"; g.fillRect(tx + 2, ty + 2, 2, 2);
-        g.strokeStyle = "#7dff5a"; g.lineWidth = 1; g.beginPath(); g.moveTo(tx + 3, ty + 3);
-        for(let i = 1; i < 5; i++) g.lineTo(tx + 3 - t.vx * .018 * i + (i % 2 ? 3 : -3) * (fl ? 1 : -1), ty + 3 - t.vy * .018 * i); g.stroke(); }
+      if(t.k === "bolt"){ const cx = tx + 3, cy = ty + 3;
+        g.fillStyle = `rgba(125,255,90,${fl ? .35 : .2})`; g.beginPath(); g.arc(cx, cy, 10, 0, 6.28); g.fill();
+        g.save(); g.translate(cx, cy); g.rotate(Math.atan2(t.vy, t.vx) - Math.PI / 2);
+        outl(g, BOLT, -7, -14, {G:"#7dff5a", W:fl ? "#ffffff" : "#e8ff8a"}, 1.5, "#0a0612"); g.restore(); }
       if(t.k === "record"){
         if(!t.roll){ // a flying disc seen at an angle, wobbling: black vinyl, a pale rim, groove rings, red label, glint
           const cx = tx + 9, cy = ty + 4, ry = 3.4 + Math.sin(t.spin * .5) * 1.4;
