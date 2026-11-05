@@ -96,7 +96,8 @@ const UFO = spr([
   ".mmmmmmmmm.",
   "mmymmymmymm",
   "..mmmmmmm.."]);
-// Bright cyan with a dark outline so it pops against the orange sunset and sand.
+// Bright red with a dark outline and pale highlights, so it pops against the blue sea, the sand and the sunset.
+const CRAB_PAL = {t:"#ff2b4a", C:"#ffd0d8"};
 const CRAB = spr([
   "kk.......kk",
   "ktk.w.w.ktk",
@@ -370,7 +371,7 @@ const ISLAND = {
     st.balls = st.balls.filter(b => !b.done);
     // collisions: crabs and rocks trip you back toward the monster; fireballs and pits are the end
     const box = {x:m.x + 2, y:m.y + 1, w:m.w - 4, h:m.h - 1};
-    for(const o of st.obs) if(o.kind !== "pit" && !o.gone && hit(box, o)){ o.gone = true; m.stun = .45; m.x -= 34; m.vy = -120; st.shake = .3; ISLAND.pop(st, o.x + 5, o.y + 3, o.kind === "crab" ? "#3cf0ff" : "#8a7a8a"); }
+    for(const o of st.obs) if(o.kind !== "pit" && !o.gone && hit(box, o)){ o.gone = true; m.stun = .45; m.x -= 34; m.vy = -120; st.shake = .3; ISLAND.pop(st, o.x + 5, o.y + 3, o.kind === "crab" ? "#ff2b4a" : "#8a7a8a"); }
     for(const b of st.balls) if(hit(box, b)) return ISLAND.die(st, "burned");
     for(const a of st.ankhs) if(hit(box, a)){ a.got = true; st.coins++; ISLAND.pop(st, a.x + 2, a.y + 4, "#7dff5a"); }
     for(const w of st.waves){ w.x -= sp * dt * (.2 + (w.y - GROUND + 14) * .02); if(w.x < -20){ w.x += 16 * 22; w.y = Math.round(rnd(GROUND - 13, GROUND - 4)); w.w = Math.round(rnd(5, 12)); } }
@@ -452,7 +453,7 @@ const ISLAND = {
     }
     for(const o of st.obs){
       const ox = Math.round(o.x);
-      if(o.kind === "crab") draw(g, CRAB, ox - 1, o.y - 3 + (Math.floor(st.t * 8) & 1));
+      if(o.kind === "crab") draw(g, CRAB, ox - 1, o.y - 3 + (Math.floor(st.t * 8) & 1), CRAB_PAL);
       if(o.kind === "rock"){ g.fillStyle = "#5a4a5a"; g.beginPath(); g.moveTo(ox, o.y + o.h); g.lineTo(ox + 2, o.y + 2); g.lineTo(ox + 7, o.y); g.lineTo(ox + 12, o.y + 4); g.lineTo(ox + 12, o.y + o.h); g.fill(); g.fillStyle = "#8a7a8a"; g.fillRect(ox + 3, o.y + 3, 3, 2); }
     }
     // ankhs float steadily with a slow glint
