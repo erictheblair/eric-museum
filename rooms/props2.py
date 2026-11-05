@@ -70,9 +70,15 @@ ART["sculpture"] = (f"<svg {W} viewBox='0 0 200 400'><defs>"
  "<rect x='50' y='250' width='100' height='146' fill='url(#pl)'/><rect x='50' y='250' width='100' height='4' fill='#fff'/><rect x='50' y='392' width='100' height='4' fill='#bdbdb8'/>"
  # big brass ring that turns (fake 3D via scaleX), chrome sphere inside, black slab base
  "<rect x='76' y='238' width='48' height='12' fill='#1b1b1b'/>"
- "<g transform='translate(100 170)'><g><animateTransform attributeName='transform' type='scale' values='1 1;.18 1;1 1;.18 1;1 1' dur='14s' repeatCount='indefinite' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1'/>"
- "<circle r='62' fill='none' stroke='url(#br)' stroke-width='12'/></g>"
- "<circle cy='18' r='24' fill='url(#bs)'/><path d='M0 42 V68' stroke='#1b1b1b' stroke-width='6'/></g>"
+ # The ring turns about its vertical axis (x scale = cos of the angle). The back half is drawn behind the ball and
+ # the front half over it; which half is nearer swaps every half turn.
+ "<g transform='translate(100 170)'>"
+ "<g><animateTransform attributeName='transform' type='scale' values='1 1;0 1;-1 1;0 1;1 1' keyTimes='0;.25;.5;.75;1' dur='16s' repeatCount='indefinite' calcMode='spline' keySplines='.5 0 1 1;0 0 .5 1;.5 0 1 1;0 0 .5 1'/>"
+ "<circle r='62' fill='none' stroke='url(#br)' stroke-width='11' vector-effect='non-scaling-stroke'/><circle r='62' fill='none' stroke='#000' stroke-opacity='.3' stroke-width='11' vector-effect='non-scaling-stroke'/></g>"
+ "<circle cy='18' r='24' fill='url(#bs)'/><path d='M0 42 V68' stroke='#1b1b1b' stroke-width='6'/>"
+ "<g><animateTransform attributeName='transform' type='scale' values='1 1;0 1;-1 1;0 1;1 1' keyTimes='0;.25;.5;.75;1' dur='16s' repeatCount='indefinite' calcMode='spline' keySplines='.5 0 1 1;0 0 .5 1;.5 0 1 1;0 0 .5 1'/>"
+ "<path d='M0 -62 A62 62 0 0 1 0 62' fill='none' stroke='url(#br)' stroke-width='11' vector-effect='non-scaling-stroke'><animate attributeName='opacity' values='1;0' keyTimes='0;.5' dur='16s' calcMode='discrete' repeatCount='indefinite'/></path>"
+ "<path d='M0 -62 A62 62 0 0 0 0 62' fill='none' stroke='url(#br)' stroke-width='11' vector-effect='non-scaling-stroke' opacity='0'><animate attributeName='opacity' values='0;1' keyTimes='0;.5' dur='16s' calcMode='discrete' repeatCount='indefinite'/></path></g></g>"
  "</svg>")
 
 # ======================= LIBRARY =======================
