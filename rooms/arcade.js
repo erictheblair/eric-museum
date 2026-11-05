@@ -536,15 +536,17 @@ const OLD = [spr([
   "...kk.....kk...d"])];
 // Cursed things he throws. Bright fills, dark outlines (drawn by outl), so they pop off the dark stone.
 const JAR = spr([
-  ".GGGG.",
-  "GgGGgG",
-  ".kkkk.",
-  "OOOOOO",
-  "OyOOyO",
-  "OOkkOO",
-  "OOOOOO",
-  ".OOOO.",
-  "..OO.."]);
+  "...ccc...",
+  "...cCc...",
+  "..LLLLL..",
+  "...LgL...",
+  "..LgWgL..",
+  ".LgWgggL.",
+  "LgWGGGGGL",
+  "LGWGGGGGL",
+  "LGGGGGGGL",
+  ".LGGGGGL.",
+  "..LLLLL.."]);
 const SKULL = spr([
   ".WWWWW.",
   "WWWWWWW",
@@ -554,34 +556,48 @@ const SKULL = spr([
   ".WkWkW.",
   ".WWWWW."]);
 const SCARAB = [spr([
-  "G.....G",
-  ".GtttG.",
-  "..ttt..",
-  "GtCtCtG",
-  ".ttCtt.",
-  "GtttttG",
-  ".tt.tt."]), spr([
-  ".G...G.",
-  "G.tttG.",
-  "..ttt..",
-  ".tCtCt.",
-  "GttCttG",
-  ".tttttG",
-  "Gt...tG"])];
-// Mummula shielding: cape wrapped round in front of him, eyes peeking over the collar.
+  "...ttttt...",
+  "....ttt....",
+  "....tSt....",
+  ".GGtSSStGG.",
+  "...tSSSt...",
+  "GGtBBdBBtGG",
+  "..tCBdCBt..",
+  "..tBBdBBt..",
+  "GGtBBdBBtGG",
+  "..tBBdBBt..",
+  "...tBdBt...",
+  "....ttt...."]), spr([
+  "...ttttt...",
+  "....ttt....",
+  "....tSt....",
+  "...tSSSt...",
+  ".GGtSSStGG.",
+  "..tBBdBBt..",
+  "GGtCBdCBtGG",
+  "..tBBdBBt..",
+  "..tBBdBBt..",
+  "GGtBBdBBtGG",
+  "...tBdBt...",
+  "....ttt...."])];
+// Mummula shielding: a Dracula pose, cape swept up across his body (red lining showing where he holds the edge),
+// tall pointed collar popping up behind his head, eyes peeking over the top.
 const SHIELD = spr([
-  "....wwww....",
-  "...wbwwbw...",
-  "..kwrwwrwk..",
-  ".kvkkkkkkvk.",
-  "kvkkkkkkkkvk",
-  "kvkkkvvkkkvk",
-  "kvkkkkkkkkvk",
-  "kvkkkkkkkkvk",
-  "kvkkkvvkkkvk",
-  "kvkkkkkkkkvk",
-  ".kvkkkkkkvk.",
-  "..ww....ww.."]);
+  ".k............k.",
+  ".kk...wwww...kk.",
+  ".kvk.wbwwbw.kvk.",
+  "..kvkwrwwrwkvk..",
+  "..kvkkkkkkkkvkww",
+  "..kkkkkkkkkkkkvw",
+  ".kkMkkkkMkkkkkv.",
+  ".kMkkkkMkkkkkkv.",
+  "kMkkkkMkkkkkkkv.",
+  "kkkkkMkkkkkMkkv.",
+  "kkkkMkkkkkMkkkv.",
+  "kkkMkkkkkMkkkkv.",
+  "kk.kkk.kkk.kkkv.",
+  "k...k...k...kk..",
+  ".....ww..ww....."]);
 const HEART = spr([".rr.rr.", "rrrrrrr", "rrrrrrr", ".rrrrr.", "..rrr..", "...r..."]);
 function outl(g, rows, x, y, pal, s, oc){
   s = s || 1; const o = Math.max(1, Math.round(s));
@@ -595,7 +611,7 @@ const CURSE = {
   help:"← → dodge · Space, ↑ or tap to cape-dash · hold ↓ to shield (it runs out) · grab ankhs",
   start:"PRESS START", pad:[["left","◀"],["fire","DASH"],["down","SHIELD"],["right","▶"]],
   reset(st){
-    st.p = {x:100, y:CFLOOR - 24, w:24, h:24, inv:0, dash:0, cool:0, face:1, trail:[], sh:1, shT:0, shield:false, shLock:false}; st.texts = [];
+    st.p = {x:100, y:CFLOOR - 24, w:24, h:24, inv:0, dash:0, cool:0, face:1, trail:[], sh:1, shT:0, shield:false, shLock:false}; st.texts = []; st.notes = [];
     st.old = {x:100, tx:100, wind:0, tt:1.6, face:1, say:"", sayT:0, sayNext:2.5};
     st.lives = 3; st.lvl = 1; st.surv = 0; st.bonus = 0; st.curse = 0; st.banner = 1.6; st.shake = 0;
     st.things = []; st.puffs = []; st.boom = []; st.nextAnkh = 3; st.saved = false; st.newHi = false;
@@ -606,13 +622,13 @@ const CURSE = {
     const o = st.old, p = st.p, hx = o.x + (o.face > 0 ? 28 : 4), hy = LEDGE - 42;
     const ks = CURSE.kinds(st.lvl), k = ks[Math.floor(Math.random() * ks.length)];
     const aim = (p.x + 12 + rnd(-30, 30)) - hx;
-    if(k === "jar") st.things.push({k, x:hx - 6, y:hy, w:12, h:18, vx:aim * .55, vy:-40});
+    if(k === "jar") st.things.push({k, x:hx - 9, y:hy, w:18, h:22, vx:aim * .55, vy:-40});
     if(k === "skull") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, vx:rnd(40, 75) * (aim < 0 ? -1 : 1), vy:-20, n:0});
-    if(k === "scarab") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, x0:hx - 7 + aim * .5, ph:Math.random() * 6, vy:62 + st.lvl * 5});
+    if(k === "scarab") st.things.push({k, x:hx - 11, y:hy, w:22, h:24, x0:hx - 11 + aim * .5, ph:Math.random() * 6, vy:62 + st.lvl * 5});
     if(k === "bolt"){ const dx = p.x + 12 - hx, dy = p.y + 12 - hy, d = Math.hypot(dx, dy), v = 120 + st.lvl * 8;
       st.things.push({k, x:hx - 3, y:hy, w:6, h:6, vx:dx / d * v, vy:dy / d * v}); }
     // a vinyl record, flung like a frisbee: it sails down in an arc, lands on its edge and rolls away across the floor
-    if(k === "record") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, vx:Math.sign(aim || 1) * rnd(55, 85), vy:-30, spin:0, roll:false});
+    if(k === "record") st.things.push({k, x:hx - 9, y:hy, w:18, h:9, vx:Math.sign(aim || 1) * rnd(55, 85), vy:-30, spin:0, roll:false});
     if(k === "hex") st.things.push({k, x:hx - 7, y:hy, w:14, h:14, x0:hx - 7 + aim * .6, ph:Math.random() * 6, vy:48});
   },
   update(st, dt, k, pr){
@@ -656,14 +672,15 @@ const CURSE = {
     // move the curses
     for(const t of st.things){
       if(t.k === "jar"){ t.vy += 240 * dt; t.x += t.vx * dt; t.y += t.vy * dt;
-        if(t.y + t.h >= CFLOOR){ t.gone = true; st.shake = .18; st.puffs.push({x:t.x - 7, y:CFLOOR - 16, w:26, h:16, life:.8, max:.8}); CURSE.pop(st, t.x + 6, CFLOOR - 4, "#7dff5a", 14); } }
+        if(t.y + t.h >= CFLOOR){ t.gone = true; st.shake = .18; st.puffs.push({x:t.x - 4, y:CFLOOR - 16, w:26, h:16, life:.8, max:.8}); CURSE.pop(st, t.x + 6, CFLOOR - 4, "#7dff5a", 14); } }
       if(t.k === "skull"){ t.vy += 300 * dt; t.x += t.vx * dt; t.y += t.vy * dt;
         if(t.x < 0 || t.x > 210){ t.vx = -t.vx; t.x = Math.max(0, Math.min(210, t.x)); }
         if(t.y + t.h >= CFLOOR){ t.y = CFLOOR - t.h; t.n++; t.vy = -[210, 150, 0][Math.min(2, t.n - 1)]; if(t.n >= 3){ t.gone = true; CURSE.pop(st, t.x + 7, t.y + 7, "#fff", 10); } } }
       if(t.k === "scarab" || t.k === "hex"){ t.y += t.vy * dt; t.ph += dt * (t.k === "hex" ? 2.4 : 4); t.x = Math.max(0, Math.min(210, t.x0 + Math.sin(t.ph) * (t.k === "hex" ? 22 : 34))); if(t.y > CFLOOR - t.h){ t.gone = true; CURSE.pop(st, t.x + 7, t.y + 7, t.k === "hex" ? "#d27bff" : "#3cf0ff", 10); } }
-      if(t.k === "record"){ t.spin += dt * 14;
+      if(t.k === "record"){ t.spin += dt * 14; t.nt = (t.nt || 0) - dt;
+        if(t.nt <= 0){ t.nt = .11; st.notes.push({x:t.x + t.w / 2 - Math.sign(t.vx) * 8, y:t.y + rnd(-2, 4), vx:-t.vx * .15, life:.8, c:["#ffef3a", "#3cf0ff", "#ff4fd8"][Math.floor(Math.random() * 3)], two:Math.random() < .4}); }
         if(!t.roll){ t.vy += 150 * dt; t.x += t.vx * dt; t.y += t.vy * dt; if(t.x < 0 || t.x > 210){ t.vx = -t.vx; t.x = Math.max(0, Math.min(210, t.x)); }
-          if(t.y + t.h >= CFLOOR){ t.roll = true; t.y = CFLOOR - 14; t.x += 4; t.w = 6; t.vx = Math.sign(t.vx) * 95; st.shake = .12; CURSE.pop(st, t.x + 3, CFLOOR - 2, "#3cf0ff", 8); } }
+          if(t.y + t.h >= CFLOOR){ t.roll = true; t.y = CFLOOR - 14; t.x += 6; t.w = 6; t.h = 14; t.vx = Math.sign(t.vx) * 95; st.shake = .12; CURSE.pop(st, t.x + 3, CFLOOR - 2, "#3cf0ff", 8); } }
         else { t.x += t.vx * dt; if(t.x < -20 || t.x > 240) t.gone = true; } }
       if(t.k === "bolt"){ t.x += t.vx * dt; t.y += t.vy * dt; if(t.y > CFLOOR - 4 || t.x < -10 || t.x > 234){ t.gone = true; CURSE.pop(st, t.x + 3, Math.min(t.y, CFLOOR - 3), "#7dff5a", 8); } }
       if(t.good){ t.y += t.vy * dt; if(t.y > CFLOOR - t.h) t.vy = 0, t.life = (t.life ?? 2.5) - dt; if(t.life <= 0) t.gone = true; }
@@ -688,6 +705,7 @@ const CURSE = {
     }
     if(p.dash <= 0 && p.inv <= 0) for(const u of st.puffs) if(u.life > .15 && hit(box, u)){ CURSE.hurt(st); break; }
     st.things = st.things.filter(t => !t.gone);
+    for(const n of st.notes){ n.x += n.vx * dt; n.y -= 14 * dt; n.life -= dt; } st.notes = st.notes.filter(n => n.life > 0);
     for(const x of st.texts){ x.y -= 18 * dt; x.life -= dt; } st.texts = st.texts.filter(x => x.life > 0);
     for(const b of st.boom){ b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 90 * dt; b.life -= dt; }
     st.boom = st.boom.filter(b => b.life > 0);
@@ -743,27 +761,36 @@ const CURSE = {
       g.fillStyle = `rgba(230,255,220,${a})`; g.fillRect(Math.round(u.x + 8), Math.round(u.y + 4 - st.t * 3 % 3), 1, 1); g.fillRect(Math.round(u.x + 16), Math.round(u.y + 7), 1, 1); }
     // the curses
     const fl = Math.floor(st.t * 8) % 2;
+    // little music notes trailing out behind flying records
+    for(const n of st.notes){ const nx = Math.round(n.x), ny = Math.round(n.y); g.globalAlpha = Math.min(1, n.life * 2);
+      for(const c of ["#0a0612", n.c]){ const o = c === n.c ? 0 : 1;
+        g.fillStyle = c; g.fillRect(nx - o, ny + 4 - o, 3 + 2 * o, 2 + 2 * o); g.fillRect(nx + 2 - o, ny - o, 1 + 2 * o, 5 + 2 * o);
+        if(n.two){ g.fillRect(nx + 4 - o, ny + 3 - o, 3 + 2 * o, 2 + 2 * o); g.fillRect(nx + 6 - o, ny - 1 - o, 1 + 2 * o, 5 + 2 * o); g.fillRect(nx + 2 - o, ny - 1 - o, 5 + 2 * o, 1 + 2 * o); }
+        else g.fillRect(nx + 3 - o, ny + 1 - o, 1 + 2 * o, 1 + 2 * o); } }
+    g.globalAlpha = 1;
     for(const t of st.things){
       const tx = Math.round(t.x), ty = Math.round(t.y);
       if(t.good && t.life < 1 && fl) continue;
-      if(t.k === "jar"){ g.fillStyle = "rgba(125,255,90,.25)"; g.beginPath(); g.arc(tx + 6, ty + 10, 11, 0, 6.28); g.fill(); outl(g, JAR, tx, ty, {G:"#7dff5a", g:"#e8ffd8", O:"#ff8a1a", y:"#ffd04a"}, 2); }
+      if(t.k === "jar"){ g.fillStyle = "rgba(125,255,90,.25)"; g.beginPath(); g.arc(tx + 9, ty + 14, 13, 0, 6.28); g.fill();
+        outl(g, JAR, tx, ty, {c:"#b07a44", C:"#d8a868", L:"#d8f0ff", g:"#5a8a98", W:"#ffffff", G:fl ? "#7dff5a" : "#5ae04a"}, 2); }
       if(t.k === "skull"){ outl(g, SKULL, tx, ty, {W:"#ffffff", k:"#1a0f22"}, 2); if(fl){ g.fillStyle = "#7dff5a"; g.fillRect(tx + 2, ty + 4, 2, 2); g.fillRect(tx + 8, ty + 4, 2, 2); } }
-      if(t.k === "scarab") outl(g, SCARAB[fl], tx, ty, {G:"#3cf0ff", t:"#0bd6ff", C:"#e8ffff"}, 2);
+      if(t.k === "scarab") outl(g, SCARAB[fl], tx, ty, {t:"#3a2a1e", S:"#8a6a48", B:"#7a5a3a", C:"#b89870", d:"#2a1e14", G:"#4a3828"}, 2, "#d8c8a8");
       if(t.k === "bolt"){ g.fillStyle = "rgba(125,255,90,.35)"; g.fillRect(tx - 3, ty - 3, 12, 12);
         g.fillStyle = "#0a0612"; g.fillRect(tx - 1, ty - 1, 8, 8); g.fillStyle = "#7dff5a"; g.fillRect(tx, ty, 6, 6); g.fillStyle = "#fff"; g.fillRect(tx + 2, ty + 2, 2, 2);
         g.strokeStyle = "#7dff5a"; g.lineWidth = 1; g.beginPath(); g.moveTo(tx + 3, ty + 3);
         for(let i = 1; i < 5; i++) g.lineTo(tx + 3 - t.vx * .018 * i + (i % 2 ? 3 : -3) * (fl ? 1 : -1), ty + 3 - t.vy * .018 * i); g.stroke(); }
       if(t.k === "record"){
-                if(!t.roll){ // flat spinning disc: bright rim so black vinyl reads on the dark wall, grooves, coloured label, a glint that goes round
-          g.fillStyle = "#e8ffff"; g.beginPath(); g.arc(tx + 7, ty + 7, 8, 0, 6.28); g.fill();
-          g.fillStyle = "#111"; g.beginPath(); g.arc(tx + 7, ty + 7, 7, 0, 6.28); g.fill();
-          g.strokeStyle = "#3a3a44"; g.lineWidth = 1; g.beginPath(); g.arc(tx + 7, ty + 7, 5, 0, 6.28); g.stroke();
-          g.fillStyle = "#ff3b3b"; g.beginPath(); g.arc(tx + 7, ty + 7, 2.6, 0, 6.28); g.fill(); g.fillStyle = "#000"; g.fillRect(tx + 7, ty + 7, 1, 1);
-          g.fillStyle = "#fff"; g.fillRect(Math.round(tx + 7 + Math.cos(t.spin) * 5), Math.round(ty + 7 + Math.sin(t.spin) * 5), 2, 2);
+        if(!t.roll){ // a flying disc seen at an angle, wobbling: black vinyl, a pale rim, groove rings, red label, glint
+          const cx = tx + 9, cy = ty + 4, ry = 3.4 + Math.sin(t.spin * .5) * 1.4;
+          g.fillStyle = "#c8c8d8"; g.beginPath(); g.ellipse(cx, cy, 10, ry + 1, 0, 0, 6.28); g.fill();
+          g.fillStyle = "#111"; g.beginPath(); g.ellipse(cx, cy, 9, ry, 0, 0, 6.28); g.fill();
+          g.strokeStyle = "#4a4a58"; g.lineWidth = 1; g.beginPath(); g.ellipse(cx, cy, 6.5, ry * .7, 0, 0, 6.28); g.stroke(); g.beginPath(); g.ellipse(cx, cy, 4.5, ry * .5, 0, 0, 6.28); g.stroke();
+          g.fillStyle = "#ff3b3b"; g.beginPath(); g.ellipse(cx, cy, 2.6, Math.max(1, ry * .35), 0, 0, 6.28); g.fill(); g.fillStyle = "#fff"; g.fillRect(cx, cy, 1, 1);
+          g.fillStyle = "#fff"; g.fillRect(Math.round(cx + Math.cos(t.spin) * 7), Math.round(cy + Math.sin(t.spin) * ry * .8), 2, 1);
         } else { // on its edge, rolling: a thin upright disc with a flickering label
-          g.fillStyle = "#e8ffff"; g.fillRect(tx - 1, ty - 1, 8, 16); g.fillStyle = "#111"; g.fillRect(tx, ty, 6, 14);
+          g.fillStyle = "#c8c8d8"; g.fillRect(tx - 1, ty - 1, 8, 16); g.fillStyle = "#111"; g.fillRect(tx, ty, 6, 14);
           g.fillStyle = Math.floor(t.spin) % 2 ? "#ff3b3b" : "#7a1010"; g.fillRect(tx + 2, ty + 5, 2, 4);
-          g.fillStyle = "#3a3a44"; g.fillRect(tx + 1, ty + 1 + Math.floor(t.spin * 2) % 12, 4, 1);
+          g.fillStyle = "#4a4a58"; g.fillRect(tx + 1, ty + 1 + Math.floor(t.spin * 2) % 12, 4, 1);
         } }
       if(t.k === "hex"){ g.save(); g.translate(tx + 7, ty + 7); g.rotate(st.t * 5);
         g.fillStyle = "rgba(210,123,255,.3)"; g.beginPath(); g.arc(0, 0, 10, 0, 6.28); g.fill();
@@ -777,8 +804,8 @@ const CURSE = {
     const mpal = hexed ? {w:"#d9b8ff", b:"#9a6ad0", v:"#7a1ab0"} : null;
     for(const t of p.trail){ g.globalAlpha = t.life * 2; draw(g, MUM[0], t.x, p.y, {w:"#6a3a9a", b:"#6a3a9a", r:"#6a3a9a", k:"#3a1a5a", v:"#6a3a9a"}, 2); }
     g.globalAlpha = 1;
-    if(p.shield && st.mode === "play"){ g.fillStyle = `rgba(210,123,255,${.22 + .1 * Math.sin(st.t * 30)})`; g.beginPath(); g.arc(p.x + 12, p.y + 12, 17, Math.PI, 0); g.fill();
-      outl(g, SHIELD, p.x, p.y, mpal, 2, "#d27bff"); }
+    if(p.shield && st.mode === "play"){ g.fillStyle = `rgba(210,123,255,${.22 + .1 * Math.sin(st.t * 30)})`; g.beginPath(); g.arc(p.x + 12, p.y + 12, 19, Math.PI, 0); g.fill();
+      outl(g, SHIELD, p.x - 4, p.y - 6, Object.assign({M:"#3a2a5a"}, mpal), 2, "#d27bff"); }
     else if(!(p.inv > 0 && Math.floor(st.t * 12) % 2) && st.mode !== "title") draw(g, MUM[(Math.floor(st.t * 8) % 2) * ((st.mode === "play" && p.dash <= 0) ? 1 : 0)], p.x, p.y, mpal, 2);
     if(p.sh < 1 && st.mode === "play"){ g.fillStyle = "#1a2a3a"; g.fillRect(p.x + 6, p.y - 9, 12, 2); g.fillStyle = p.shLock ? "#ff4f4f" : "#3cf0ff"; g.fillRect(p.x + 6, p.y - 9, Math.round(12 * p.sh), 2); }
     g.textAlign = "center"; g.font = "bold 8px 'Courier New',monospace";
