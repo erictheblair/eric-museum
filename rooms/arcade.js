@@ -186,6 +186,7 @@ function open(which){
   ov.querySelector(".x").onclick = () => close();
   let alive = true; play();
   const st = {mode:"title", t:0, score:0, hi:hiGet(game.key)};
+  if(window.__mmTest) window.__mmSt = st;
   game.reset(st);
   let last = performance.now(), raf = 0;
   const frame = now => {
@@ -307,7 +308,7 @@ const ISLAND = {
     st.speed = 110; st.dist = 0; st.next = 1.2; st.nextBall = 4; st.nextAnkh = 2; st.shake = 0; st.saved = false; st.newHi = false; st.coins = 0;
     // the monster: its snout tip is at mon.x; it creeps forward, lunges now and then, and gains on you when you stumble
     st.mon = {x:60, base:60, lunge:0, nextLunge:3.5, step:0, jaw:0};
-    st.waves = Array.from({length:14}, (_, i) => ({x:i * 26, y:rnd(GROUND + 10, 176)}));
+    st.waves = Array.from({length:16}, (_, i) => ({x:i * 22, y:Math.round(rnd(GROUND - 13, GROUND - 4)), w:Math.round(rnd(5, 12))}));
   },
   update(st, dt, k, pr){
     const m = st.m, mon = st.mon;
@@ -322,6 +323,9 @@ const ISLAND = {
     m.vy += 900 * dt; m.y += m.vy * dt;
     const overPit = st.obs.some(o => o.kind === "pit" && m.x + 3 > o.x && m.x + m.w - 3 < o.x + o.w);
     if(m.y >= GROUND - 12 && !overPit && m.y < GROUND){ m.y = GROUND - 12; m.vy = 0; m.on = true; } else m.on = false;
+    // once you drop below the lip you're in the hole: you ride along with it and can't climb out sideways
+    if(!m.pit && !m.on && m.y > GROUND - 10) m.pit = st.obs.find(o => o.kind === "pit" && m.x + 5 > o.x && m.x + 5 < o.x + o.w);
+    if(m.pit){ m.x = Math.max(m.pit.x + 1, Math.min(m.pit.x + m.pit.w - m.w - 1, m.x)); m.on = false; }
     if(m.y > 190) return ISLAND.die(st, "fell");
     // the monster: slow creep toward a resting spot, plus lunges that get closer over time
     mon.base = Math.min(124, 60 + st.t * .55);
@@ -357,7 +361,7 @@ const ISLAND = {
     for(const o of st.obs) if(o.kind !== "pit" && !o.gone && hit(box, o)){ o.gone = true; m.stun = .45; m.x -= 34; m.vy = -120; st.shake = .3; ISLAND.pop(st, o.x + 5, o.y + 3, o.kind === "crab" ? "#3cf0ff" : "#8a7a8a"); }
     for(const b of st.balls) if(hit(box, b)) return ISLAND.die(st, "burned");
     for(const a of st.ankhs) if(hit(box, a)){ a.got = true; st.coins++; ISLAND.pop(st, a.x + 2, a.y + 4, "#ffd04a"); }
-    for(const w of st.waves){ w.x -= sp * dt * .5; if(w.x < -20){ w.x += 14 * 26; w.y = rnd(GROUND + 10, 176); } }
+    for(const w of st.waves){ w.x -= sp * dt * (.2 + (w.y - GROUND + 14) * .02); if(w.x < -20){ w.x += 16 * 22; w.y = Math.round(rnd(GROUND - 13, GROUND - 4)); w.w = Math.round(rnd(5, 12)); } }
     st.shake = Math.max(0, st.shake - dt);
     for(const b of st.boom){ b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 120 * dt; b.life -= dt; }
     st.boom = st.boom.filter(b => b.life > 0);
@@ -407,14 +411,32 @@ const ISLAND = {
       g.fillStyle = "#ff4a1a"; g.fillRect(ox - 6, 68, 12, 4);
       g.fillStyle = "rgba(90,80,90,.7)"; for(let i = 0; i < 3; i++){ const t = (st.t * .6 + i / 3) % 1; g.beginPath(); g.arc(ox + Math.sin(t * 6) * 4, 64 - t * 40, 3 + t * 7, 0, 6.28); g.fill(); }
     }
-    g.fillStyle = "#1b4f8a"; g.fillRect(-4, GROUND, 328, 40);
-    g.fillStyle = "#7cc4ff"; for(const w of st.waves) g.fillRect(Math.round(w.x), Math.round(w.y), 10, 1);
-    g.fillStyle = "#e8c878"; g.fillRect(-4, GROUND, 328, 6);
-    g.fillStyle = "#c9a85a"; for(let x = -Math.round(st.dist % 16); x < 324; x += 16) g.fillRect(x, GROUND + 2, 3, 1);
+    // the sea behind the beach: deeper toward the shore, sunset glints under the sun, rolling crests and foam
+    const sea = g.createLinearGradient(0, GROUND - 15, 0, GROUND); sea.addColorStop(0, "#6a5aa8"); sea.addColorStop(.25, "#2f6fb0"); sea.addColorStop(1, "#174a86");
+    g.fillStyle = sea; g.fillRect(-4, GROUND - 15, 328, 15);
+    g.fillStyle = "#ffb07a"; g.fillRect(-4, GROUND - 15, 328, 1);
+    for(let i = 0; i < 7; i++){ const yy = GROUND - 13 + i * 2, ww = 26 - i * 2 + Math.round(Math.sin(st.t * 3 + i * 1.7) * 4);
+      g.fillStyle = i % 2 ? "rgba(255,208,74,.75)" : "rgba(255,138,58,.7)"; g.fillRect(250 - ww / 2 + Math.round(Math.sin(st.t * 2 + i) * 2), yy, ww, 1); }
+    for(const w of st.waves){ const wx = Math.round(w.x); g.fillStyle = "#0f3a6e"; g.fillRect(wx + 1, w.y + 1, w.w, 1); g.fillStyle = "#9fd8ff"; g.fillRect(wx, w.y, w.w, 1); g.fillStyle = "#fff"; g.fillRect(wx + w.w - 2, w.y, 2, 1); }
+    // surf: a foamy line that washes up and back
+    const surf = Math.round(Math.sin(st.t * 1.6) * 1.5);
+    g.fillStyle = "rgba(255,255,255,.85)";
+    for(let x = -Math.round((st.dist * .5) % 8); x < 324; x += 8){ g.fillRect(x, GROUND - 2 + surf, 6, 1); g.fillRect(x + 2, GROUND - 3 + surf, 3, 1); }
+    // sand runs to the bottom of the screen
+    const sand = g.createLinearGradient(0, GROUND, 0, 180); sand.addColorStop(0, "#f2d488"); sand.addColorStop(.25, "#e0bd6c"); sand.addColorStop(1, "#a9803e");
+    g.fillStyle = sand; g.fillRect(-4, GROUND, 328, 36);
+    g.fillStyle = "#fff0b8"; g.fillRect(-4, GROUND, 328, 1);
+    const off = Math.round(st.dist % 24);
+    for(let x = -off; x < 330; x += 24){ g.fillStyle = "#c79a50"; g.fillRect(x, GROUND + 5, 3, 1); g.fillRect(x + 13, GROUND + 12, 2, 1); g.fillRect(x + 6, GROUND + 22, 3, 1); g.fillStyle = "#fbe3a0"; g.fillRect(x + 18, GROUND + 7, 2, 1); g.fillRect(x + 3, GROUND + 16, 2, 1); }
+    // pits: real holes in the sand, crumbly lips, walls in shadow, darkness at the bottom
     for(const o of st.obs) if(o.kind === "pit"){
       const ox = Math.round(o.x), ow = Math.round(o.w);
-      g.fillStyle = "#1b4f8a"; g.fillRect(ox, GROUND, ow, 6);
-      g.fillStyle = Math.floor(st.t * 8) % 2 ? "#ff5a12" : "#ffb02a"; g.fillRect(ox + 2, GROUND + 2, ow - 4, 4);
+      const hole = g.createLinearGradient(0, GROUND, 0, 180); hole.addColorStop(0, "#5a3a1c"); hole.addColorStop(.35, "#24140a"); hole.addColorStop(1, "#000");
+      g.fillStyle = hole; g.fillRect(ox, GROUND, ow, 36);
+      g.fillStyle = "#8a6232"; g.beginPath(); g.moveTo(ox, GROUND); g.lineTo(ox + 5, GROUND); g.lineTo(ox + 2, GROUND + 9); g.lineTo(ox, 180); g.fill();
+      g.fillStyle = "#3a2410"; g.beginPath(); g.moveTo(ox + ow, GROUND); g.lineTo(ox + ow - 4, GROUND); g.lineTo(ox + ow - 1, GROUND + 10); g.lineTo(ox + ow, 180); g.fill();
+      g.fillStyle = "#fff0b8"; g.fillRect(ox - 3, GROUND - 1, 3, 1); g.fillRect(ox + ow, GROUND - 1, 3, 1);
+      g.fillStyle = "#c79a50"; g.fillRect(ox - 1, GROUND, 2, 2); g.fillRect(ox + ow - 1, GROUND, 2, 2);
     }
     for(const o of st.obs){
       const ox = Math.round(o.x);
@@ -430,7 +452,13 @@ const ISLAND = {
       g.fillStyle = "rgba(255,120,30,.5)"; g.fillRect(bx + 2, by - 6, 3, 5);
     }
     const m = st.m;
+    const pit = m.pit;
+    if(pit){ g.save(); g.beginPath(); g.rect(Math.round(pit.x), -10, Math.round(pit.w), 200); g.clip(); }
     if(!(st.mode === "over" && st.how !== "fell")){ if(!(m.stun && Math.floor(st.t * 16) % 2)) draw(g, RUN[m.on ? Math.floor(st.t * 10) & 1 : 1], m.x, m.y); }
+    if(pit) g.restore();
+    if(m.y > GROUND - 12){
+      if(pit){ g.save(); g.beginPath(); g.rect(Math.round(pit.x), GROUND, Math.round(pit.w), 40); g.clip();
+        g.fillStyle = `rgba(0,0,0,${Math.min(.95, (m.y - GROUND + 12) / 26)})`; g.fillRect(Math.round(m.x) - 1, Math.round(m.y), 14, 14); g.restore(); } }
     ISLAND.monster(g, st);
     for(const b of st.boom){ g.fillStyle = b.col; g.fillRect(b.x | 0, b.y | 0, 2, 2); }
     g.fillStyle = "#fff"; g.font = "bold 8px 'Courier New',monospace"; g.fillText("☥ " + st.coins, 290, 12);
