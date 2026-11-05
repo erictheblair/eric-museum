@@ -723,6 +723,8 @@ body.wallmode #fsc{display:none}
 /* Phone on its side: the garland hangs along the very top, behind the buttons, instead of across the pictures */
 @media (orientation:landscape) and (max-height:560px){.wall.r-xmas .xg{top:env(safe-area-inset-top);height:34px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45))}
   .wall.r-xmas .xg,.wall.r-xmas .xg::before,.wall.r-xmas .xg::after{background-size:50% 100%}}
+#qe .qecov{display:flex;align-items:center;gap:10px;margin:4px 0 12px;flex-wrap:wrap}
+#qe .qecov img,#qe .qecov .ph{width:64px;height:64px;object-fit:cover;border-radius:6px;background:var(--chip);display:grid;place-items:center;font-size:1.8rem;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 @media (prefers-reduced-motion:reduce){.wall.r-xmas .xg::before,.wall.r-xmas .xg::after,.wall.r-xmas .xw .sc::before,.wall.r-xmas .xw .sc::after{animation:none}}
 </style>
 </head>
@@ -738,7 +740,7 @@ body.wallmode #fsc{display:none}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.04.41";
+const APP_VERSION = "2026.11.04.42";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -994,13 +996,15 @@ function setView(v){ viewMode = v; LS.set("cm.view", v);
   document.querySelectorAll(".sizer button").forEach(b => { const on = b.dataset.size === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }); }
 document.addEventListener("click", e => { const b = e.target.closest(".sizer button"); if(b) setView(b.dataset.size); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-qe]"); if(!b) return; e.preventDefault(); e.stopPropagation(); quickEdit(b.dataset.qe); }, true);
-function quickEdit(id){
+function quickEdit(id, keep){
   const it = cat.items.find(i => i.id === id); if(!it) return;
   const c = coll(it.collectionId), L = document.getElementById("layer");
   const fv = k => esc((it.fields||{})[k] || "");
   const fields = c.fields.filter(f => !(priv && f.priv));
   L.innerHTML = `<div class="lightbox" id="qe" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" role="dialog" aria-labelledby="qeH" style="width:100%;max-width:720px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 id="qeH">Quick edit</h2><button class="iconbtn" id="qeX" aria-label="Close">✕</button></div>
+    <div class="qecov">${cover(it) ? `<img alt="" data-path="${esc(cover(it).thumb || cover(it).path)}">` : `<span class="ph">${c.icon}</span>`}
+      ${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="qeCov">🖼 Change cover</button>` : ""}</div>
     <form id="qeF"><div class="fgrid">
       <div class="f full"><label for="q_title">Title *</label><input id="q_title" name="title" required autocapitalize="words" data-tc value="${esc(it.title||"")}"></div>
       <div class="f"><label for="q_maker">${esc(c.maker||"Maker")}</label><input id="q_maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
@@ -1020,8 +1024,16 @@ function quickEdit(id){
   document.addEventListener("keydown", esc_);
   document.getElementById("qeX").onclick = close; document.getElementById("qeC").onclick = close;
   document.getElementById("qeFull").onclick = () => close();
+  hydrate(L);
+  // Change cover: the cover picker takes over the sheet; afterwards quick edit comes back with anything you'd typed.
+  if(document.getElementById("qeCov")) document.getElementById("qeCov").onclick = () => {
+    const f = document.getElementById("qeF"), kept = [...f.elements].filter(x => x.name).map(x => [x.name, x.type === "checkbox" ? x.checked : x.value]);
+    document.removeEventListener("keydown", esc_);
+    chooseCover(it, {onCancel: () => quickEdit(id, kept), after: () => { const y = scrollY; route(); const back = () => scrollTo(0, y); back(); requestAnimationFrame(back); setTimeout(back, 80); setTimeout(() => { back(); quickEdit(id, kept); }, 250); }});
+  };
   document.getElementById("qe").onclick = e => { if(e.target.id === "qe") close(); };
   const f = document.getElementById("qeF"), mk = document.getElementById("q_maker"), ms = document.getElementById("q_ms");
+  if(keep) keep.forEach(([n, v]) => { const el = f.elements[n]; if(!el || el instanceof RadioNodeList) return; if(el.type === "checkbox") el.checked = v; else el.value = v; });
   wireChoices(f, (name, v) => {
     if(name === "condition"){ cat.settings = {...(cat.settings||{}), conditions:[...((cat.settings||{}).conditions||[]), v]}; return; }
     const fld = c.fields.find(x => "x_" + x.k === name); if(fld) fld.opts = [...(fld.opts||[]), v];
@@ -2247,12 +2259,13 @@ function chooseCover(it, opts){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Choose a cover</h2><button class="iconbtn" id="ccX" aria-label="Close">✕</button></div>
     <label class="check" style="margin:6px 0 4px"><input type="checkbox" id="ccRep" ${cover(it) ? "checked" : ""}> Replace the current cover (otherwise it's kept as an extra photo)</label>
     <div id="ccThis"></div><div id="ccOther"><p>Searching ${esc(lookupName(kind))}…</p></div></div></div>`;
-  const close = () => L.innerHTML = "";
-  document.getElementById("ccX").onclick = close;
-  document.getElementById("cc").onclick = e => { if(e.target.id === "cc") close(); };
+  const close = () => { L.innerHTML = ""; };
+  const cancel = () => { close(); opts.onCancel && opts.onCancel(); };
+  document.getElementById("ccX").onclick = cancel;
+  document.getElementById("cc").onclick = e => { if(e.target.id === "cc") cancel(); };
   const grid = imgs => `<div class="ccgrid">${imgs.map((im,n) => `<button type="button" data-u="${esc(im.url)}" data-t="${esc(im.thumb||im.url)}"><img src="${esc(im.thumb||im.url)}" alt="" loading="lazy" onerror="this.parentNode.remove()"><span>${esc(im.label||"")}</span></button>`).join("")}</div>`;
   const wire = root => root.querySelectorAll("[data-u]").forEach(b => b.onclick = () => { const rep = document.getElementById("ccRep").checked;
-    if(opts.onPick){ close(); opts.onPick(b.dataset.u, b.dataset.t, rep); } else useCover(it, b.dataset.u, b.dataset.t, rep); });
+    if(opts.onPick){ close(); opts.onPick(b.dataset.u, b.dataset.t, rep); } else useCover(it, b.dataset.u, b.dataset.t, rep, opts.after); });
   if(ref) releaseImages(ref).then(imgs => { const el = document.getElementById("ccThis"); if(!el || !imgs.length) return;
     el.innerHTML = `<h3 style="font-size:1rem;margin:12px 0 6px">From the release you matched</h3>` + grid(imgs); wire(el); }).catch(()=>{});
   const isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
@@ -2262,7 +2275,7 @@ function chooseCover(it, opts){
     el.innerHTML = imgs.length ? `<h3 style="font-size:1rem;margin:14px 0 6px">Other releases and editions</h3>` + grid(imgs) : `<p>No other images found.</p>`; wire(el);
   }).catch(e => { const el = document.getElementById("ccOther"); if(el) el.innerHTML = `<p style="color:var(--danger)">${esc(e.message)}</p>`; });
 }
-async function useCover(it, url, thumb, replace){
+async function useCover(it, url, thumb, replace, after){
   const done = busy("Saving the new cover…"), before = JSON.stringify(it), old = cover(it);
   try{
     let m;
@@ -2278,7 +2291,7 @@ async function useCover(it, url, thumb, replace){
     it.media.unshift(m); it.updated = new Date().toISOString();
     await persist();
     if(replace && old && !old.remote){ store.deleteFile(old.path).catch(()=>{}); if(old.thumb) store.deleteFile(old.thumb).catch(()=>{}); }
-    done(); document.getElementById("layer").innerHTML = ""; toast("Cover updated"); refreshView();
+    done(); document.getElementById("layer").innerHTML = ""; toast("Cover updated"); after ? after() : refreshView();
   }catch(e){ Object.assign(it, JSON.parse(before)); done(); alert("Couldn't save the cover: " + e.message); }
 }
 /* Search-and-pick sheet */
