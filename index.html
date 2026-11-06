@@ -45,7 +45,12 @@ main{padding:20px 0 calc(120px + env(safe-area-inset-bottom))}
 .search{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap}
 .search input,.search select{flex:1;min-width:0;height:42px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0 12px}
 .search select{flex:0 0 auto;max-width:48%}
-@media (max-width:520px){#sf input[type=search]{flex-basis:100%} #sf select{flex:1 1 0;max-width:none}}
+.sbox{position:relative;flex:1;min-width:0;display:flex}
+.sbox input{padding-right:40px}
+.sbox input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.sbox .sx{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;border-radius:50%;background:var(--chip);color:var(--muted);font-size:1.15rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.sbox input:placeholder-shown + .sx{display:none}
+@media (max-width:520px){#sf .sbox{flex-basis:100%} #sf select{flex:1 1 0;max-width:none}}
 .stats{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:.88rem;margin-top:8px}
 .stats b{color:var(--ink);font-family:var(--serif);font-size:1.1rem;font-weight:600;margin-right:4px}
 .section-title{display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 12px;gap:10px}
@@ -791,7 +796,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.05.71";
+const APP_VERSION = "2026.11.06.1";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1229,6 +1234,47 @@ document.addEventListener("click", e => {
   const k = appKey(); LS.set("cm.carry", true); DropboxStore.remember(k, bannerPre, false); location.href = DropboxStore.authUrl(k, bannerPre, false);
 });
 
+/* Search boxes filter as you type. While a live search redraws the page, the box itself is kept
+   (not rebuilt), so the phone keyboard stays up and the cursor stays put. */
+let liveKeep = null, liveTimer = 0;
+const searchBox = (ph, q) => `<span class="sbox"><input type="search" name="q" placeholder="${esc(ph)}" value="${esc(q)}" aria-label="Search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><button type="button" class="sx" aria-label="Clear search" title="Clear">×</button></span>`;
+function paint(html){
+  const keep = liveKeep && liveKeep.isConnected && app.contains(liveKeep) ? liveKeep : null;
+  if(!keep){ app.innerHTML = html; return; }
+  const t = document.createElement("div"); t.innerHTML = html;
+  const fresh = t.querySelector("#sf input[name=q]");
+  const pairs = []; let a = keep, b = fresh;
+  while(b && b !== t && a && a !== app){ pairs.push([a, b]); a = a.parentNode; b = b.parentNode; }
+  if(b !== t || a !== app){ app.innerHTML = html; return; }
+  for(const [a, b] of pairs){
+    const P = a.parentNode, NP = b.parentNode;
+    if(P !== app){ [...P.attributes].forEach(x => NP.hasAttribute(x.name) || P.removeAttribute(x.name)); [...NP.attributes].forEach(x => P.setAttribute(x.name, x.value)); }
+    [...P.childNodes].forEach(n => { if(n !== a) n.remove(); });
+    let before = true;
+    [...NP.childNodes].forEach(n => { if(n === b){ before = false; return; } if(before) P.insertBefore(n, a); else P.appendChild(n); });
+  }
+}
+function liveSearch(hashFor){
+  const f = document.getElementById("sf"), inp = f && f.q; if(!inp) return;
+  const apply = () => {
+    clearTimeout(liveTimer);
+    if(!inp.isConnected) return;
+    const h = hashFor(inp.value.trim());
+    if(h === (location.hash || "#/")) return;
+    history.replaceState(history.state, "", h);
+    navCur = h;
+    const y = scrollY; liveKeep = inp;
+    try{ route(); } finally{ liveKeep = null; }
+    scrollTo(0, y);
+  };
+  inp.oninput = () => { clearTimeout(liveTimer); liveTimer = setTimeout(apply, 250); };
+  // Enter / the keyboard's Search or Go key: show results now and put the keyboard away.
+  inp.onkeydown = e => { if(e.key === "Enter" && !e.isComposing){ e.preventDefault(); apply(); inp.blur(); } };
+  f.onsubmit = e => { e.preventDefault(); apply(); inp.blur(); };
+  const x = f.querySelector(".sx");
+  if(x) x.onclick = () => { inp.value = ""; apply(); inp.focus(); };
+}
+
 function viewHome(params){
   const q = params.get("q") || "";
   document.title = cat.title || "The Collection";
@@ -1238,10 +1284,10 @@ function viewHome(params){
   const results = q ? sortItems(cat.items.filter(i => matches(i,q)), "title") : null;
   const favs = cat.items.filter(i => i.favorite).slice(0, 12);
   const recent = sortItems(cat.items, "recent").slice(0, 12);
-  app.innerHTML = `${modeBanner()}
+  paint(`${modeBanner()}
   <section class="hero"><h1>${esc(cat.title || "The Collection")}</h1>
     <p>A private museum of things worth keeping.</p>
-    <form class="search" id="sf"><input type="search" name="q" placeholder="Search everything: artist, title, tag, place…" value="${esc(q)}" aria-label="Search"></form>
+    <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>
     <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${Object.keys(counts).length}</b>collections</span>
       ${priv ? "" : `<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}${cat.items.length ? `<a class="wallbtn" href="#/stats" style="margin-left:auto">📊 Stats</a>` : ""}</div>
   </section>
@@ -1253,8 +1299,8 @@ function viewHome(params){
     return `<a class="hall" href="#/c/${c.id}" data-id="${c.id}">${it ? `<img alt="" data-path="${esc(cover(it).thumb||cover(it).path)}" loading="lazy">` : `<div class="ph">${c.icon}</div>`}
       <div class="label"><h3>${c.icon} ${esc(c.name)}</h3><span>${counts[c.id]||0} ${counts[c.id]===1?"piece":"pieces"}</span></div></a>`; }).join("")}</div>
   ${recent.length ? `<div class="section-title"><h2>Recently added</h2></div><div class="grid">${recent.map(plate).join("")}</div>` : ""}`}
-  <div class="fabs"><a class="fab ghost" href="#/new?scan=1">▦ Scan</a><a class="fab" href="#/new">＋ Add a piece</a></div>`;
-  document.getElementById("sf").onsubmit = e => { e.preventDefault(); const v = new FormData(e.target).get("q").trim(); location.hash = v ? "#/?q=" + encodeURIComponent(v) : "#/"; };
+  <div class="fabs"><a class="fab ghost" href="#/new?scan=1">▦ Scan</a><a class="fab" href="#/new">＋ Add a piece</a></div>`);
+  liveSearch(v => v ? "#/?q=" + encodeURIComponent(v) : "#/");
   if(document.getElementById("arrange")) document.getElementById("arrange").onclick = e => { e.preventDefault(); arrangeHalls(); };
   hydrate(app);
 }
@@ -1292,10 +1338,10 @@ function viewHall(id, params){
   const groups = []; list.forEach(it => { const g = groupOf(it); const last = groups[groups.length-1]; if(last && last.g === g) last.items.push(it); else groups.push({g, items:[it]}); });
   const grouped = groups.length > 1 && list.length >= 12 && groups[0].g !== null;
   const sorts = [["title","Title (A–Z)"],["maker",c.maker||"Maker"],["year","Year (oldest)"],["yeard","Year (newest)"],["recent","Recently added"],["updated","Recently edited"],["condition","Condition"]].concat(priv?[]:[["value","Value (highest)"]]);
-  app.innerHTML = `<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><span style="display:flex;gap:16px"><a href="#" id="exportG">⤓ Export</a><a href="#/gallery/${c.id}">✎ Edit gallery</a></span></div>
+  paint(`<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><span style="display:flex;gap:16px"><a href="#" id="exportG">⤓ Export</a><a href="#/gallery/${c.id}">✎ Edit gallery</a></span></div>
   <section class="hero" style="padding-top:4px;padding-bottom:10px"><h1>${c.icon} ${esc(c.name)}</h1>
     <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
-    <form class="search" id="sf"><input type="search" name="q" placeholder="Search ${esc(c.name.toLowerCase())}…" value="${esc(q)}" aria-label="Search">
+    <form class="search" id="sf">${searchBox("Search " + c.name.toLowerCase() + "…", q)}
       <select name="sort" aria-label="Sort">${sorts.map(([v,l])=>`<option value="${v}" ${v===sort?"selected":""}>Sort: ${esc(l)}</option>`).join("")}</select>
       <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>
     ${showFilters ? `<div class="filters" id="filt">
@@ -1311,12 +1357,12 @@ function viewHall(id, params){
     ${grouped && groups.length > 3 ? `<div class="groupbar" aria-label="Jump to">${groups.map((g,n) => `<button type="button" data-jump="${n}">${esc(g.g)}</button>`).join("")}</div>` : ""}
   </section>
   ${lookupKind(c) !== "none" && list.some(i => !isMatched(i)) && (unmatched || showFilters) ? `<div class="banner noprint"><span>🔎</span><div class="grow">${list.filter(i => !isMatched(i)).length} piece${list.filter(i => !isMatched(i)).length===1?"":"s"} here not matched to ${esc(lookupName(lookupKind(c)))} yet. Go through them one by one; anything you've already typed is kept.</div><button class="iconbtn primary" id="bulkMatch">Match them</button></div>` : ""}
-  ${!list.length ? `<div class="empty">${all.length ? "Nothing matches these filters." : "This gallery is empty. Add the first piece!"}</div>`
+  ${!list.length ? `<div class="empty">${!all.length ? "This gallery is empty. Add the first piece!" : q ? `Nothing here matches “${esc(q)}”.` : "Nothing matches these filters."}</div>`
     : grouped ? groups.map((g,n) => `<h3 class="grouphead" id="grp${n}">${esc(g.g)} <span style="color:var(--muted);font-family:var(--sans);font-size:.75rem;font-weight:400">${g.items.length}</span></h3><div class="grid">${g.items.map(plate).join("")}</div>`).join("")
     : `<div class="grid">${list.map(plate).join("")}</div>`}
-  <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${id}">▦ Scan</a><a class="fab" href="#/new?c=${id}">＋ Add</a></div>`;
+  <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${id}">▦ Scan</a><a class="fab" href="#/new?c=${id}">＋ Add</a></div>`);
   const f = document.getElementById("sf");
-  f.onsubmit = e => { e.preventDefault(); location.hash = link({q:new FormData(f).get("q").trim(), filters:showFilters?"1":""}); };
+  liveSearch(v => link({q:v, filters:showFilters?"1":""}));
   f.sort.onchange = () => { LS.set("cm.sort."+id, f.sort.value); if(c.sort !== f.sort.value){ c.sort = f.sort.value; persist().catch(()=>{}); } location.hash = link({sort:f.sort.value, q:new FormData(f).get("q").trim(), filters:showFilters?"1":""}); };
   app.querySelectorAll("#filt [data-p]").forEach(sel => sel.onchange = () => { location.hash = link({[sel.dataset.p]:sel.value, filters:"1"}); });
   app.querySelectorAll("#filt [data-c]").forEach(cb => cb.onchange = () => { location.hash = link({[cb.dataset.c]:cb.checked?"1":"", filters:"1"}); });
