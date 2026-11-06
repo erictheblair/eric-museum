@@ -796,7 +796,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.06.1";
+const APP_VERSION = "2026.11.06.2";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -936,9 +936,19 @@ class DropboxStore {
     })();
     try{ return await this._refreshing; } finally{ this._refreshing = null; }
   }
+  // Dropbox answers 429 ("too many requests") when many photos are asked for at once, and now and then a 5xx; wait and ask again.
+  static async send(url, opts){
+    for(let i = 0; ; i++){
+      let r; try{ r = await fetch(url, opts); }catch(e){ if(i >= 3) throw e; r = null; }
+      if(r && r.status !== 429 && r.status < 500) return r;
+      if(i >= 4) return r;
+      const ra = r && parseFloat(r.headers.get("Retry-After"));
+      await new Promise(res => setTimeout(res, (ra > 0 ? Math.min(ra, 30) * 1000 : 800 * 2 ** i) + Math.random() * 400));
+    }
+  }
   static arg(o){ return JSON.stringify(o).replace(/[\u007f-￿]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4,"0")); }
   async rpc(endpoint, body){
-    const r = await fetch("https://api.dropboxapi.com/2/" + endpoint, {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Content-Type":"application/json"}, body:JSON.stringify(body)});
+    const r = await DropboxStore.send("https://api.dropboxapi.com/2/" + endpoint, {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Content-Type":"application/json"}, body:JSON.stringify(body)});
     if(r.status===409){ const e = await r.json().catch(()=>({})); const err = new Error(e.error_summary || "conflict"); err.summary = e.error_summary||""; throw err; }
     if(!r.ok) throw new Error("Dropbox error " + r.status);
     return r.json();
@@ -972,7 +982,7 @@ class DropboxStore {
   async putFile(path, blob){ await this.upload("/" + path, blob, "overwrite"); }
   async deleteFile(path){ this.links.delete(path); try{ await this.rpc("files/delete_v2", {path:"/" + path}); }catch(e){ if(!(e.summary||"").includes("not_found")) throw e; } }
   async getBlob(path){
-    const r = await fetch("https://content.dropboxapi.com/2/files/download", {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Dropbox-API-Arg":DropboxStore.arg({path:"/" + path})}});
+    const r = await DropboxStore.send("https://content.dropboxapi.com/2/files/download", {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Dropbox-API-Arg":DropboxStore.arg({path:"/" + path})}});
     return r.ok ? r.blob() : null;
   }
   async url(path){
@@ -3156,13 +3166,27 @@ function posterTile(g, L, o, k, bmp){
     g.drawImage(bmp, x + (t - w) / 2, o.style === "shelf" ? y + t - h : y + (t - h) / 2, w, h); }
   g.restore();
 }
-async function posterBitmap(m, big){
-  const path = !big && m.thumb ? m.thumb : m.path;
-  const blob = /^https?:\/\//.test(path) ? await fetchT(path, {}, 15000).then(r => { if(!r.ok) throw 0; return r.blob(); })
-    : (await store.getBlob(path)) || (store.url ? await fetch(await store.url(path)).then(r => r.blob()) : null);
-  return createImageBitmap(blob);
+// Fetches one cover as a decoded image. Tries the small thumbnail first and falls back to the full photo, so a missing thumbnail never leaves a blank tile.
+async function posterBlob(path){
+  if(/^https?:\/\//.test(path)){ const r = await fetchT(path, {}, 20000); if(!r.ok) throw new Error("photo link " + r.status); return r.blob(); }
+  let b = await store.getBlob(path).catch(() => null);
+  if(!b && store.url){ const u = await store.url(path); if(u){ const r = await fetchT(u, {}, 20000).catch(() => null); if(r && r.ok) b = await r.blob(); } }
+  if(!b || !b.size) throw new Error("photo not found");
+  return b;
 }
-async function eachLimit(n, f){ let next = 0; await Promise.all(Array.from({length: Math.min(6, n)}, async () => { while(next < n) await f(next++); })); }
+async function posterDecode(blob){
+  try{ return await createImageBitmap(blob); }
+  catch(e){ // some formats (and some Safari versions) can't use createImageBitmap; an <img> can still decode them
+    const u = URL.createObjectURL(blob), im = new Image(); im.src = u;
+    try{ await im.decode(); return im; } finally{ URL.revokeObjectURL(u); } }
+}
+async function posterBitmap(m, big){
+  const paths = [...new Set([!big && m.thumb ? m.thumb : m.path, m.path])];
+  let err;
+  for(const p of paths){ try{ return await posterDecode(await posterBlob(p)); }catch(e){ err = e; } }
+  throw err;
+}
+async function eachLimit(n, f, lim){ let next = 0; await Promise.all(Array.from({length: Math.min(lim || 6, n)}, async () => { while(next < n) await f(next++); })); }
 function posterBuilder(c, items, back){
   const L0 = document.getElementById("layer"), n = items.length, day = new Date().toISOString().slice(0,10);
   const o = Object.assign({bg:"char", layout:"auto", gap:"1", shape:"fit", style:"flat"}, LS.get("posterOpts", {}));
@@ -3192,18 +3216,35 @@ function posterBuilder(c, items, back){
   document.querySelectorAll("[data-po]").forEach(b => b.onclick = () => { o[b.dataset.po] = b.dataset.v; LS.set("posterOpts", o);
     document.querySelectorAll(`[data-po="${b.dataset.po}"]`).forEach(x => x.classList.toggle("on", x === b)); redraw(); });
   ro.observe(cv.parentNode);
-  draw(); msg.textContent = `Loading covers… 0 of ${n}`;
-  eachLimit(n, async k => { if(!alive) return; try{ bm[k] = await posterBitmap(cover(items[k]), false); }catch{}
-    if(!alive){ bm[k] && bm[k].close && bm[k].close(); return; }
-    loaded++; msg.textContent = loaded < n ? `Loading covers… ${loaded} of ${n}` : ""; redraw(); });
+  // Covers come from Dropbox a few at a time; any that fail are tried again once everything else has arrived.
+  const loadAll = async () => {
+    const todo = [...Array(n).keys()].filter(k => !bm[k]); let left = todo.length;
+    const show = () => { msg.textContent = left ? `Loading covers… ${n - left} of ${n}` : ""; };
+    show();
+    for(let pass = 0; pass < 2 && alive; pass++){
+      const want = todo.filter(k => !bm[k]); if(!want.length) break;
+      await eachLimit(want.length, async j => { const k = want[j]; if(!alive || bm[k]) return;
+        try{ const b = await posterBitmap(cover(items[k]), false); if(!alive){ b.close && b.close(); return; } bm[k] = b; left--; }catch{}
+        show(); redraw(); }, 4);
+    }
+    if(!alive) return;
+    const miss = bm.filter(Boolean).length < n ? n - bm.filter(Boolean).length : 0;
+    if(miss){ msg.innerHTML = `${miss} ${miss === 1 ? "cover" : "covers"} couldn't load from Dropbox · <a href="#" id="poRetry" style="color:#fff;text-decoration:underline">Try again</a>`;
+      document.getElementById("poRetry").onclick = e => { e.preventDefault(); loadAll(); }; }
+    else msg.textContent = "";
+  };
+  draw(); loadAll();
   document.getElementById("poSave").onclick = async () => {
     const L = posterLayout(n, o), big = L.tile > 230, out = document.createElement("canvas"); out.width = L.W; out.height = L.H;
     const g = out.getContext("2d"); posterBase(g, L, o);
     const pb = progressBox("Making your poster…"); let done = 0;
     try{
+      let miss = 0;
       await eachLimit(n, async k => { let b = big || !bm[k] ? null : bm[k];
         if(!b){ try{ b = await posterBitmap(cover(items[k]), big); }catch{ b = bm[k]; } }
-        posterTile(g, L, o, k, b); if(b && b !== bm[k] && b.close) b.close(); pb.set(`Making your poster… ${++done} of ${n}`); });
+        if(!b) miss++;
+        posterTile(g, L, o, k, b); if(b && b !== bm[k] && b.close) b.close(); pb.set(`Making your poster… ${++done} of ${n}`); }, 4);
+      if(miss && !confirm(`${miss} of ${n} covers still couldn't be loaded from Dropbox and would be grey squares. Save anyway?`)) return;
       const blob = await new Promise((res, rej) => out.toBlob(b => b ? res(b) : rej(new Error("the image is too large")), "image/jpeg", .92));
       download(blob, fileSafe(c.name) + "-" + poOpt(o,"layout").k + "-" + day + ".jpg");
     }catch(e){ alert("Couldn't make the poster: " + e.message); }
