@@ -817,7 +817,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.11.1";
+const APP_VERSION = "2026.11.11.2";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1053,6 +1053,19 @@ class DropboxStore {
     this.forget("");
     return out;
   }
+  // Has Dropbox itself download a picture from the web straight into the folder (no browser download,
+  // so it works for sites that won't share their images with other web pages).
+  async saveUrl(path, url){
+    let j = await this.rpc("files/save_url", {path:"/" + path, url});
+    const id = j.async_job_id;
+    for(let w = 0; j[".tag"] === "async_job_id" || j[".tag"] === "in_progress"; w++){
+      if(w > 30) throw new Error("Dropbox took too long");
+      await new Promise(r => setTimeout(r, Math.min(500 * 1.4 ** w, 4000)));
+      j = await this.rpc("files/save_url/check_job_status", {async_job_id:id});
+    }
+    if(j[".tag"] !== "complete") throw new Error("Dropbox couldn't fetch that picture");
+    this.links.delete(path);
+  }
   // Removes folders under (and including) dir that hold no files any more. Never removes media/ itself.
   async prune(dir){
     if(!dir) return;
@@ -1250,7 +1263,41 @@ async function tidyAll(){
   }catch(e){ pb.done(); alert("Couldn't finish tidying: " + e.message); }
 }
 // Background tidy after a save: never interrupts, just quietly retries on the next edit or the Settings button.
-function tidyLater(items){ tidyItems(items).then(r => { if(r.moved && /^#\/i\//.test(location.hash) && !document.querySelector("#ef, .busy") && !document.getElementById("layer").children.length) refreshView(); }).catch(() => {}); }
+function tidyLater(items){ keepOnlineCovers(items).catch(() => {}).then(() => tidyItems(items)).then(r => { if(r.moved && /^#\/i\//.test(location.hash) && !document.querySelector("#ef, .busy") && !document.getElementById("layer").children.length) refreshView(); }).catch(() => {}); }
+
+/* Covers found by a lookup (Discogs, MusicBrainz, BoardGameGeek…) start as links to that website.
+   Dropbox can fetch a copy into the piece's folder, so the photo is really yours: it shows up in
+   the cover poster and backups, and keeps working if the website changes or blocks other pages. */
+const onlineCovers = it => (it.media || []).filter(m => m.remote && m.kind === "photo" && /^https:\/\//.test(m.path || ""));
+async function keepOnlineCovers(items, progress){
+  if(store.kind !== "dropbox" || !store.saveUrl) return {saved:0, failed:0, total:0};
+  const own = folderOwners(cat.items), jobs = [];
+  for(const it of items){
+    const rs = onlineCovers(it); if(!rs.length) continue;
+    const fresh = rs.map(m => { const e = (String(m.path).split(/[?#]/)[0].match(/\.(jpe?g|png|webp|gif)$/i) || [".jpg"])[0].toLowerCase().replace(".jpeg", ".jpg");
+      return {m, nm:{id:m.id, kind:"photo", name:(/^cover/i.test(m.name || "") ? "cover" : m.name || "photo") + e, path:"media/tmp/" + m.id + e}}; });
+    planItem({...it, media:(it.media || []).filter(x => !x.remote).concat(fresh.map(f => f.nm))}, own, new Set(fresh.map(f => f.nm)));
+    for(const f of fresh) jobs.push(f);
+  }
+  let saved = 0, failed = 0, done = 0;
+  await eachLimit(jobs.length, async k => { const {m, nm} = jobs[k];
+    try{ await store.saveUrl(nm.path, m.path); m.path = nm.path; m.name = nm.name; delete m.thumb; delete m.remote; saved++; }
+    catch(e){ failed++; }
+    if(progress) progress(++done, jobs.length); }, 3);
+  if(saved) await persist();
+  return {saved, failed, total:jobs.length};
+}
+async function keepAllCovers(after){
+  const items = cat.items.filter(i => onlineCovers(i).length);
+  if(!items.length){ alert("All your covers are already saved in your Dropbox."); return after && after(); }
+  const pb = progressBox("Saving covers to your Dropbox…");
+  try{
+    const r = await keepOnlineCovers(items, (k, t) => pb.set(`Saving covers to your Dropbox… ${k} of ${t}`));
+    pb.done();
+    alert(`Saved ${r.saved} cover${r.saved === 1 ? "" : "s"} into your Dropbox folders.` + (r.failed ? `\n\n${r.failed} couldn't be fetched (the website may have moved or removed the picture). Those pieces still show the online link; you can add your own photo instead.` : ""));
+  }catch(e){ pb.done(); alert("Couldn't finish saving covers: " + e.message); }
+  if(after) after();
+}
 
 function setPriv(v){
   priv = v; LS.set("cm.private", v);
@@ -3248,7 +3295,7 @@ function viewSettings(){
     <div class="actions"><button class="iconbtn" id="vers">🕘 Earlier versions</button></div>` : ""}
     <h3 style="font-size:1rem;margin:14px 0 4px">Readable folders</h3>
     <p>Photos and documents are filed as <b>media › Gallery › Piece</b> (for example <i>Records › Pink Floyd – The Dark Side of the Moon (1973) › Cover.jpg</i>), so you can find them${store.kind === "dropbox" ? " in Dropbox" : ""} without the app. Renaming a piece moves its folder. Older photos with coded names move over when you tap below.</p>
-    <div class="actions"><button class="iconbtn" id="tidyAll">🗂 Tidy up my ${store.kind === "dropbox" ? "Dropbox " : ""}folders</button></div></div>
+    <div class="actions">${store.kind === "dropbox" ? `<button class="iconbtn" id="keepCov">☁ Save online covers to Dropbox</button>` : ""}<button class="iconbtn" id="tidyAll">🗂 Tidy up my ${store.kind === "dropbox" ? "Dropbox " : ""}folders</button></div></div>
   <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p>
     <p style="font-size:.8rem">App version ${APP_VERSION} · <a href="#" id="forceUpd">Check for updates</a></p></div>
   ${store.kind==="local" && !cat.items.length ? `<div class="panel"><h2>Try it out</h2><p>Load a few sample pieces to see how the museum looks. You can delete them anytime.</p><div class="actions"><button class="iconbtn" id="demo">Load samples</button></div></div>` : ""}`;
@@ -3321,6 +3368,7 @@ function viewSettings(){
   $("zipAll").onclick = downloadEverything;
   if($("vers")) $("vers").onclick = () => showVersions();
   $("tidyAll").onclick = tidyAll;
+  if($("keepCov")) $("keepCov").onclick = () => keepAllCovers(route);
   $("zipImp").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) restoreEverything(f); };
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
   $("imp").onchange = async e => {
@@ -3481,8 +3529,15 @@ function posterBuilder(c, items, back){
       await eachLimit(retry.length, async i => { await loadOne(retry[i]); redraw(); }, 2); }
     if(!alive) return;
     const m = missing();
-    if(m){ msg.innerHTML = `${m} ${m === 1 ? "cover" : "covers"} didn't load. <a href="#" id="poRetry" style="color:inherit;text-decoration:underline">Try again</a>`;
-      document.getElementById("poRetry").onclick = e => { e.preventDefault(); loadAll(); }; }
+    const web = store.kind === "dropbox" ? items.filter((it, k) => !bm[k] && onlineCovers(it).includes(cover(it))).length : 0;
+    if(m){ msg.innerHTML = `${m} ${m === 1 ? "cover" : "covers"} didn't load.` + (web ? ` ${web === m ? (m === 1 ? "It's a link" : "They're links") : web + " of them are links"} to the website the cover came from, which won't share ${web === 1 ? "it" : "them"} with the poster maker. <a href="#" id="poKeep" style="color:inherit;text-decoration:underline">Save ${web === 1 ? "it" : "them"} to your Dropbox</a> ·` : "") + ` <a href="#" id="poRetry" style="color:inherit;text-decoration:underline">Try again</a>`;
+      document.getElementById("poRetry").onclick = e => { e.preventDefault(); loadAll(); };
+      if(web) document.getElementById("poKeep").onclick = async e => { e.preventDefault();
+        const ks = items.filter((it, k) => !bm[k] && onlineCovers(it).length), pb = progressBox("Saving covers to your Dropbox…");
+        try{ const r = await keepOnlineCovers(ks, (k, t) => pb.set(`Saving covers to your Dropbox… ${k} of ${t}`)); pb.done();
+          if(r.failed) toast(`${r.failed} ${r.failed === 1 ? "cover" : "covers"} couldn't be fetched from the website`, 4000); }
+        catch(err){ pb.done(); alert("Couldn't finish saving covers: " + err.message); }
+        if(alive) loadAll(); }; }
     else msg.textContent = "";
     redraw(); };
   draw(); loadAll();
