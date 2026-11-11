@@ -732,7 +732,7 @@ body.wallmode #fsc{display:none}
   .wall.r-xmas .xg{top:calc(env(safe-area-inset-top) + 46px);height:46px}.wall.r-xmas .bay{padding-top:calc(84px + env(safe-area-inset-top))}}
 /* Room props: a piece of furniture or decor between each pair of pictures (two kinds that alternate) */
 .wall .rp{display:none}
-.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{display:block;position:absolute;z-index:1;pointer-events:none;background:center bottom/contain no-repeat;
+.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon,.r-haunted,.r-aquarium,.r-ship,.r-xmas) .bay>.rp{display:block;position:absolute;z-index:1;pointer-events:none;background:center bottom/contain no-repeat;
   --h:40vh;--ar:.5;height:var(--h);width:calc(var(--h) * var(--ar));left:calc(var(--h) * var(--ar) * -.5);bottom:calc(var(--fl,11vh) - 1.4vh);filter:drop-shadow(0 10px 12px rgba(0,0,0,.4))}
 .wall.r-diner{--fl:8vh} .wall.r-neon{--fl:14vh}
 .wall.r-diner .rp.ra{background-image:url(rooms/prop-jukebox.svg);--h:72vh}
@@ -756,9 +756,26 @@ body.wallmode #fsc{display:none}
 .wall.r-greenhouse .bay>.rp{z-index:3}
 .wall.r-greenhouse .rp.ra{background-image:url(rooms/prop-planter.svg);background-position:center top;--h:46vh;--ar:.556;bottom:auto;top:0;filter:drop-shadow(0 10px 8px rgba(0,0,0,.3))}
 .wall.r-greenhouse .rp.rb{background-image:url(rooms/prop-butterflies.svg);--h:40vh;--ar:1;bottom:auto;top:12vh;filter:none}
+/* Haunted mansion: a grandfather clock (its minute hand runs backwards) and a seance table; under the arched windows an old trunk takes the clock's place */
+.wall.r-haunted .bay>.rp{bottom:calc(var(--fh) - 1.6vh);filter:drop-shadow(0 10px 12px rgba(0,0,0,.55))}
+.wall.r-haunted .rp.ra{background-image:url(rooms/prop-clock.svg);--h:56vh;--ar:.4545}
+.wall.r-haunted .rp.rb{background-image:url(rooms/prop-seance.svg);--h:40vh;--ar:.733}
+.wall.r-haunted .bay.hw .rp.ra{background-image:url(rooms/prop-trunk.svg);--h:26vh;--ar:1.368}
+/* Aquarium: jellyfish drifting up high, and a treasure chest (every other one a diving helmet) in front of the reef */
+.wall.r-aquarium .rp.ra{background-image:url(rooms/prop-jelly.svg);--h:38vh;--ar:.667;bottom:auto;top:8vh;filter:none}
+.wall.r-aquarium .rp.rb{background-image:url(rooms/prop-chest.svg);--h:32vh;--ar:1.13;bottom:calc(var(--fl,11vh) - 3vh);filter:drop-shadow(0 8px 10px rgba(0,20,40,.4))}
+.wall.r-aquarium .bay:nth-child(4n+1) .rp.rb{background-image:url(rooms/prop-helmet.svg);--h:34vh;--ar:.733}
+/* Starship: a console projecting a hologram planet, and a little service robot, both standing under the portholes */
+.wall.r-ship .rp.ra{background-image:url(rooms/prop-console.svg);--h:40vh;--ar:.788;filter:drop-shadow(0 0 14px rgba(63,215,255,.25))}
+.wall.r-ship .rp.rb{background-image:url(rooms/prop-droid.svg);--h:34vh;--ar:.667;filter:drop-shadow(0 10px 12px rgba(0,0,0,.55))}
+/* Christmas goes in threes (tree, window, presents), so it picks by position: bay n is child n+2 of the track, after .swim.
+   Trees already fill their gap; a rocking horse sits under each window; a glowing paper star hangs above each pile of presents. */
+.wall.r-xmas .bay:nth-child(3n)>.rp{display:none}
+.wall.r-xmas .bay:nth-child(3n+1)>.rp{background-image:url(rooms/prop-horse.svg);--h:27vh;--ar:1.25;bottom:calc(var(--fh) - 1.6vh)}
+.wall.r-xmas .bay:nth-child(3n+2)>.rp{background-image:url(rooms/prop-star.svg);--h:40vh;--ar:.647;bottom:auto;top:3vh;background-position:center top;filter:drop-shadow(0 0 10px rgba(255,190,80,.3))}
 /* Phones: one picture fills the screen, so the props are smaller and peek in from the edges */
-@media (max-width:899px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{--k:.62;height:calc(var(--h) * var(--k));width:calc(var(--h) * var(--k) * var(--ar));left:calc(var(--h) * var(--k) * var(--ar) * -.5)}}
-@media (orientation:landscape) and (max-height:560px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{--k:.8}}
+@media (max-width:899px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon,.r-haunted,.r-aquarium,.r-ship,.r-xmas) .bay>.rp{--k:.62;height:calc(var(--h) * var(--k));width:calc(var(--h) * var(--k) * var(--ar));left:calc(var(--h) * var(--k) * var(--ar) * -.5)}}
+@media (orientation:landscape) and (max-height:560px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon,.r-haunted,.r-aquarium,.r-ship,.r-xmas) .bay>.rp{--k:.8}}
 /* Phone on its side: the garland hangs along the very top, behind the buttons, instead of across the pictures */
 @media (orientation:landscape) and (max-height:560px){.wall.r-xmas .xg{top:env(safe-area-inset-top);height:34px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45))}
   .wall.r-xmas .xg,.wall.r-xmas .xg::before,.wall.r-xmas .xg::after{background-size:50% 100%}}
