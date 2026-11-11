@@ -27,7 +27,7 @@
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
 a{color:inherit}
 button,input,select,textarea{font:inherit;color:inherit}
-h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:.01em;margin:0}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:.01em;margin:0;overflow-wrap:anywhere}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
 header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
 header.top .wrap{display:flex;align-items:center;gap:10px;height:56px}
@@ -100,6 +100,7 @@ form.edit{padding-bottom:84px}
 .sizer{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
 .sizer button{border:none;background:none;padding:5px 11px;cursor:pointer;font-size:.8rem;color:var(--muted)}
 .sizer button.on{background:var(--ink);color:var(--bg)}
+@media (pointer:coarse){.sizer button{padding:8px 13px}} /* easier to tap on phones */
 /* When the view buttons scroll out of sight, a copy floats just under the header */
 #fsz{position:fixed;left:0;right:0;top:calc(64px + env(safe-area-inset-top));z-index:19;pointer-events:none;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s}
 #fsz.on{opacity:1;transform:none}
@@ -247,7 +248,10 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 
 @media (max-width:420px){.wbar{gap:5px;padding-left:8px;padding-right:8px}.wbtn,.wbar select{padding:0 8px;font-size:.8rem;min-width:32px}.wbar .wcount{font-size:.8rem}}
 .wbtn.on{background:rgba(201,162,74,.28);border-color:rgba(233,196,110,.6)}
-.wbar .wcount{color:#bfb4a2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wbar .wcount{color:#e6dccb;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Title and count stay readable over light rooms (diner tiles, greenhouse glass). */
+.wbar .wtitle,.wbar .wcount{text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.5)}
+.wall.r-modern .wbar .wtitle,.wall.r-modern .wbar .wcount{text-shadow:none}
 .wtrack{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .wtrack::-webkit-scrollbar{display:none}
 .bay{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(18px,3.5vh,34px);padding:calc(64px + env(safe-area-inset-top)) 18px calc(13vh + env(safe-area-inset-bottom));position:relative;
@@ -728,7 +732,7 @@ body.wallmode #fsc{display:none}
   .wall.r-xmas .xg{top:calc(env(safe-area-inset-top) + 46px);height:46px}.wall.r-xmas .bay{padding-top:calc(84px + env(safe-area-inset-top))}}
 /* Room props: a piece of furniture or decor between each pair of pictures (two kinds that alternate) */
 .wall .rp{display:none}
-.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{display:block;position:absolute;z-index:1;pointer-events:none;background:center bottom/contain no-repeat;
+.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon,.r-haunted,.r-aquarium,.r-ship,.r-xmas) .bay>.rp{display:block;position:absolute;z-index:1;pointer-events:none;background:center bottom/contain no-repeat;
   --h:40vh;--ar:.5;height:var(--h);width:calc(var(--h) * var(--ar));left:calc(var(--h) * var(--ar) * -.5);bottom:calc(var(--fl,11vh) - 1.4vh);filter:drop-shadow(0 10px 12px rgba(0,0,0,.4))}
 .wall.r-diner{--fl:8vh} .wall.r-neon{--fl:14vh}
 .wall.r-diner .rp.ra{background-image:url(rooms/prop-jukebox.svg);--h:72vh}
@@ -752,9 +756,26 @@ body.wallmode #fsc{display:none}
 .wall.r-greenhouse .bay>.rp{z-index:3}
 .wall.r-greenhouse .rp.ra{background-image:url(rooms/prop-planter.svg);background-position:center top;--h:46vh;--ar:.556;bottom:auto;top:0;filter:drop-shadow(0 10px 8px rgba(0,0,0,.3))}
 .wall.r-greenhouse .rp.rb{background-image:url(rooms/prop-butterflies.svg);--h:40vh;--ar:1;bottom:auto;top:12vh;filter:none}
+/* Haunted mansion: a grandfather clock (its minute hand runs backwards) and a seance table; under the arched windows an old trunk takes the clock's place */
+.wall.r-haunted .bay>.rp{bottom:calc(var(--fh) - 1.6vh);filter:drop-shadow(0 10px 12px rgba(0,0,0,.55))}
+.wall.r-haunted .rp.ra{background-image:url(rooms/prop-clock.svg);--h:56vh;--ar:.4545}
+.wall.r-haunted .rp.rb{background-image:url(rooms/prop-seance.svg);--h:40vh;--ar:.733}
+.wall.r-haunted .bay.hw .rp.ra{background-image:url(rooms/prop-trunk.svg);--h:26vh;--ar:1.368}
+/* Aquarium: jellyfish drifting up high, and a treasure chest (every other one a diving helmet) in front of the reef */
+.wall.r-aquarium .rp.ra{background-image:url(rooms/prop-jelly.svg);--h:38vh;--ar:.667;bottom:auto;top:8vh;filter:none}
+.wall.r-aquarium .rp.rb{background-image:url(rooms/prop-chest.svg);--h:32vh;--ar:1.13;bottom:calc(var(--fl,11vh) - 3vh);filter:drop-shadow(0 8px 10px rgba(0,20,40,.4))}
+.wall.r-aquarium .bay:nth-child(4n+1) .rp.rb{background-image:url(rooms/prop-helmet.svg);--h:34vh;--ar:.733}
+/* Starship: a console projecting a hologram planet, and a little service robot, both standing under the portholes */
+.wall.r-ship .rp.ra{background-image:url(rooms/prop-console.svg);--h:40vh;--ar:.788;filter:drop-shadow(0 0 14px rgba(63,215,255,.25))}
+.wall.r-ship .rp.rb{background-image:url(rooms/prop-droid.svg);--h:34vh;--ar:.667;filter:drop-shadow(0 10px 12px rgba(0,0,0,.55))}
+/* Christmas goes in threes (tree, window, presents), so it picks by position: bay n is child n+2 of the track, after .swim.
+   Trees already fill their gap; a rocking horse sits under each window; a glowing paper star hangs above each pile of presents. */
+.wall.r-xmas .bay:nth-child(3n)>.rp{display:none}
+.wall.r-xmas .bay:nth-child(3n+1)>.rp{background-image:url(rooms/prop-horse.svg);--h:27vh;--ar:1.25;bottom:calc(var(--fh) - 1.6vh)}
+.wall.r-xmas .bay:nth-child(3n+2)>.rp{background-image:url(rooms/prop-star.svg);--h:40vh;--ar:.647;bottom:auto;top:3vh;background-position:center top;filter:drop-shadow(0 0 10px rgba(255,190,80,.3))}
 /* Phones: one picture fills the screen, so the props are smaller and peek in from the edges */
-@media (max-width:899px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{--k:.62;height:calc(var(--h) * var(--k));width:calc(var(--h) * var(--k) * var(--ar));left:calc(var(--h) * var(--k) * var(--ar) * -.5)}}
-@media (orientation:landscape) and (max-height:560px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon) .bay>.rp{--k:.8}}
+@media (max-width:899px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon,.r-haunted,.r-aquarium,.r-ship,.r-xmas) .bay>.rp{--k:.62;height:calc(var(--h) * var(--k));width:calc(var(--h) * var(--k) * var(--ar));left:calc(var(--h) * var(--k) * var(--ar) * -.5)}}
+@media (orientation:landscape) and (max-height:560px){.wall:is(.r-museum,.r-modern,.r-library,.r-castle,.r-cabin,.r-greenhouse,.r-diner,.r-neon,.r-haunted,.r-aquarium,.r-ship,.r-xmas) .bay>.rp{--k:.8}}
 /* Phone on its side: the garland hangs along the very top, behind the buttons, instead of across the pictures */
 @media (orientation:landscape) and (max-height:560px){.wall.r-xmas .xg{top:env(safe-area-inset-top);height:34px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45))}
   .wall.r-xmas .xg,.wall.r-xmas .xg::before,.wall.r-xmas .xg::after{background-size:50% 100%}}
@@ -796,7 +817,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.06.1";
+const APP_VERSION = "2026.11.11.1";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -865,6 +886,12 @@ class LocalStore {
   async putFile(path, blob){ await this.tx("files","readwrite",s=>s.put(blob,path)); }
   async deleteFile(path){ this.urls.delete(path); await this.tx("files","readwrite",s=>s.delete(path)); }
   async getBlob(path){ return await this.tx("files","readonly",s=>s.get(path)); }
+  forget(path){ const u = this.urls.get(path); if(u) URL.revokeObjectURL(u); this.urls.delete(path); }
+  // Renames files (IndexedDB keys). Returns per pair: true, "missing" (nothing was there) or false.
+  async moveMany(pairs){ const out = [];
+    for(const [a, b] of pairs){ try{ const bl = await this.getBlob(a); if(!bl){ out.push("missing"); continue; } await this.putFile(b, bl); await this.deleteFile(a); this.forget(b); out.push(true); }catch(e){ out.push(false); } }
+    return out; }
+  async prune(){} // no folders in browser storage
   async url(path){
     if(this.urls.has(path)) return this.urls.get(path);
     const b = await this.getBlob(path); if(!b) return null;
@@ -957,23 +984,98 @@ class DropboxStore {
     const r = await fetch("https://content.dropboxapi.com/2/files/download", {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Dropbox-API-Arg":DropboxStore.arg({path:"/catalog.json"})}});
     if(!r.ok) throw new Error("Could not read your catalog from Dropbox (" + r.status + ")");
     this.rev = meta.rev;
-    return JSON.parse(await r.text());
+    const text = await r.text(), j = JSON.parse(text);
+    this.base = text; // the catalog as last seen in Dropbox, for merging with changes made on another device
+    return j;
   }
   async save(cat){
-    const blob = new Blob([JSON.stringify(cat, null, 1)], {type:"application/json"});
-    try{
-      const m = await this.upload("/catalog.json", blob, this.rev ? {".tag":"update", update:this.rev} : {".tag":"add"});
-      this.rev = m.rev;
-    }catch(e){
-      if((e.summary||"").includes("conflict")) throw new Error("Your catalog was changed on another device. Reload the page to get the latest, then redo this change.");
-      throw e;
+    await this.snapshot();
+    for(let tries = 0; ; tries++){
+      const text = JSON.stringify(cat, null, 1);
+      try{
+        const m = await this.upload("/catalog.json", new Blob([text], {type:"application/json"}), this.rev ? {".tag":"update", update:this.rev} : {".tag":"add"});
+        this.rev = m.rev; this.base = text; return;
+      }catch(e){
+        if(!(e.summary||"").includes("conflict") || tries >= 3) {
+          if((e.summary||"").includes("conflict")) throw new Error("Your catalog was changed on another device. Reload the page to get the latest, then redo this change.");
+          throw e;
+        }
+        // Changed on another device since we loaded it: fold both sets of changes together and try again.
+        const base = this.base ? JSON.parse(this.base) : {items:[]}, remote = await this.load();
+        const merged = mergeCatalogs(base, cat, remote || {items:[]});
+        Object.keys(cat).forEach(k => delete cat[k]); Object.assign(cat, merged);
+        this.merged = true;
+      }
     }
+  }
+  // Once a day, before the first change, keep a copy of catalog.json in backups/ (the newest 30 are kept).
+  async snapshot(){
+    const day = new Date().toISOString().slice(0,10);
+    if(!this.rev || LS.get("cm.snapDay", "") === day || this._snapTried === day) return;
+    this._snapTried = day;
+    try{ await this.rpc("files/copy_v2", {from_path:"/catalog.json", to_path:"/backups/catalog-" + day + ".json", autorename:false}); }
+    catch(e){ if(!/conflict|already_exists/.test(e.summary || "")) return; } // already made today (maybe on another device)
+    LS.set("cm.snapDay", day);
+    this.pruneSnapshots().catch(() => {});
+  }
+  async listSnapshots(){
+    let j; try{ j = await this.rpc("files/list_folder", {path:"/backups"}); }catch(e){ if((e.summary||"").includes("not_found")) return []; throw e; }
+    let all = j.entries; while(j.has_more){ j = await this.rpc("files/list_folder/continue", {cursor:j.cursor}); all = all.concat(j.entries); }
+    return all.filter(e => e[".tag"] === "file" && /^catalog-.*\.json$/.test(e.name)).sort((a,b) => b.name.localeCompare(a.name));
+  }
+  async pruneSnapshots(){
+    const daily = (await this.listSnapshots()).filter(e => /^catalog-\d{4}-\d\d-\d\d\.json$/.test(e.name));
+    for(const e of daily.slice(30)) await this.rpc("files/delete_v2", {path:e.path_lower});
   }
   async putFile(path, blob){ await this.upload("/" + path, blob, "overwrite"); }
   async deleteFile(path){ this.links.delete(path); try{ await this.rpc("files/delete_v2", {path:"/" + path}); }catch(e){ if(!(e.summary||"").includes("not_found")) throw e; } }
+  forget(path){ this.links.delete(path); clearTimeout(this._lt); this._lt = setTimeout(()=>LS.set("cm.links", Object.fromEntries(this.links)), 500); }
+  // Dropbox batch jobs answer "working on it": ask again until done.
+  async job(start, check, body){
+    let j = await this.rpc(start, body), id = j.async_job_id;
+    for(let w = 0; j[".tag"] === "async_job_id" || j[".tag"] === "in_progress"; w++){
+      await new Promise(r => setTimeout(r, Math.min(400 * 1.5 ** w, 4000)));
+      j = await this.rpc(check, {async_job_id:id});
+    }
+    if(j[".tag"] !== "complete") throw new Error("Dropbox couldn't finish moving files (" + (j[".tag"] || "unknown") + "). Nothing was lost; try again later.");
+    return j.entries || [];
+  }
+  // Moves many files at once. Returns per pair: true, "missing" (nothing was there) or false.
+  async moveMany(pairs, progress){
+    const out = [];
+    for(let s = 0; s < pairs.length; s += 900){
+      const chunk = pairs.slice(s, s + 900);
+      if(progress) progress(s, pairs.length);
+      const ents = await this.job("files/move_batch_v2", "files/move_batch/check_v2", {entries:chunk.map(([a, b]) => ({from_path:"/" + a, to_path:"/" + b})), autorename:false});
+      chunk.forEach(([a, b], k) => { const e = ents[k] || {}; this.links.delete(a); this.links.delete(b);
+        out.push(e[".tag"] === "success" ? true : /from_lookup[^}]*not_found/.test(JSON.stringify(e.failure || {})) ? "missing" : false); });
+    }
+    this.forget("");
+    return out;
+  }
+  // Removes folders under (and including) dir that hold no files any more. Never removes media/ itself.
+  async prune(dir){
+    if(!dir) return;
+    let j; try{ j = await this.rpc("files/list_folder", {path:"/" + dir, recursive:true}); }catch(e){ return; }
+    const ents = [...j.entries]; while(j.has_more){ j = await this.rpc("files/list_folder/continue", {cursor:j.cursor}); ents.push(...j.entries); }
+    const full = new Set();
+    for(const e of ents) if(e[".tag"] === "file"){ let p = e.path_lower; while((p = p.slice(0, p.lastIndexOf("/")))) full.add(p); }
+    const root = ("/" + dir).toLowerCase(), empty = ents.filter(e => e[".tag"] === "folder" && !full.has(e.path_lower)).map(e => e.path_lower);
+    if(!full.has(root) && root !== "/media") empty.push(root);
+    const top = empty.filter(p => !empty.some(q => q !== p && p.startsWith(q + "/")));
+    if(!top.length) return;
+    await this.job("files/delete_batch", "files/delete_batch/check", {entries:top.map(path => ({path}))}).catch(() => {});
+    if(top.includes(root)){ const up = dir.slice(0, dir.lastIndexOf("/")); if(up && up.toLowerCase() !== "media") await this.prune(up); }
+  }
   async getBlob(path){
-    const r = await fetch("https://content.dropboxapi.com/2/files/download", {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Dropbox-API-Arg":DropboxStore.arg({path:"/" + path})}});
-    return r.ok ? r.blob() : null;
+    // Dropbox turns requests away ("429 too many") when lots of photos are asked for at once: wait and ask again.
+    for(let a = 0; ; a++){
+      const r = await fetch("https://content.dropboxapi.com/2/files/download", {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Dropbox-API-Arg":DropboxStore.arg({path:"/" + path})}});
+      if(r.ok) return r.blob();
+      if((r.status === 429 || r.status >= 500) && a < 4){
+        const ra = parseFloat(r.headers.get("Retry-After")); await new Promise(res => setTimeout(res, (ra > 0 ? Math.min(ra, 10) * 1000 : 800 * 2 ** a) + Math.random() * 400)); continue; }
+      return null;
+    }
   }
   async url(path){
     const c = this.links.get(path);
@@ -987,6 +1089,34 @@ class DropboxStore {
   }
 }
 
+/* Three-way merge for when two devices change the catalog at the same time.
+   A piece changed on only one side keeps that change; changed on both, the newer edit wins.
+   A piece deleted on one side stays deleted unless the other side changed it. */
+function mergeCatalogs(base, local, remote){
+  const J = x => JSON.stringify(x), byId = l => new Map((l || []).map(i => [i.id, i]));
+  const B = byId(base.items), L = byId(local.items), R = byId(remote.items), out = [];
+  const ids = [...R.keys(), ...[...L.keys()].filter(id => !R.has(id))];
+  for(const id of ids){
+    const b = B.get(id), l = L.get(id), r = R.get(id);
+    if(l && r){ if(J(l) === J(b)) out.push(r); else if(J(r) === J(b)) out.push(l); else out.push(String(r.updated||"") > String(l.updated||"") ? r : l); }
+    else if(l){ if(!b || J(l) !== J(b)) out.push(l); }   // remote deleted it: keep only if changed here
+    else if(r){ if(!b || J(r) !== J(b)) out.push(r); }   // deleted here: keep only if changed there
+  }
+  const m = {};
+  for(const k of new Set([...Object.keys(remote), ...Object.keys(local)])){
+    if(k === "items" || k === "updated") continue;
+    const v = J(local[k]) !== J(base[k]) ? local[k] : remote[k];
+    if(v !== undefined) m[k] = v;
+  }
+  m.items = out; m.updated = new Date().toISOString();
+  return m;
+}
+// Swap in a whole catalog (restore from a backup); put the old one back if it can't be saved.
+async function replaceCatalog(j){
+  const old = cat; cat = j;
+  try{ await persist(); }catch(e){ cat = old; throw e; }
+}
+
 /* ============================================================
    App state
    ============================================================ */
@@ -998,7 +1128,129 @@ const cover = it => (it.media||[]).find(m => m.kind === "photo");
 
 function toast(msg, ms=2600){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
 function busy(msg){ const b=document.createElement("div"); b.className="busy"; b.innerHTML="<div>"+esc(msg||"Saving…")+"</div>"; document.body.appendChild(b); return ()=>b.remove(); }
-async function persist(){ cat.updated = new Date().toISOString(); await store.save(cat); }
+async function persist(){ cat.updated = new Date().toISOString(); await store.save(cat);
+  if(store.merged){ store.merged = false; toast("Also brought in changes from your other device"); } }
+
+/* ============================================================
+   Readable media folders: media/<Gallery>/<Maker – Title (Year)>/<Cover.jpg, Photo 1.jpg, COA.pdf>
+   Small previews live in a .thumbs folder beside them. The catalog stores each file's path,
+   so names are only for people browsing Dropbox; the app never has to work them out again.
+   ============================================================ */
+const cleanName = (s, max) => { s = String(s || "").normalize("NFC").replace(/[\/\\<>:"|?*\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if(s.length > (max || 70)) s = s.slice(0, max || 70).trim(); return s.replace(/^[. ]+|[. ]+$/g, ""); };
+const dirOf = p => p.slice(0, p.lastIndexOf("/")).replace(/\/\.thumbs$/, "");
+const baseOf = p => p.slice(p.lastIndexOf("/") + 1);
+const extOf = p => ((baseOf(p).match(/\.[A-Za-z0-9]{1,5}$/) || [".jpg"])[0]).toLowerCase();
+const looksRandom = b => /^[0-9a-z]{12,16}(_t)?\.[a-z0-9]+$/.test(b) && /\d/.test(b);
+function itemFolderName(it){
+  const t = cleanName(it.title, 60) || "Untitled", mk = cleanName(it.maker, 40), y = cleanName(it.year, 10);
+  return (mk && mk.toLowerCase() !== t.toLowerCase() ? mk + " – " : "") + t + (y ? " (" + y + ")" : "");
+}
+function fileBase(m){
+  const nm = String(m.name || "").replace(/\.[A-Za-z0-9]{1,5}$/, "");
+  if(m.kind === "document") return cleanName(m.label || nm, 60) || "Document";
+  if(/^cover$/i.test(nm)) return "Cover";
+  if(!nm || /^(img|dsc|dscn|pxl|image|photo|picture|screenshot|file|mvimg|boardgamegeek)\b|^(img|dsc|pxl|mvimg)_|^\d|^[\w-]{20,}$/i.test(nm)) return "Photo";
+  return cleanName(nm, 60) || "Photo";
+}
+// Which item uses each folder (lower case: Dropbox ignores case), so two pieces never share one.
+function folderOwners(items){
+  const own = new Map();
+  for(const i of items) for(const m of i.media || []) if(!m.remote && m.path) own.set(dirOf(m.path).toLowerCase(), i.id);
+  return own;
+}
+function wantFolder(it, own){
+  const base = "media/" + (cleanName(coll(it.collectionId).name, 50) || "Uncategorized") + "/" + itemFolderName(it), bl = base.toLowerCase();
+  const mine = (it.media || []).filter(m => !m.remote && m.path).map(m => dirOf(m.path));
+  const cur = mine.find(d => d.toLowerCase() === bl) || mine.find(d => d.toLowerCase().startsWith(bl + " (") && /^ \(\d+\)$/.test(d.slice(base.length)) && own.get(d.toLowerCase()) === it.id);
+  if(cur) return cur;
+  for(let n = 1; ; n++){ const c = n === 1 ? base : base + " (" + n + ")", o = own.get(c.toLowerCase()); if(!o || o === it.id) return c; }
+}
+/* Works out where each of a piece's files should live. fresh = media not uploaded yet (just get paths).
+   Returns {folder, moves:[{m, key, from, to}]} for files already stored. Also claims the folder in own. */
+function planItem(it, own, fresh){
+  fresh = fresh || new Set();
+  const folder = wantFolder(it, own), local = (it.media || []).filter(m => !m.remote && m.path), taken = new Set(), want = new Map();
+  own.set(folder.toLowerCase(), it.id);
+  // Files already sitting in the right folder with a proper name keep it.
+  for(const m of local){ const b = baseOf(m.path); if(!fresh.has(m) && dirOf(m.path) === folder && !looksRandom(b) && !taken.has(b.toLowerCase())){ taken.add(b.toLowerCase()); want.set(m, b); } }
+  for(const m of local){
+    if(want.has(m)) continue;
+    const b = baseOf(m.path), ext = extOf(m.path);
+    if(!looksRandom(b) && !fresh.has(m) && !taken.has(b.toLowerCase()) && !/\/media\/tmp\//.test("/" + m.path)){ taken.add(b.toLowerCase()); want.set(m, b); continue; }
+    const fb = fileBase(m);
+    for(let n = 1; ; n++){
+      const c = (fb === "Photo" ? "Photo " + n : n === 1 ? fb : fb + " (" + n + ")") + ext;
+      if(!taken.has(c.toLowerCase())){ taken.add(c.toLowerCase()); want.set(m, c); break; }
+    }
+  }
+  const moves = [];
+  for(const m of local){
+    const b = want.get(m), path = folder + "/" + b, thumb = m.thumb ? folder + "/.thumbs/" + b.replace(/\.[a-z0-9]+$/i, ".jpg") : null;
+    if(fresh.has(m)){ m.path = path; if(thumb) m.thumb = thumb; continue; }
+    if(m.path !== path) moves.push({m, key:"path", from:m.path, to:path});
+    if(thumb && m.thumb !== thumb) moves.push({m, key:"thumb", from:m.thumb, to:thumb});
+  }
+  return {folder, moves};
+}
+// Gives brand-new media (not in it.media yet, or not uploaded yet) their readable paths.
+function placeNew(it, ms){
+  const was = it.media || [], tmp = {...it, media:was.concat(ms.filter(m => !was.includes(m)))};
+  planItem(tmp, folderOwners(cat.items.filter(i => i.id !== it.id)), new Set(ms));
+}
+const tmpMedia = (it, m, ext) => { m.path = "media/tmp/" + m.id + (ext || ".jpg"); if(m.kind === "photo") m.thumb = "media/tmp/" + m.id + "_t.jpg"; return m; };
+
+/* Moves the given pieces' files into their readable folders, then saves the catalog.
+   If a move fails (offline, Dropbox busy) that file just stays where it is and keeps working. */
+async function tidyItems(items, opts){
+  opts = opts || {};
+  const own = folderOwners(cat.items), all = [];
+  for(const it of items) for(const mv of planItem(it, own).moves) all.push(mv);
+  if(!all.length) return {moved:0, failed:0};
+  const oldDirs = [...new Set(all.map(mv => dirOf(mv.from)))];
+  const res = await store.moveMany(all.map(mv => [mv.from, mv.to]), opts.progress);
+  let moved = 0, failed = 0;
+  all.forEach((mv, k) => { if(res[k]){ mv.m[mv.key] = mv.to; moved++; } else failed++; });
+  if(moved){
+    try{ await persist(); }
+    catch(e){ // catalog couldn't be saved (changed on another device?): put the files back so it still matches
+      const back = all.filter((mv, k) => res[k] === true);
+      all.forEach((mv, k) => { if(res[k]) mv.m[mv.key] = mv.from; });
+      await store.moveMany(back.map(mv => [mv.to, mv.from])).catch(() => {});
+      throw e;
+    }
+  }
+  if(store.prune){
+    if(opts.all) await store.prune("media").catch(() => {});
+    else for(const d of oldDirs) await store.prune(d).catch(() => {});
+  }
+  return {moved, failed};
+}
+// A renamed gallery: move its pieces' folders along with it.
+async function tidyGallery(items){
+  const pb = items.length > 3 ? progressBox("Renaming the gallery's folders…") : null;
+  try{ await tidyItems(items, {progress:(n, t) => pb && pb.set(`Moving files… ${n} of ${t}`)}); }
+  catch(e){ /* files stay where they are; Settings > Tidy up retries */ }
+  finally{ if(pb) pb.done(); }
+}
+// The Settings button: every piece, with a copy of the catalog saved first.
+async function tidyAll(){
+  const own = folderOwners(cat.items); let n = 0;
+  for(const it of cat.items) n += planItem(it, own).moves.length;
+  if(!n) return alert("Everything is already in tidy, readable folders.");
+  if(!confirm(`Move ${n} file${n===1?"":"s"} into folders named after each gallery and piece (media › Gallery › Piece)? A copy of your catalog is saved first, and nothing is deleted except folders left empty.`)) return;
+  const pb = progressBox("Saving a copy of your catalog…");
+  try{
+    if(store.kind === "dropbox") await store.putFile("backups/catalog-before-tidy-" + new Date().toISOString().slice(0,19).replace(/:/g,"-") + ".json", new Blob([JSON.stringify(cat, null, 1)], {type:"application/json"}));
+    pb.set("Moving files…");
+    const r = await tidyItems(cat.items, {all:true, progress:(k, t) => pb.set(`Moving files… ${k} of ${t}`)});
+    pb.done();
+    alert(`Done: ${r.moved} file${r.moved===1?"":"s"} moved.` + (r.failed ? `\n\n${r.failed} couldn't be moved right now and still work where they are. Tap Tidy up again later to finish.` : ""));
+    route();
+  }catch(e){ pb.done(); alert("Couldn't finish tidying: " + e.message); }
+}
+// Background tidy after a save: never interrupts, just quietly retries on the next edit or the Settings button.
+function tidyLater(items){ tidyItems(items).then(r => { if(r.moved && /^#\/i\//.test(location.hash) && !document.querySelector("#ef, .busy") && !document.getElementById("layer").children.length) refreshView(); }).catch(() => {}); }
 
 function setPriv(v){
   priv = v; LS.set("cm.private", v);
@@ -1019,26 +1271,28 @@ function arrangeHalls(){
   grid.classList.add("arranging"); link.textContent = "Done";
   const fabs = document.querySelector(".fabs"); if(fabs) fabs.style.display = "none";
   toast("Drag galleries into the order you like, then tap Done", 3500);
-  let drag = null;
+  // Drag state lives on the grid: the window listeners are wired once, so a second Arrange on the same page must share it.
+  const st = grid._st || (grid._st = {drag:null});
   const move = e => {
-    if(!drag) return;
+    const drag = st.drag; if(!drag) return;
     e.preventDefault();
     const over = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList && el.classList.contains("hall") && el !== drag);
     if(over){ const r = over.getBoundingClientRect(), y = (e.clientY - r.top) / r.height, x = (e.clientX - r.left) / r.width;
       grid.insertBefore(drag, (y > .5 || (y > .2 && x > .5)) ? over.nextSibling : over); }
     if(e.clientY < 70) window.scrollBy(0, -14); else if(e.clientY > innerHeight - 70) window.scrollBy(0, 14);
   };
-  const up = () => { if(drag){ drag.classList.remove("dragging"); drag = null; } };
+  const up = () => { if(st.drag){ st.drag.classList.remove("dragging"); st.drag = null; } };
   if(!grid._wired){ grid._wired = true;
     window.addEventListener("pointermove", move, {passive:false});
     window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
   }
   grid.querySelectorAll(".hall").forEach(h => {
+    if(h._wired) return; h._wired = true;
     h.addEventListener("click", e => { if(grid.classList.contains("arranging")) e.preventDefault(); });
     h.addEventListener("dragstart", e => e.preventDefault());
     h.addEventListener("pointerdown", e => {
       if(!grid.classList.contains("arranging")) return;
-      e.preventDefault(); drag = h; h.classList.add("dragging");
+      e.preventDefault(); st.drag = h; h.classList.add("dragging");
     });
   });
 }
@@ -1647,7 +1901,7 @@ function viewItem(id, host){
   <article class="item">
     <div class="viewer">${photos.length ? `<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div></div>
       ${photos.length > 1 ? `<div class="thumbs">${photos.map((p,n)=>`<button data-n="${n}" class="${n?"":"on"}" aria-label="Photo ${n+1}"><img alt="" data-path="${esc(p.thumb||p.path)}"></button>`).join("")}</div>` : ""}`
-      : `<div class="frame"><div class="matte" style="aspect-ratio:4/3"><div class="placeholder"><div class="em" style="font-size:4rem">${c.icon}</div><div>No photos yet</div></div></div></div>`}
+      : `<div class="frame"><div class="matte" style="aspect-ratio:4/3;min-height:0"><div class="placeholder"><div class="em" style="font-size:4rem">${c.icon}</div><div>No photos yet</div></div></div></div>`}
     </div>
     <div>
       <h1>${it.favorite?'<span class="star">★</span> ':""}${esc(it.title)}</h1>
@@ -1676,6 +1930,7 @@ function viewItem(id, host){
     try{
       cat.items = cat.items.filter(x => x.id !== it.id); await persist();
       for(const m of it.media||[]){ if(m.remote) continue; await store.deleteFile(m.path).catch(()=>{}); if(m.thumb) await store.deleteFile(m.thumb).catch(()=>{}); }
+      for(const d of new Set((it.media||[]).filter(m => !m.remote).map(m => dirOf(m.path)))) store.prune(d).catch(()=>{});
       goHash("#/c/" + c.id);
     }catch(e){ cat.items.push(it); alert(e.message); } finally{ done(); }
   };
@@ -2338,13 +2593,13 @@ function matchSaved(it, opts){
       try{
         const resp = await fetchT(r.cover, {}, 20000), blob = await resp.blob();
         if(!resp.ok || !/^image\//.test(blob.type)){ const e = new Error("no cover"); e.noCover = true; throw e; }
-        const base = "media/" + it.id + "/" + uid();
-        await store.putFile(base + ".jpg", await shrink(blob, 2400, .88)); await store.putFile(base + "_t.jpg", await shrink(blob, 520, .8));
-        it.media.unshift({id:uid(), kind:"photo", name:"cover.jpg", path:base + ".jpg", thumb:base + "_t.jpg"});
+        const nm = tmpMedia(it, {id:uid(), kind:"photo", name:"cover.jpg"}); placeNew(it, [nm]);
+        await store.putFile(nm.path, await shrink(blob, 2400, .88)); await store.putFile(nm.thumb, await shrink(blob, 520, .8));
+        it.media.unshift(nm);
       }catch(e){ if(!e.noCover && /^https:/.test(r.cover)) it.media.unshift({id:uid(), kind:"photo", remote:true, name:"cover", path:r.cover, thumb:r.thumb || r.cover}); }
     }
     it.updated = new Date().toISOString();
-    try{ await persist(); toast("Matched to " + (r.source || "database")); }
+    try{ await persist(); toast("Matched to " + (r.source || "database")); tidyLater([it]); }
     catch(e){ Object.assign(it, JSON.parse(before)); alert(e.message); return; }
     opts.after ? opts.after() : refreshView();
   }, opts);
@@ -2395,15 +2650,15 @@ async function useCover(it, url, thumb, replace, after){
     try{
       const resp = await fetchT(url, {}, 25000), blob = await resp.blob();
       if(!resp.ok || !/^image\//.test(blob.type)) throw new Error("not an image");
-      const base = "media/" + it.id + "/" + uid();
-      await store.putFile(base + ".jpg", await shrink(blob, 2400, .88)); await store.putFile(base + "_t.jpg", await shrink(blob, 520, .8));
-      m = {id:uid(), kind:"photo", name:"cover.jpg", path:base + ".jpg", thumb:base + "_t.jpg"};
+      m = tmpMedia(it, {id:uid(), kind:"photo", name:"cover.jpg"}); placeNew(it, [m]);
+      await store.putFile(m.path, await shrink(blob, 2400, .88)); await store.putFile(m.thumb, await shrink(blob, 520, .8));
     }catch(e){ m = {id:uid(), kind:"photo", remote:true, name:"cover", path:url, thumb:thumb || url}; }
     it.media = it.media || [];
     if(replace && old) it.media = it.media.filter(x => x !== old);
     it.media.unshift(m); it.updated = new Date().toISOString();
     await persist();
     if(replace && old && !old.remote){ store.deleteFile(old.path).catch(()=>{}); if(old.thumb) store.deleteFile(old.thumb).catch(()=>{}); }
+    tidyLater([it]);
     done(); document.getElementById("layer").innerHTML = ""; toast("Cover updated"); after ? after() : refreshView();
   }catch(e){ Object.assign(it, JSON.parse(before)); done(); alert("Couldn't save the cover: " + e.message); }
 }
@@ -2757,9 +3012,11 @@ function viewEdit(id, params, ov){
     const th = await shrink(out, 520, .8), big = await shrink(out, 2400, .88);
     if(p){ p.blob = big; p.thumbBlob = th; URL.revokeObjectURL(p.previewUrl); p.previewUrl = URL.createObjectURL(th); }
     else {
-      // A saved photo gets new file names, so cached links never show the old version; the old files are removed on save.
-      const nid = uid(), base = "media/" + it.id + "/" + nid, nm = {...m, id:nid, path:base + ".jpg", thumb:base + "_t.jpg", remote:undefined};
-      delete nm.remote; it.media[it.media.indexOf(m)] = nm; removed.push(m);
+      // A saved photo keeps its file name and is overwritten on save (cached links are dropped then).
+      // A linked database image becomes a real file of its own.
+      const nm = {...m, id:m.remote ? uid() : m.id}; delete nm.remote;
+      if(m.remote){ tmpMedia(it, nm); nm.name = "cover.jpg"; } else if(!nm.thumb) nm.thumb = nm.path.replace(/\.[a-z0-9]+$/i, "") + "_t.jpg";
+      it.media[it.media.indexOf(m)] = nm; if(m.remote) removed.push(m);
       pending.push({m:nm, blob:big, thumbBlob:th, previewUrl:URL.createObjectURL(th)});
     }
     renderMedia(); toast("Photo updated. Save to keep it.");
@@ -2780,7 +3037,7 @@ function viewEdit(id, params, ov){
     try{
       for(const file of files){
         const mid = uid(), isImg = /^image\//.test(file.type);
-        const base = "media/" + it.id + "/" + mid;
+        const base = "media/tmp/" + mid; // real readable names are given on save, once the title is known
         if(kind === "photo"){
           if(!isImg) continue;
           const full = await shrink(file, 2400, .88), th = await shrink(file, 520, .8);
@@ -2830,14 +3087,17 @@ function viewEdit(id, params, ov){
     }
     const done = busy(pending.length ? "Uploading " + pending.length + " file" + (pending.length>1?"s":"") + "…" : "Saving…");
     try{
-      for(const p of pending){ await store.putFile(p.m.path, p.blob); if(p.thumbBlob) await store.putFile(p.m.thumb, p.thumbBlob); }
+      const fresh = pending.map(p => p.m).filter(m => /^media\/tmp\//.test(m.path));
+      if(fresh.length) placeNew(it, fresh);
+      for(const p of pending){ await store.putFile(p.m.path, p.blob); store.forget(p.m.path); if(p.thumbBlob){ await store.putFile(p.m.thumb, p.thumbBlob); store.forget(p.m.thumb); } }
       it.updated = new Date().toISOString(); it.created = it.created || it.updated;
       const idx = cat.items.findIndex(x => x.id === it.id);
       const before = idx >= 0 ? cat.items[idx] : null;
       if(idx >= 0) cat.items[idx] = it; else cat.items.push(it);
       try{ await persist(); }catch(e){ if(before) cat.items[idx] = before; else cat.items.pop(); throw e; }
-      for(const m of removed){ if(m.remote) continue; store.deleteFile(m.path).catch(()=>{}); if(m.thumb) store.deleteFile(m.thumb).catch(()=>{}); }
-      pending.length = 0;
+      const live = new Set(it.media.flatMap(m => [m.path, m.thumb]));
+      for(const m of removed){ if(m.remote) continue; if(!live.has(m.path)) store.deleteFile(m.path).catch(()=>{}); if(m.thumb && !live.has(m.thumb)) store.deleteFile(m.thumb).catch(()=>{}); }
+      pending.length = 0; tidyLater([it]);
       toast(next ? "Saved “" + it.title + "”" : "Saved");
       goNext(next ? "#/new?c=" + encodeURIComponent(it.collectionId) + (next === "scan" ? "&scan=1" : "") + "&n=" + Date.now() : "#/i/" + it.id, next);
     }catch(e){ alert(e.message); } finally{ done(); }
@@ -2980,7 +3240,15 @@ function viewSettings(){
     <h3 style="font-size:1rem;margin:14px 0 4px">Keep a copy of everything</h3>
     <p><b>Download everything</b> saves one .zip with every piece, every photo and document, a spreadsheet and the app itself, so your collection never depends on Dropbox or this website. Save it to iCloud Drive or a USB stick now and then.</p>
     <div class="actions"><button class="iconbtn primary" id="zipAll">⬇ Download everything (.zip)</button>
-      <label class="iconbtn filebtn">⬆ Restore from download<input type="file" accept=".zip,application/zip" id="zipImp"></label></div></div>
+      <label class="iconbtn filebtn">⬆ Restore from download<input type="file" accept=".zip,application/zip" id="zipImp"></label></div>
+    <p style="font-size:.85rem;color:var(--muted)">${(() => { const d = LS.get("cm.lastZip", ""), days = d ? Math.floor((Date.now() - new Date(d)) / 864e5) : -1;
+      return d ? "Last downloaded on this device " + (days < 1 ? "today" : days === 1 ? "yesterday" : days + " days ago") + "." + (days > 60 ? " Time for a fresh one." : "") : "Not downloaded on this device yet."; })()}</p>
+    ${store.kind === "dropbox" ? `<h3 style="font-size:1rem;margin:14px 0 4px">Daily copies</h3>
+    <p>Each day, before the first change, the app keeps a copy of your catalog in <code>Dropbox/Apps/&lt;your app name&gt;/backups</code> (the last 30 days). If something goes wrong, put an earlier day back.</p>
+    <div class="actions"><button class="iconbtn" id="vers">🕘 Earlier versions</button></div>` : ""}
+    <h3 style="font-size:1rem;margin:14px 0 4px">Readable folders</h3>
+    <p>Photos and documents are filed as <b>media › Gallery › Piece</b> (for example <i>Records › Pink Floyd – The Dark Side of the Moon (1973) › Cover.jpg</i>), so you can find them${store.kind === "dropbox" ? " in Dropbox" : ""} without the app. Renaming a piece moves its folder. Older photos with coded names move over when you tap below.</p>
+    <div class="actions"><button class="iconbtn" id="tidyAll">🗂 Tidy up my ${store.kind === "dropbox" ? "Dropbox " : ""}folders</button></div></div>
   <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p>
     <p style="font-size:.8rem">App version ${APP_VERSION} · <a href="#" id="forceUpd">Check for updates</a></p></div>
   ${store.kind==="local" && !cat.items.length ? `<div class="panel"><h2>Try it out</h2><p>Load a few sample pieces to see how the museum looks. You can delete them anytime.</p><div class="actions"><button class="iconbtn" id="demo">Load samples</button></div></div>` : ""}`;
@@ -3019,7 +3287,8 @@ function viewSettings(){
     const name = $("nc").value.trim(); if(!name) return toast("Name the gallery first.");
     const fields = $("nf").value.split(",").map(s=>s.trim()).filter(Boolean).map(s => ({k:"f_"+uid().slice(-5), l:s.replace(/\*$/,"").trim(), priv:/\*$/.test(s)}));
     cat.collections.push({id:"c_"+uid(), name, icon:$("ni").value.trim()||"📦", maker:$("nm").value.trim()||"Maker", fields});
-    await persist().catch(e=>alert(e.message)); viewSettings(); toast("Gallery added");
+    try{ await persist(); }catch(e){ cat.collections.pop(); return alert(e.message); }
+    viewSettings(); toast("Gallery added");
   };
 
   const saveLookups = async quiet => {
@@ -3050,19 +3319,21 @@ function viewSettings(){
   $("privChk").onchange = e => setPriv(e.target.checked);
   $("csv").onclick = exportCSV;
   $("zipAll").onclick = downloadEverything;
+  if($("vers")) $("vers").onclick = () => showVersions();
+  $("tidyAll").onclick = tidyAll;
   $("zipImp").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) restoreEverything(f); };
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
   $("imp").onchange = async e => {
-    const f = e.target.files[0]; if(!f) return;
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
     try{ const j = JSON.parse(await f.text()); if(!Array.isArray(j.items)) throw new Error("That file isn't a museum backup.");
       if(!confirm(`Replace the current catalog with this backup (${j.items.length} pieces)? Photos are not included in backups.`)) return;
-      cat = j; await persist(); toast("Restored"); location.hash = "#/";
+      await replaceCatalog(j); toast("Restored"); location.hash = "#/";
     }catch(er){ alert(er.message); }
   };
   if($("demo")) $("demo").onclick = async () => { await loadSamples(); location.hash = "#/"; };
 }
 
-function download(blob, name){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+function download(blob, name){ const a = document.createElement("a"), u = URL.createObjectURL(blob); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); }
 // One gallery (in the order you're looking at it) or everything. A single gallery uses its own column names, and private mode leaves out prices, values and private fields.
 function csvBlob(items, g){
   const hide = !!g && priv;
@@ -3156,13 +3427,18 @@ function posterTile(g, L, o, k, bmp){
     g.drawImage(bmp, x + (t - w) / 2, o.style === "shelf" ? y + t - h : y + (t - h) / 2, w, h); }
   g.restore();
 }
-async function posterBitmap(m, big){
-  const path = !big && m.thumb ? m.thumb : m.path;
-  const blob = /^https?:\/\//.test(path) ? await fetchT(path, {}, 15000).then(r => { if(!r.ok) throw 0; return r.blob(); })
-    : (await store.getBlob(path)) || (store.url ? await fetch(await store.url(path)).then(r => r.blob()) : null);
-  return createImageBitmap(blob);
+async function posterBlob(path){
+  if(/^https?:\/\//.test(path)) return fetchT(path, {}, 15000).then(r => { if(!r.ok) throw 0; return r.blob(); });
+  const b = await store.getBlob(path); if(b) return b;
+  const u = store.url ? await store.url(path) : null; if(!u) throw 0;
+  const r = await fetch(u); if(!r.ok) throw 0; return r.blob();
 }
-async function eachLimit(n, f){ let next = 0; await Promise.all(Array.from({length: Math.min(6, n)}, async () => { while(next < n) await f(next++); })); }
+async function posterBitmap(m, big){
+  if(!m) throw 0;
+  if(!big && m.thumb){ try{ return await createImageBitmap(await posterBlob(m.thumb)); }catch{} }   // no thumbnail? use the full photo
+  return createImageBitmap(await posterBlob(m.path));
+}
+async function eachLimit(n, f, lim = 6){ let next = 0; await Promise.all(Array.from({length: Math.min(lim, n)}, async () => { while(next < n) await f(next++); })); }
 function posterBuilder(c, items, back){
   const L0 = document.getElementById("layer"), n = items.length, day = new Date().toISOString().slice(0,10);
   const o = Object.assign({bg:"char", layout:"auto", gap:"1", shape:"fit", style:"flat"}, LS.get("posterOpts", {}));
@@ -3192,18 +3468,34 @@ function posterBuilder(c, items, back){
   document.querySelectorAll("[data-po]").forEach(b => b.onclick = () => { o[b.dataset.po] = b.dataset.v; LS.set("posterOpts", o);
     document.querySelectorAll(`[data-po="${b.dataset.po}"]`).forEach(x => x.classList.toggle("on", x === b)); redraw(); });
   ro.observe(cv.parentNode);
-  draw(); msg.textContent = `Loading covers… 0 of ${n}`;
-  eachLimit(n, async k => { if(!alive) return; try{ bm[k] = await posterBitmap(cover(items[k]), false); }catch{}
-    if(!alive){ bm[k] && bm[k].close && bm[k].close(); return; }
-    loaded++; msg.textContent = loaded < n ? `Loading covers… ${loaded} of ${n}` : ""; redraw(); });
+  const missing = () => { let m = 0; for(let k = 0; k < n; k++) if(!bm[k] && cover(items[k])) m++; return m; };
+  const loadOne = async k => { if(!alive || bm[k]) return; try{ bm[k] = await posterBitmap(cover(items[k]), false); }catch{}
+    if(!alive){ bm[k] && bm[k].close && bm[k].close(); bm[k] = null; } };
+  const loadAll = async () => {
+    loaded = 0; const todo = [...Array(n).keys()].filter(k => !bm[k]), t = todo.length;
+    msg.textContent = `Loading covers… 0 of ${t}`;
+    await eachLimit(t, async i => { await loadOne(todo[i]); if(!alive) return; loaded++; if(loaded < t) msg.textContent = `Loading covers… ${loaded} of ${t}`; redraw(); }, 3);
+    if(!alive) return;
+    const retry = [...Array(n).keys()].filter(k => !bm[k] && cover(items[k]));   // second, gentler pass for any that failed
+    if(retry.length){ msg.textContent = `Retrying ${retry.length} ${retry.length === 1 ? "cover" : "covers"}…`; await new Promise(r => setTimeout(r, 1500));
+      await eachLimit(retry.length, async i => { await loadOne(retry[i]); redraw(); }, 2); }
+    if(!alive) return;
+    const m = missing();
+    if(m){ msg.innerHTML = `${m} ${m === 1 ? "cover" : "covers"} didn't load. <a href="#" id="poRetry" style="color:inherit;text-decoration:underline">Try again</a>`;
+      document.getElementById("poRetry").onclick = e => { e.preventDefault(); loadAll(); }; }
+    else msg.textContent = "";
+    redraw(); };
+  draw(); loadAll();
   document.getElementById("poSave").onclick = async () => {
+    const m = missing();
+    if(m && !confirm(`${m} ${m === 1 ? "cover hasn't" : "covers haven't"} loaded and will show as grey squares. Save anyway?`)) return;
     const L = posterLayout(n, o), big = L.tile > 230, out = document.createElement("canvas"); out.width = L.W; out.height = L.H;
     const g = out.getContext("2d"); posterBase(g, L, o);
     const pb = progressBox("Making your poster…"); let done = 0;
     try{
       await eachLimit(n, async k => { let b = big || !bm[k] ? null : bm[k];
         if(!b){ try{ b = await posterBitmap(cover(items[k]), big); }catch{ b = bm[k]; } }
-        posterTile(g, L, o, k, b); if(b && b !== bm[k] && b.close) b.close(); pb.set(`Making your poster… ${++done} of ${n}`); });
+        posterTile(g, L, o, k, b); if(b && b !== bm[k] && b.close) b.close(); pb.set(`Making your poster… ${++done} of ${n}`); }, 3);
       const blob = await new Promise((res, rej) => out.toBlob(b => b ? res(b) : rej(new Error("the image is too large")), "image/jpeg", .92));
       download(blob, fileSafe(c.name) + "-" + poOpt(o,"layout").k + "-" + day + ".jpg");
     }catch(e){ alert("Couldn't make the poster: " + e.message); }
@@ -3266,7 +3558,9 @@ async function downloadEverything(){
       pb.set(`Copying photos and documents… ${++n} of ${media.length}`);
       if(m.remote){ // linked from a database: save a real copy so the backup doesn't depend on that website
         try{ const r = await fetchT(m.path, {}, 15000), b = await r.blob(); if(!r.ok || !/^image\//.test(b.type)) throw 0;
-          const path = "media/" + i.id + "/" + m.id + ".jpg"; entries.push({name:path, blob:b}); seen.add(path);
+          const nm = {id:m.id, kind:m.kind, name:"cover.jpg", path:"media/tmp/" + m.id + ".jpg"};
+          planItem({...i, media:i.media.filter(x => !x.remote).concat(nm)}, folderOwners(snap.items.filter(x => x.id !== i.id)), new Set([nm]));
+          const path = nm.path; entries.push({name:path, blob:b}); seen.add(path);
           m.path = path; delete m.thumb; delete m.remote; }
         catch(e){ /* keep the link */ }
         continue;
@@ -3285,7 +3579,7 @@ async function downloadEverything(){
       "Your collection museum - full backup made " + new Date().toLocaleString(),
       "",
       "catalog.json     every piece, gallery, note and setting",
-      "media/           every photo, COA and document (same folders the app uses)",
+      "media/           every photo, COA and document, filed as Gallery / Piece (same folders the app uses)",
       "collection.csv   the same list as a spreadsheet (opens in Excel / Numbers / Google Sheets)",
       "museum-app.html  the app itself",
       "",
@@ -3297,7 +3591,7 @@ async function downloadEverything(){
     pb.set("Packing the zip…");
     const zip = await makeZip(entries);
     pb.done();
-    download(zip, "museum-backup-" + new Date().toISOString().slice(0,10) + ".zip");
+    download(zip, "museum-backup-" + new Date().toISOString().slice(0,10) + ".zip"); LS.set("cm.lastZip", new Date().toISOString());
     toast(`Backup ready: ${snap.items.length} pieces, ${(zip.size/1048576).toFixed(1)} MB` + (missing ? ` (${missing} file${missing===1?"":"s"} couldn't be read)` : ""));
   }catch(e){ pb.done(); alert("Couldn't make the backup: " + e.message); }
 }
@@ -3313,10 +3607,45 @@ async function restoreEverything(file){
     const pb2 = progressBox("Restoring…"); let n = 0;
     try{
       for(const e of files){ pb2.set(`Restoring photos and documents… ${++n} of ${files.length}`); await store.putFile(e.name, await e.read()); }
-      pb2.set("Restoring the catalog…"); cat = j; await persist();
+      pb2.set("Restoring the catalog…"); await replaceCatalog(j);
     } finally { pb2.done(); }
     toast("Restored"); location.hash = "#/";
   }catch(e){ pb.done(); alert(e.message); }
+}
+
+/* Earlier versions: the daily copies in Dropbox backups/, newest first. */
+async function showVersions(){
+  const L = document.getElementById("layer"), b = busy("Looking for earlier versions…");
+  let list; try{ list = await store.listSnapshots(); }catch(e){ b(); return alert("Couldn't list the earlier versions: " + e.message); } b();
+  const label = e => { const m = e.name.match(/(\d{4}-\d\d-\d\d)/), d = m ? new Date(m[1] + "T12:00:00") : new Date(e.server_modified);
+    return d.toLocaleDateString(undefined, {weekday:"short", year:"numeric", month:"short", day:"numeric"}) + (/before-restore/.test(e.name) ? " · before a restore" : ""); };
+  L.innerHTML = `<div class="lightbox" id="vq" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" role="dialog" aria-labelledby="vqH" style="width:100%;max-width:560px;max-height:88vh;overflow:auto;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 id="vqH">🕘 Earlier versions</h2><button class="iconbtn" id="vqX" aria-label="Close">✕</button></div>
+    <p>Each copy is your catalog as it was at the start of that day. Putting one back replaces the current catalog; the current one is kept here first, so you can always undo it.</p>
+    ${list.length ? `<div class="docs" style="margin:10px 0">${list.map((e,n) => `<div class="doc" style="cursor:default"><span class="grow" style="white-space:normal"><b>${esc(label(e))}</b><br><small style="color:var(--muted)">${Math.max(1, Math.round(e.size/1024))} KB</small></span>
+      <button type="button" class="iconbtn" data-v="${n}" style="white-space:nowrap">Put back</button></div>`).join("")}</div>`
+      : `<p class="empty" style="padding:18px 0">No copies yet. The first one is made the next time you change something.</p>`}
+  </div></div>`;
+  const close = () => { L.innerHTML = ""; };
+  document.getElementById("vqX").onclick = close;
+  document.getElementById("vq").onclick = e => { if(e.target.id === "vq") close(); };
+  L.querySelectorAll("[data-v]").forEach(btn => btn.onclick = async () => {
+    const e = list[+btn.dataset.v], done = busy("Opening that copy…");
+    try{
+      const blob = await store.getBlob(e.path_lower.slice(1)); if(!blob) throw new Error("Couldn't download that copy.");
+      const j = JSON.parse(await blob.text()); if(!Array.isArray(j.items)) throw new Error("That copy is damaged.");
+      done();
+      const now = cat && cat.items ? cat.items.length : null;
+      if(!confirm(`Put back the catalog from ${label(e)}? It has ${j.items.length} piece${j.items.length===1?"":"s"}` + (now != null ? ` (you have ${now} now)` : "") + ". Photos added since then stay in Dropbox but won't show on any piece.")) return;
+      const d2 = busy("Putting it back…");
+      try{
+        if(cat){ const stamp = new Date().toISOString().replace(/[:.]/g,"-").slice(0,19);
+          await store.upload("/backups/catalog-before-restore-" + stamp + ".json", new Blob([JSON.stringify(cat, null, 1)], {type:"application/json"}), "add"); }
+        if(cat) await replaceCatalog(j); else { cat = j; await persist(); }
+      } finally { d2(); }
+      LS.set("cm.flash", "Put back the catalog from " + label(e)); location.hash = "#/"; location.reload();
+    }catch(er){ done(); alert(er.message); }
+  });
 }
 
 function viewStats(){
@@ -3465,7 +3794,8 @@ function viewGallery(id){
     if(orig.lookup === "comic" && !orig.comicSetup){ orig.comicSetup = 1; const norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
       const add = COMIC_FIELDS.filter(f => !orig.fields.some(x => norm(x.l) === norm(f.l) || x.k === f.k)).map(f => JSON.parse(JSON.stringify(f)));
       const iss = add.find(f => f.k === "issue"); orig.fields = (iss ? [iss] : []).concat(orig.fields, add.filter(f => f.k !== "issue")); }
-    try{ await persist(); toast("Gallery saved"); location.hash = "#/c/" + id; }
+    try{ await persist(); toast("Gallery saved"); location.hash = "#/c/" + id;
+      if(JSON.parse(backup).c.name !== orig.name) tidyGallery(cat.items.filter(i => i.collectionId === id)); }
     catch(er){ const b = JSON.parse(backup); Object.assign(orig, b.c); b.items.forEach(bi => { const ix = cat.items.findIndex(i=>i.id===bi.id); if(ix>=0) cat.items[ix] = bi; }); alert(er.message); }
   };
 }
@@ -3582,8 +3912,11 @@ async function boot(){
         await store.save(cat);
       }
       if(justConnected) toast("Connected to Dropbox");
+      store.snapshot().catch(() => {});
     }catch(e){
-      app.innerHTML = `<div class="panel"><h2>Couldn't reach Dropbox</h2><p>${esc(e.message)}</p><div class="actions"><button class="iconbtn primary" onclick="location.reload()">Try again</button><a class="iconbtn" href="#/settings" onclick="setTimeout(()=>location.reload())">Settings</a></div></div>`;
+      const damaged = e instanceof SyntaxError;
+      app.innerHTML = `<div class="panel"><h2>${damaged ? "Your catalog file looks damaged" : "Couldn't reach Dropbox"}</h2><p>${damaged ? "The app couldn't read <code>catalog.json</code> in your Dropbox. You can put back a copy from an earlier day." : esc(e.message)}</p><div class="actions"><button class="iconbtn primary" onclick="location.reload()">Try again</button>${damaged ? `<button class="iconbtn" id="bootVers">🕘 Earlier versions</button>` : ""}<a class="iconbtn" href="#/settings" onclick="setTimeout(()=>location.reload())">Settings</a></div></div>`;
+      if(damaged) document.getElementById("bootVers").onclick = () => showVersions();
       if(!LS.get("cm.dropbox", null)) LS.set("cm.mode","local");
       return;
     }
@@ -3610,10 +3943,31 @@ async function boot(){
       // Slot it in after the field that comes before it in the preset (e.g. Vinyl color right after Format).
       const after = n ? c.fields.findIndex(x => x.k === p.fields[n-1].k) : -1;
       c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f))); } } }); });
+  // The upgrades above are the same on every device, so count them as the starting point when merging with another device's changes.
+  if(store.kind === "dropbox" && store.base) store.base = JSON.stringify(cat, null, 1);
   setBrand();
   window.addEventListener("hashchange", route);
   route();
+  const flash = LS.get("cm.flash", ""); if(flash){ LS.del("cm.flash"); toast(flash, 3500); }
 }
+/* Coming back to the app (e.g. the phone after adding pieces on the computer): pick up changes made elsewhere.
+   Skipped while a form, pop-up or gallery walk is open so nothing in progress is disturbed. */
+let lastFresh = 0;
+async function refreshFromDropbox(){
+  if(!store || store.kind !== "dropbox" || !cat || Date.now() - lastFresh < 20000) return;
+  if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) return;
+  lastFresh = Date.now();
+  try{
+    const meta = await store.rpc("files/get_metadata", {path:"/catalog.json"});
+    if(meta.rev === store.rev) return;
+    const oldRev = store.rev, oldBase = store.base;
+    const fresh = await store.load(), undo = () => { store.rev = oldRev; store.base = oldBase; }; // next save then merges instead
+    if(!fresh || !Array.isArray(fresh.items)) return undo();
+    if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) return undo();
+    const y = scrollY; cat = fresh; setBrand(); route(); scrollTo(0, y);
+  }catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") refreshFromDropbox(); });
 boot();
 setTimeout(() => checkUpdate(false), 1500);
 setTimeout(() => { if(cat) autoSyncBGG(); }, 2500);
