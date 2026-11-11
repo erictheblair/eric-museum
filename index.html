@@ -817,7 +817,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.11.2";
+const APP_VERSION = "2026.11.11.3";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1063,7 +1063,7 @@ class DropboxStore {
       await new Promise(r => setTimeout(r, Math.min(500 * 1.4 ** w, 4000)));
       j = await this.rpc("files/save_url/check_job_status", {async_job_id:id});
     }
-    if(j[".tag"] !== "complete") throw new Error("Dropbox couldn't fetch that picture");
+    if(j[".tag"] !== "complete"){ const f = ((j.failed || {})[".tag"] || j[".tag"] || "").replace(/_/g, " "); throw new Error(f ? "Dropbox said: " + f : "Dropbox couldn't fetch that picture"); }
     this.links.delete(path);
   }
   // Removes folders under (and including) dir that hold no files any more. Never removes media/ itself.
@@ -1281,10 +1281,14 @@ async function keepOnlineCovers(items, progress){
   }
   let saved = 0, failed = 0, done = 0;
   await eachLimit(jobs.length, async k => { const {m, nm} = jobs[k];
-    try{ await store.saveUrl(nm.path, m.path); m.path = nm.path; m.name = nm.name; delete m.thumb; delete m.remote; saved++; }
-    catch(e){ failed++; }
+    try{ try{ await store.saveUrl(nm.path, m.path); }
+      catch(e){ // Dropbox couldn't fetch it: try from here, which works for sites that share their images
+        let blob = null; try{ const r = await fetchT(m.path, {}, 15000); if(r.ok){ const x = await r.blob(); if(/^image\//.test(x.type)) blob = x; } }catch{}
+        if(!blob) throw e; await store.putFile(nm.path, blob); }
+      m.path = nm.path; m.name = nm.name; delete m.thumb; delete m.remote; delete m.saveErr; saved++; }
+    catch(e){ failed++; m.saveErr = e.message || "failed"; }
     if(progress) progress(++done, jobs.length); }, 3);
-  if(saved) await persist();
+  if(saved || failed) await persist();
   return {saved, failed, total:jobs.length};
 }
 async function keepAllCovers(after){
@@ -1294,9 +1298,26 @@ async function keepAllCovers(after){
   try{
     const r = await keepOnlineCovers(items, (k, t) => pb.set(`Saving covers to your Dropbox… ${k} of ${t}`));
     pb.done();
-    alert(`Saved ${r.saved} cover${r.saved === 1 ? "" : "s"} into your Dropbox folders.` + (r.failed ? `\n\n${r.failed} couldn't be fetched (the website may have moved or removed the picture). Those pieces still show the online link; you can add your own photo instead.` : ""));
+    if(r.failed){ if(after) after(); return showOnlineCovers(`Saved ${r.saved} cover${r.saved === 1 ? "" : "s"} into your Dropbox folders. ${r.failed === 1 ? "This one" : "These " + r.failed} couldn't be fetched:`); }
+    alert(`Saved ${r.saved} cover${r.saved === 1 ? "" : "s"} into your Dropbox folders.`);
   }catch(e){ pb.done(); alert("Couldn't finish saving covers: " + e.message); }
   if(after) after();
+}
+// Lists the pieces whose cover is still only a link to a website, with why Dropbox couldn't fetch it.
+function showOnlineCovers(intro){
+  const L = document.getElementById("layer"), list = cat.items.filter(i => onlineCovers(i).length)
+    .sort((a, b) => coll(a.collectionId).name.localeCompare(coll(b.collectionId).name) || String(a.maker || "").localeCompare(String(b.maker || "")) || String(a.title || "").localeCompare(String(b.title || "")));
+  const site = u => { try{ return new URL(u).hostname.replace(/^www\./, ""); }catch{ return "a website"; } };
+  L.innerHTML = `<div class="lightbox" id="ocq" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" role="dialog" aria-labelledby="ocH" style="width:100%;max-width:560px;max-height:88vh;overflow:auto;margin:0;border-radius:16px 16px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 id="ocH">☁ Covers not in Dropbox</h2><button class="iconbtn" id="ocX" aria-label="Close">✕</button></div>
+    <p>${esc(intro || `${list.length} piece${list.length === 1 ? "'s cover is" : "s' covers are"} still only a link to a website:`)} Open a piece to take or add your own photo, or use <b>Look up</b> on its edit page to find a different cover.</p>
+    ${list.length ? `<div class="docs" style="margin:10px 0">${list.map(i => { const m = onlineCovers(i)[0];
+      return `<a class="doc" href="#/i/${esc(i.id)}"><span class="grow" style="white-space:normal"><b>${esc(i.title || "Untitled")}</b>${i.maker ? " · " + esc(i.maker) : ""}<br><small style="color:var(--muted)">${esc(coll(i.collectionId).icon + " " + coll(i.collectionId).name)} · from ${esc(site(m.path))}${m.saveErr ? " · " + esc(m.saveErr) : ""}</small></span><span aria-hidden="true">›</span></a>`; }).join("")}</div>`
+      : `<p class="empty" style="padding:18px 0">Every cover is saved in your Dropbox.</p>`}
+  </div></div>`;
+  const close = () => { L.innerHTML = ""; };
+  document.getElementById("ocX").onclick = close;
+  document.getElementById("ocq").onclick = e => { if(e.target.id === "ocq" || e.target.closest("a.doc")) close(); };
 }
 
 function setPriv(v){
@@ -3295,7 +3316,7 @@ function viewSettings(){
     <div class="actions"><button class="iconbtn" id="vers">🕘 Earlier versions</button></div>` : ""}
     <h3 style="font-size:1rem;margin:14px 0 4px">Readable folders</h3>
     <p>Photos and documents are filed as <b>media › Gallery › Piece</b> (for example <i>Records › Pink Floyd – The Dark Side of the Moon (1973) › Cover.jpg</i>), so you can find them${store.kind === "dropbox" ? " in Dropbox" : ""} without the app. Renaming a piece moves its folder. Older photos with coded names move over when you tap below.</p>
-    <div class="actions">${store.kind === "dropbox" ? `<button class="iconbtn" id="keepCov">☁ Save online covers to Dropbox</button>` : ""}<button class="iconbtn" id="tidyAll">🗂 Tidy up my ${store.kind === "dropbox" ? "Dropbox " : ""}folders</button></div></div>
+    <div class="actions">${store.kind === "dropbox" ? `<button class="iconbtn" id="keepCov">☁ Save online covers to Dropbox</button>${(() => { const n = cat.items.filter(i => onlineCovers(i).length).length; return n ? `<button class="iconbtn" id="listCov">🔎 Which covers aren't saved (${n})</button>` : ""; })()}` : ""}<button class="iconbtn" id="tidyAll">🗂 Tidy up my ${store.kind === "dropbox" ? "Dropbox " : ""}folders</button></div></div>
   <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p>
     <p style="font-size:.8rem">App version ${APP_VERSION} · <a href="#" id="forceUpd">Check for updates</a></p></div>
   ${store.kind==="local" && !cat.items.length ? `<div class="panel"><h2>Try it out</h2><p>Load a few sample pieces to see how the museum looks. You can delete them anytime.</p><div class="actions"><button class="iconbtn" id="demo">Load samples</button></div></div>` : ""}`;
@@ -3369,6 +3390,7 @@ function viewSettings(){
   if($("vers")) $("vers").onclick = () => showVersions();
   $("tidyAll").onclick = tidyAll;
   if($("keepCov")) $("keepCov").onclick = () => keepAllCovers(route);
+  if($("listCov")) $("listCov").onclick = () => showOnlineCovers();
   $("zipImp").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) restoreEverything(f); };
   $("json").onclick = () => download(new Blob([JSON.stringify(cat,null,1)],{type:"application/json"}), "collection-backup-" + new Date().toISOString().slice(0,10) + ".json");
   $("imp").onchange = async e => {
@@ -3535,7 +3557,7 @@ function posterBuilder(c, items, back){
       if(web) document.getElementById("poKeep").onclick = async e => { e.preventDefault();
         const ks = items.filter((it, k) => !bm[k] && onlineCovers(it).length), pb = progressBox("Saving covers to your Dropbox…");
         try{ const r = await keepOnlineCovers(ks, (k, t) => pb.set(`Saving covers to your Dropbox… ${k} of ${t}`)); pb.done();
-          if(r.failed) toast(`${r.failed} ${r.failed === 1 ? "cover" : "covers"} couldn't be fetched from the website`, 4000); }
+          if(r.failed) toast(`${r.failed} ${r.failed === 1 ? "cover" : "covers"} couldn't be fetched. Settings › Which covers aren't saved lists them.`, 5000); }
         catch(err){ pb.done(); alert("Couldn't finish saving covers: " + err.message); }
         if(alive) loadAll(); }; }
     else msg.textContent = "";
