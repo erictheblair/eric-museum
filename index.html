@@ -664,6 +664,10 @@ body.wallmode #fsc{display:none}
 /* Edit collection: drag handle for reordering fields */
 .grip{border:0;background:none;color:var(--muted);font-size:1.25rem;line-height:1;padding:6px 4px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .frow.dragging{opacity:.6;background:var(--surface);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* Search: how the words match (all / any / exact phrase) */
+.smodes{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 0;font-size:.82rem;color:var(--muted)}
+.smodes button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 10px;font:inherit;cursor:pointer}
+.smodes button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 /* Personnel list on a piece */
 .personnel{margin-top:20px}.personnel summary{cursor:pointer;list-style:none}.personnel summary::-webkit-details-marker{display:none}
 .credits{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:4px}.credits li{font-size:.92rem}.credits li span{color:var(--muted);font-size:.85rem}
@@ -864,7 +868,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.16";
+const APP_VERSION = "2026.11.12.17";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1589,13 +1593,35 @@ function fuzzyHas(hay, w){
   if(wj.length < 4) return false;
   return hay.split(/[^a-z0-9]+/).some(h => Math.abs(h.length - wj.length) <= 1 && osaDist(h, wj) <= 1);
 }
-function matches(it, q){
-  if(!q) return true;
+/* Search matches whole words, so "Jack White" doesn't find "jacket" + "White Silver Sands".
+   How words combine: all of them (default), any of them, or the exact phrase. Chosen under the search box; remembered on this device.
+   The last word may be the start of a word (so results show while you type), and "beat down" still finds "Beatdown".
+   Only when nothing matches exactly does it allow one typo per word. */
+let searchMode = LS.get("cm.smode", "all");
+const SEARCH_MODES = [["all","All words"],["any","Any word"],["phrase","Exact phrase"]];
+const normWords = t => String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/['’]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+function searchHay(it){
   const c = coll(it.collectionId);
-  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.credits||[]).map(x => x.n), ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
-    ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" ").toLowerCase();
-  return q.toLowerCase().split(/\s+/).filter(Boolean).every(w => fuzzyHas(hay, w));
+  return normWords([it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.credits||[]).map(x => x.n), ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
+    ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" "));
 }
+function matches(it, q, fuzzy){
+  if(!q) return true;
+  const qw = normWords(q); if(!qw.length) return true;
+  const hw = searchHay(it), line = " " + hw.join(" ") + " ";
+  if(searchMode === "phrase") return line.includes(" " + qw.join(" ") + " ") || (fuzzy && line.replace(/ /g, "").includes(qw.join("")));
+  const set = new Set(hw), last = qw.length - 1, open = !/\s$/.test(q);
+  const hit = (w, n) => set.has(w) || (w.length > 2 && /s$/.test(w) && set.has(w.slice(0, -1))) || set.has(w + "s") || set.has(w + "es")
+    || (n === last && open && hw.some(h => h.startsWith(w)))
+    || (fuzzy && w.length >= 4 && hw.some(h => Math.abs(h.length - w.length) <= 1 && osaDist(h, w) <= 1));
+  // "beat down" = "Beatdown", "ac dc" = "AC/DC"
+  if(qw.length > 1 && hw.some(h => h === qw.join(""))) return true;
+  return searchMode === "any" ? qw.some(hit) : qw.every(hit);
+}
+// Strict first; only if that finds nothing, allow a typo per word.
+function searchItems(list, q){ if(!q) return list; const l = list.filter(i => matches(i, q)); return l.length ? l : list.filter(i => matches(i, q, true)); }
+const searchModeBar = q => q ? `<div class="smodes noprint" role="group" aria-label="How to match the words"><span>Match</span>${SEARCH_MODES.map(([k, l]) => `<button type="button" data-smode="${k}" class="${searchMode === k ? "on" : ""}" aria-pressed="${searchMode === k}">${l}</button>`).join("")}</div>` : "";
+document.addEventListener("click", e => { const b = e.target.closest("[data-smode]"); if(!b) return; searchMode = b.dataset.smode; LS.set("cm.smode", searchMode); const y = scrollY; route(); scrollTo(0, y); });
 const conditionList = () => CONDITIONS.concat(((cat && cat.settings)||{}).conditions || []);
 const condRank = c => { const i = conditionList().findIndex(x => x.toLowerCase() === String(c||"").toLowerCase()); return i < 0 ? (c ? 50 : 99) : i; };
 const sortKey = t => String(t||"").replace(/^(the|a|an)\s+/i, "").trim();
@@ -1709,13 +1735,13 @@ function viewHome(params){
   const counts = {}; cat.items.forEach(i => counts[i.collectionId] = (counts[i.collectionId]||0) + 1);
   const total = cat.items.reduce((s,i)=> s + (+i.value||0), 0);
   const halls = cat.arranged ? cat.collections : cat.collections.filter(c => counts[c.id]).concat(cat.collections.filter(c => !counts[c.id]));
-  const results = q ? sortItems(cat.items.filter(i => matches(i,q)), "title") : null;
+  const results = q ? sortItems(searchItems(cat.items, q), "title") : null;
   const favs = cat.items.filter(i => i.favorite).slice(0, 12);
   const recent = sortItems(cat.items, "recent").slice(0, 12);
   paint(`${modeBanner()}
   <section class="hero"><h1>${esc(cat.title || "The Museum")}</h1>
     <p>A private museum of things worth keeping.</p>
-    <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>
+    <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>${searchModeBar(q)}
     <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${Object.keys(counts).length}</b>collections</span>
       ${priv ? "" : `<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}${cat.items.length ? `<span class="homebtns"><a class="wallbtn" href="#/ask">💬 Ask</a><a class="wallbtn" href="#/stats">📊 Stats</a></span>` : ""}</div>
   </section>
@@ -1741,7 +1767,7 @@ function viewHall(id, params){
   document.title = c.name + " · " + (cat.title||"The Museum");
   const all = cat.items.filter(i => i.collectionId === id);
   const tags = [...new Set(all.flatMap(i => i.tags||[]))].sort();
-  const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
+  const list = sortItems(searchItems(all, q).filter(i => (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
     && (!cond || (i.condition||"") === cond) && Object.entries(fsel).every(([k,v]) => ((i.fields||{})[k]||"") === v)), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
   if(sort === "maker" && lookupKind(c) === "music"){ const h0 = location.hash; fillMakerSort(all, () => { if(location.hash === h0 && scrollY < 300 && !pieceOv) route(); }); }
@@ -1771,7 +1797,7 @@ function viewHall(id, params){
     <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
     <form class="search" id="sf">${searchBox("Search " + c.name.toLowerCase() + "…", q)}
       <select name="sort" aria-label="Sort">${sorts.map(([v,l])=>`<option value="${v}" ${v===sort?"selected":""}>Sort: ${esc(l)}</option>`).join("")}</select>
-      <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>
+      <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>${searchModeBar(q)}
     ${showFilters ? `<div class="filters" id="filt">
       ${conds.length ? `<label>Condition<select data-p="cond"><option value="">Any</option>${conds.map(v=>`<option ${v===cond?"selected":""}>${esc(v)}</option>`).join("")}</select></label>` : ""}
       ${ffields.map(({f,vals}) => `<label>${esc(f.l)}<select data-p="f.${f.k}"><option value="">Any</option>${vals.map(v=>`<option ${v===fsel[f.k]?"selected":""}>${esc(v)}</option>`).join("")}</select></label>`).join("")}
@@ -4283,9 +4309,9 @@ function askAnswer(raw){
 
   // ---- 0. Tidy the wording: fix small typos in question words, join common phrases ----
   const DICT = [...new Set([...ASK_ITEM, ...ASK_SONG, ...Object.keys(ASK_GROUP), ...ASK_MAKER, ...ASK_MEASURE.flatMap(m => m[1]), ...ASK_LOW, ...ASK_HIGH,
-    "average","percent","percentage","multiple","several","without","missing","between","before","after","since","different","unique","common","popular","listings","listing",
+    "average","percent","percentage","multiple","several","play","plays","played","playing","plays","appear","appears","feature","features","featuring","sings","sang","without","missing","between","before","after","since","different","unique","common","popular","listings","listing",
     ...cat.collections.flatMap(c => nk(c.name).split(" "))])];
-  const catWords = new Set(); cat.items.forEach(i => [i.title, i.maker, i.condition, i.location, ...Object.values(i.fields||{}), ...(i.tags||[])].forEach(v => nk(v).split(" ").forEach(w => w && catWords.add(w))));
+  const catWords = new Set(); cat.items.forEach(i => [i.title, i.maker, i.condition, i.location, ...(i.credits||[]).map(c => c.n), ...Object.values(i.fields||{}), ...(i.tags||[])].forEach(v => nk(v).split(" ").forEach(w => w && catWords.add(w))));
   const lev = (a, b) => { const d = Array.from({length:a.length + 1}, (_, i) => [i]); for(let j = 1; j <= b.length; j++) d[0][j] = j;
     for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++){ d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
       if(i > 1 && j > 1 && a[i-1] === b[j-2] && a[i-2] === b[j-1]) d[i][j] = Math.min(d[i][j], d[i-2][j-2] + 1); } return d[a.length][b.length]; };
@@ -4360,16 +4386,20 @@ function askAnswer(raw){
 
   // Artists / makers named in the question ("Pink Floyd", "the Beatles", just "Floyd")
   const mkMap = new Map(); items.forEach(i => { const k = nk(i.maker); if(k && !/^various/.test(k)) mkMap.set(k, i.maker); });
-  const lastCount = {}; [...mkMap.keys()].forEach(k => { const l = k.split(" ").pop(); lastCount[l] = (lastCount[l]||0) + 1; });
+  // People in a piece's Personnel count too ("albums Jack White appears on", "records Ringo Starr plays on")
+  const credMap = new Map(); items.forEach(i => (i.credits||[]).forEach(c => { const k = nk(c.n); if(k && k.length >= 4 && !mkMap.has(k)){ credMap.set(k, c.n); mkMap.set(k, c.n); } }));
+  const byPerson = ks => i => ks.some(k => (" " + nk(i.maker) + " ").includes(" " + k + " ")) || (i.credits||[]).some(c => ks.includes(nk(c.n)));
+  const lastCount = {}, firstCount = {}; [...mkMap.keys()].forEach(k => { const l = k.split(" ").pop(), f = k.split(" ")[0]; lastCount[l] = (lastCount[l]||0) + 1; firstCount[f] = (firstCount[f]||0) + 1; });
   const mkAliases = [...mkMap.keys()].flatMap(k => { const out = [k]; if(k.startsWith("the ") && k.length > 8) out.push(k.slice(4));
     const l = k.split(" ").pop(); if(k.includes(" ") && l.length >= 5 && lastCount[l] === 1 && !mkMap.has(l)) out.push(l);
+    const f0 = k.split(" ")[0]; if(credMap.has(k) && k.split(" ").length === 2 && f0.length >= 5 && firstCount[f0] === 1 && !mkMap.has(f0)) out.push(f0);   // "Ringo" for Ringo Starr
     const ws = k.split(" "); if(ws.length >= 3) for(let n = 2; n < ws.length; n++){ const pre = ws.slice(0, n).join(" "); if(pre.length >= 6 && ![...mkMap.keys()].some(o => o !== k && o.startsWith(pre))) out.push(pre); } return out.filter(okAlias).map(a => [a, k]); }).sort((a, b) => b[0].length - a[0].length);
   const makersHit = []; mkAliases.forEach(([a, k]) => { if(hasR(a) && !makersHit.includes(k)){ take(a); makersHit.push(k); } });
 
   // Songs named in the question ("which records have the song Money", "is Dreams on any of my records")
   const songish = any(ASK_SONG) || / (is|was) .+ on /.test(q) || / on (any|which|what|my) /.test(q) || / appears? on /.test(q);
   if(songish && !any("longest","shortest","length","average")){
-    const scopeItems = makersHit.length ? items.filter(i => makersHit.includes(nk(i.maker))) : items;
+    const scopeItems = makersHit.length ? items.filter(byPerson(makersHit)) : items;
     const tmap = new Map(); scopeItems.forEach(i => (i.tracks||[]).forEach(t => { if(t.h || !t.t) return; const full = nk(t.t), short = nk(t.t.replace(/\s*[\(\[].*?[\)\]]\s*/g, " "));
       [...new Set([full, short])].forEach(a => { if(okAlias(a) && a.length >= 4) (tmap.get(a) || tmap.set(a, []).get(a)).push({t, i}); }); }));
     // "the song Money": a song name right after song/track counts even if it's an everyday word
@@ -4439,11 +4469,11 @@ function askAnswer(raw){
 
   // Apply artist / title / value / date filters. "A or B" questions keep both sides apart for comparing.
   const valByKey = {}; valHits.forEach(h => (valByKey[h.key] = valByKey[h.key] || []).push(h));
-  const compareSides = compareQ && makersHit.length >= 2 ? makersHit.map(k => ({name:mkMap.get(k), f:i => nk(i.maker) === k}))
+  const compareSides = compareQ && makersHit.length >= 2 ? makersHit.map(k => ({name:mkMap.get(k), f:byPerson([k])}))
     : compareQ && titlesHit.length >= 2 ? titlesHit.map(k => ({name:items.find(i => nk(i.title) === k).title, f:i => nk(i.title) === k}))
     : compareQ ? (Object.values(valByKey).find(l => l.length >= 2) || []).map(h => ({name:h.v, f:i => [].concat(h.fc.get(i) || []).some(v => nk(v) === h.k)})) : [];
   const preFilter = items.slice();
-  if(makersHit.length && !(compareSides.length && compareSides[0].name === mkMap.get(makersHit[0]))){ items = items.filter(i => makersHit.includes(nk(i.maker))); scope.push("by " + makersHit.map(k => mkMap.get(k)).join(" or ")); }
+  if(makersHit.length && !(compareSides.length && compareSides[0].name === mkMap.get(makersHit[0]))){ items = items.filter(byPerson(makersHit)); scope.push((makersHit.some(k => credMap.has(k) || items.some(i => nk(i.maker) !== k)) ? "with " : "by ") + makersHit.map(k => mkMap.get(k)).join(" or ")); }
   let titled = null;
   if(titlesHit.length && !(compareSides.length && titlesHit.length >= 2)){ const t = items.filter(i => titlesHit.includes(nk(i.title))); if(t.length){ titled = items = t; scope.push("“" + t[0].title + "”" + (titlesHit.length > 1 ? " +" + (titlesHit.length - 1) : "")); } }
   Object.entries(valByKey).forEach(([key, hs]) => { if(compareSides.length && hs.length >= 2 && compareSides[0].name === hs[0].v) return;
