@@ -281,6 +281,13 @@ body.wallmode header.top,body.wallmode .fabs{display:none}
 .copyrow b{font-family:var(--serif);font-size:.92rem;white-space:nowrap}
 .copyrow input{min-width:0;width:100%;height:38px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--surface)}
 .copyrow input.cn{grid-column:2 / span 2}
+ol.tracks{list-style:none;margin:8px 0 0;padding:0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+ol.tracks li{display:grid;grid-template-columns:2.6em 1fr auto;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:.93rem;align-items:baseline}
+ol.tracks li .tp{color:var(--muted);font-size:.8rem}
+ol.tracks li .td{color:var(--muted);font-size:.85rem}
+ol.tracks li.th{display:block;font-weight:600;font-size:.82rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-top:12px}
+ol.tracks li.tgap{display:block;padding:0;height:10px;border-bottom:0}
+.ttot{color:var(--muted);font-size:.82rem;margin-top:6px}
 .copylist{list-style:none;margin:8px 0 0;padding:0}
 .copylist li{padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
 .copylist li .cm{color:var(--muted);font-size:.85rem}
@@ -817,7 +824,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.11.3";
+const APP_VERSION = "2026.11.12.1";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -826,30 +833,41 @@ const PRESETS = [
   {id:"records", name:"Records", icon:"🎵", maker:"Artist", fields:[
     {k:"format",l:"Format",opts:["LP","2×LP","EP","7\"","10\"","12\" single","78","Box set","Picture disc","Flexi disc"]},
     {k:"color",l:"Vinyl color",opts:["Black","Clear","White","Red","Orange","Yellow","Green","Blue","Purple","Pink","Gold","Silver","Smoke","Splatter","Marble","Swirl","Half & half","Glow in the dark"]},{k:"label",l:"Label"},{k:"catno",l:"Catalog #"},
-    {k:"pressing",l:"Pressing / country"},{k:"matrix",l:"Matrix / runout"},{k:"mediaGrade",l:"Media grade"},{k:"sleeveGrade",l:"Sleeve grade"}]},
+    {k:"pressing",l:"Pressing / country"},{k:"matrix",l:"Matrix / runout"},{k:"mediaGrade",l:"Media grade"},{k:"sleeveGrade",l:"Sleeve grade"},
+    {k:"genre",l:"Genre"},{k:"speed",l:"Speed",opts:["33⅓ RPM","45 RPM","78 RPM"]},{k:"inserts",l:"Inserts / extras (poster, lyric sheet…)"}]},
   {id:"laserdiscs", name:"Laserdiscs", icon:"💿", maker:"Director", fields:[
     {k:"label",l:"Label / publisher"},{k:"catno",l:"Catalog #"},{k:"format",l:"Format",opts:["CLV","CAV","CLV/CAV","Extended play"]},
-    {k:"sides",l:"Sides"},{k:"edition",l:"Edition (e.g. Criterion, widescreen)"},{k:"region",l:"Region / system"},{k:"runtime",l:"Runtime"},{k:"cast",l:"Starring"},{k:"studio",l:"Studio"}]},
+    {k:"sides",l:"Sides"},{k:"edition",l:"Edition (e.g. Criterion, widescreen)"},{k:"region",l:"Region / system"},{k:"runtime",l:"Runtime"},{k:"cast",l:"Starring"},{k:"studio",l:"Studio"},
+    {k:"audio",l:"Audio (Dolby, AC-3, DTS…)"},{k:"aspect",l:"Aspect ratio"},{k:"extras",l:"Supplements / extras"}]},
   {id:"movies", name:"Movies", icon:"🎬", maker:"Director", fields:[
     {k:"format",l:"Format",opts:["DVD","Blu-ray","4K UHD","VHS","Betamax","Film reel"]},{k:"studio",l:"Studio"},{k:"label",l:"Label / distributor"},{k:"catno",l:"Catalog / spine #"},
-    {k:"edition",l:"Edition (e.g. steelbook, Criterion)"},{k:"runtime",l:"Runtime"},{k:"cast",l:"Starring"},{k:"region",l:"Region"}]},
+    {k:"edition",l:"Edition (e.g. steelbook, Criterion)"},{k:"runtime",l:"Runtime"},{k:"cast",l:"Starring"},{k:"region",l:"Region"},
+    {k:"rating",l:"Rating",opts:["G","PG","PG-13","R","NC-17","Not rated"]},{k:"aspect",l:"Aspect ratio"},{k:"extras",l:"Special features"}]},
   {id:"books", name:"Books", icon:"📚", maker:"Author", fields:[
-    {k:"publisher",l:"Publisher"},{k:"edition",l:"Edition / printing"},{k:"isbn",l:"ISBN"},{k:"binding",l:"Binding",opts:["Hardcover","Paperback","Leather","Other"]},{k:"signed",l:"Signed / inscribed"}]},
+    {k:"publisher",l:"Publisher"},{k:"edition",l:"Edition / printing"},{k:"isbn",l:"ISBN"},{k:"binding",l:"Binding",opts:["Hardcover","Paperback","Leather","Other"]},{k:"signed",l:"Signed / inscribed"},
+    {k:"genre",l:"Genre"},{k:"pages",l:"Pages"},{k:"illustrator",l:"Illustrator"},{k:"jacket",l:"Dust jacket",opts:["Yes","No","Price-clipped","None issued"]}]},
   {id:"prints", name:"Art Prints", icon:"🖼️", maker:"Artist", fields:[
-    {k:"medium",l:"Medium (screenprint, giclée…)"},{k:"edition",l:"Edition (e.g. 45/200)"},{k:"dimensions",l:"Dimensions"},{k:"framed",l:"Framed"},{k:"publisher",l:"Publisher / gallery"}]},
+    {k:"medium",l:"Medium (screenprint, giclée…)"},{k:"edition",l:"Edition (e.g. 45/200)"},{k:"dimensions",l:"Dimensions"},{k:"framed",l:"Framed"},{k:"publisher",l:"Publisher / gallery"},
+    {k:"signed",l:"Signed / numbered"},{k:"released",l:"Release / event"},{k:"paper",l:"Paper"}]},
   {id:"autographs", name:"Autographs", icon:"✍️", maker:"Signer", fields:[
-    {k:"signedItem",l:"Signed item"},{k:"inscription",l:"Inscription"},{k:"dateSigned",l:"Date / place signed"},{k:"authenticator",l:"Authenticator (PSA, JSA, BAS…)"},{k:"cert",l:"Cert #",priv:true}]},
+    {k:"signedItem",l:"Signed item"},{k:"inscription",l:"Inscription"},{k:"dateSigned",l:"Date / place signed"},{k:"authenticator",l:"Authenticator (PSA, JSA, BAS…)"},{k:"cert",l:"Cert #",priv:true},
+    {k:"obtained",l:"How obtained (in person, by mail, show…)"},{k:"pen",l:"Ink / pen"}]},
   {id:"cels", name:"Animation Cels", icon:"🎞️", maker:"Studio", fields:[
     {k:"production",l:"Production / film / show"},{k:"characters",l:"Character(s)"},{k:"celType",l:"Type",opts:["Production cel","Production cel + drawing","Sericel","Limited edition","Key setup","Drawing"]},
-    {k:"edition",l:"Edition #"},{k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"}]},
+    {k:"edition",l:"Edition #"},{k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"},
+    {k:"scene",l:"Scene / sequence"},{k:"size",l:"Size"},{k:"framing",l:"Matted / framed"}]},
   {id:"pennies", name:"Pressed Pennies", icon:"🪙", maker:"Machine / set", fields:[
-    {k:"place",l:"Location / attraction"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"}]},
+    {k:"place",l:"Location / attraction"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"},
+    {k:"series",l:"Set position (e.g. 2 of 4)"},{k:"retired",l:"Retired design",opts:["Yes","No"]}]},
   {id:"memorabilia", name:"Memorabilia", icon:"🏆", maker:"Franchise / team", fields:[
-    {k:"type",l:"Type of piece"},{k:"event",l:"Event / occasion"},{k:"provenance",l:"Provenance"}]},
+    {k:"type",l:"Type of piece"},{k:"event",l:"Event / occasion"},{k:"provenance",l:"Provenance"},
+    {k:"date",l:"Date"},{k:"signed",l:"Signed by"},{k:"dimensions",l:"Dimensions"},{k:"auth",l:"Authentication / COA"}]},
   {id:"instruments", name:"Instruments", icon:"🎸", maker:"Brand", fields:[
-    {k:"model",l:"Model"},{k:"serial",l:"Serial #",priv:true},{k:"mfgYear",l:"Year of manufacture"},{k:"finish",l:"Finish / color"},{k:"case",l:"Case"},{k:"mods",l:"Modifications / repairs"}]},
+    {k:"model",l:"Model"},{k:"serial",l:"Serial #",priv:true},{k:"mfgYear",l:"Year of manufacture"},{k:"finish",l:"Finish / color"},{k:"case",l:"Case"},{k:"mods",l:"Modifications / repairs"},
+    {k:"origin",l:"Country made"},{k:"woods",l:"Body / top / neck"},{k:"electronics",l:"Pickups / electronics"},{k:"weight",l:"Weight"}]},
   {id:"antiques", name:"Antiques", icon:"🏺", maker:"Maker", fields:[
-    {k:"era",l:"Period / era"},{k:"origin",l:"Origin"},{k:"materials",l:"Materials"},{k:"mark",l:"Maker's mark"},{k:"dimensions",l:"Dimensions"},{k:"provenance",l:"Provenance"}]},
+    {k:"era",l:"Period / era"},{k:"origin",l:"Origin"},{k:"materials",l:"Materials"},{k:"mark",l:"Maker's mark"},{k:"dimensions",l:"Dimensions"},{k:"provenance",l:"Provenance"},
+    {k:"restoration",l:"Restoration / repairs"},{k:"appraised",l:"Last appraised"}]},
 ];
 function newCatalog(){
   return {version:1, title:"The Collection", collections:JSON.parse(JSON.stringify(PRESETS)), presetsSeen:PRESETS.map(p=>p.id), items:[], updated:new Date().toISOString()};
@@ -1486,7 +1504,7 @@ function plate(it){
 function matches(it, q){
   if(!q) return true;
   const c = coll(it.collectionId);
-  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
+  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" ").toLowerCase();
   return q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
 }
@@ -1975,6 +1993,8 @@ function viewItem(id, host){
       <h1>${it.favorite?'<span class="star">★</span> ':""}${esc(it.title)}</h1>
       <div class="by">${esc([it.maker, it.year].filter(Boolean).join(", "))}</div>
       <dl class="facts">${facts.map(([l,v])=>`<dt>${esc(l)}</dt><dd>${v}</dd>`).join("")}</dl>
+      ${(it.tracks||[]).length ? `<h3 style="margin-top:20px;font-size:1.05rem">Track listing</h3>${trackListHTML(it.tracks)}`
+        : hasTrackList(c) && ((it.matched||{}).ref || it.barcode) ? `<div class="actions noprint" style="margin-top:14px"><button class="iconbtn" id="tracksBtn">🎶 Get the track listing</button></div>` : ""}
       ${(it.tags||[]).length ? `<div class="chips" style="margin-top:14px">${it.tags.map(t=>`<a class="chip" href="#/c/${c.id}?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join("")}</div>` : ""}
       ${it.qty > 1 && (it.copies||[]).some(x => x.condition || x.location || x.note) ? `<h3 style="margin-top:20px;font-size:1.05rem">Your ${it.qty} copies</h3><ul class="copylist">${Array.from({length:it.qty}, (_, i) => { const x = it.copies[i] || {};
         return `<li><b>Copy ${i+1}</b>${x.condition ? " · " + esc(x.condition) : ""}${x.location ? " · 📍 " + esc(x.location) : ""}${x.note ? `<div class="cm">${esc(x.note)}</div>` : ""}</li>`; }).join("")}</ul>` : ""}
@@ -2004,6 +2024,16 @@ function viewItem(id, host){
   };
   if(document.getElementById("matchBtn")) document.getElementById("matchBtn").onclick = () => matchSaved(it);
   if(document.getElementById("coverBtn")) document.getElementById("coverBtn").onclick = () => chooseCover(it);
+  if(document.getElementById("tracksBtn")) document.getElementById("tracksBtn").onclick = async () => {
+    const done = busy("Getting the track listing…"), before = JSON.stringify(it);
+    try{
+      const ref = await trackRef(it), d = ref && await releaseDetails(ref);
+      if(!d || !d.tracks.length){ done(); return toast("No track listing found for this one. Try 🔎 Re-match to pick the exact release, or type them in ✎ Edit.", 5000); }
+      const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks}, false); it.matched = was;
+      it.updated = new Date().toISOString(); await persist(); toast("Added " + d.tracks.filter(t => !t.h).length + " tracks");
+    }catch(e){ Object.assign(it, JSON.parse(before)); alert(e.message); } finally{ done(); }
+    refreshView();
+  };
   document.getElementById("dupBtn").onclick = () => { location.hash = "#/new?from=" + it.id; };
 }
 
@@ -2360,7 +2390,7 @@ async function lookupBarcode(code, kind, progress, stopped){
     if(progress) progress("Checking " + name + "…");
     try{
       const r = await withLimit(t(code), name === "Metron" ? 20000 : 12000);
-      if(r && r.title){ if(progress) progress("Found it. Getting details…"); return await withLimit(enrichFilm(r), 12000).catch(() => r); }
+      if(r && r.title){ if(progress) progress("Found it. Getting details…"); const e = await withLimit(enrichFilm(r), 12000).catch(() => r); if(progress) progress("Getting the track listing…"); return await withReleaseDetails(e); }
     }catch(e){ console.warn(name, e.message); }
   }
   return null;
@@ -2635,6 +2665,7 @@ function mergeResult(it, r, overwrite){
   const gf = coll(it.collectionId).fields, norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
   Object.entries(r.fields||{}).forEach(([k,v]) => { if(v && (overwrite || !it.fields[k]) && gf.some(f=>f.k===k)) it.fields[k] = v; });
   if(r.barcode && !it.barcode) it.barcode = r.barcode;
+  if((r.tracks||[]).length && (overwrite || !(it.tracks||[]).length)) it.tracks = r.tracks;
   const keyed = new Set(Object.entries(r.fields||{}).filter(([k,v]) => v && gf.some(f=>f.k===k)).map(([k]) => k));
   Object.entries(r.named||{}).forEach(([label, v]) => {
     if(!v) return; v = String(v);
@@ -2686,6 +2717,112 @@ async function releaseImages(ref){
     catch(e){ /* no art for this release */ }
   }
   return out;
+}
+/* ---------- Track listings (records, music laserdiscs) ----------
+   Stored on a piece as it.tracks = [{p:"A1", t:"Title", d:"3:45"}] with {h:"Side two"} rows for headings.
+   Filled from the release the piece is matched to (Discogs or MusicBrainz), and editable by hand as plain text. */
+const fmtMs = ms => { if(!ms) return ""; const s = Math.round(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+const durSecs = d => { const m = String(d||"").match(/^(?:(\d+):)?(\d{1,3}):(\d{2})$/); return m ? (+(m[1]||0)) * 3600 + (+m[2]) * 60 + (+m[3]) : 0; };
+const releaseCache = {};
+async function releaseDetails(ref){
+  if(!ref) return null;
+  const key = ref.discogs ? "d" + ref.discogs : ref.mb ? "m" + ref.mb : ""; if(!key) return null;
+  if(releaseCache[key]) return releaseCache[key];
+  let out = null;
+  if(ref.discogs){
+    const tok = (cat.settings||{}).discogsToken; if(!tok) return null;
+    const j = await getJSON("https://api.discogs.com/releases/" + ref.discogs + "?token=" + encodeURIComponent(tok));
+    const tracks = [];
+    (j.tracklist||[]).forEach(t => {
+      if(t.type_ === "heading"){ if(t.title) tracks.push({h:t.title}); return; }
+      if(t.type_ === "index" && (t.sub_tracks||[]).length){ t.sub_tracks.forEach(s => tracks.push({p:s.position||"", t:[t.title, s.title].filter(Boolean).join(": "), d:s.duration||""})); return; }
+      if(t.title) tracks.push({p:t.position||"", t:t.title + ((t.artists||[]).length && j.artists && j.artists[0] && /various/i.test(j.artists[0].name) ? " (" + t.artists.map(a => a.name.replace(/\s*\(\d+\)$/,"")).join(", ") + ")" : ""), d:t.duration||""});
+    });
+    const credits = role => [...new Set((j.extraartists||[]).filter(a => new RegExp("\\b" + role + "\\b", "i").test(a.role||"") && !a.tracks).map(a => (a.anv || a.name || "").replace(/\s*\(\d+\)$/,"")))].join(", ");
+    out = {tracks, named:{"Genre":(j.genres||[]).join(", "), "Style":(j.styles||[]).join(", "), "Producer":credits("Producer"), "Released":j.released && j.released.length > 4 ? j.released : ""}};
+  } else {
+    const j = await getJSON("https://musicbrainz.org/ws/2/release/" + ref.mb + "?fmt=json&inc=recordings+genres");
+    const media = j.media || [], tracks = [];
+    media.forEach(m => {
+      if(media.length > 1) tracks.push({h:m.title || (/vinyl|shellac/i.test(m.format||"") ? "Record " : "Disc ") + (m.position || "")});
+      (m.tracks||[]).forEach(t => tracks.push({p:t.number || String(t.position||""), t:t.title || (t.recording||{}).title || "", d:fmtMs(t.length || (t.recording||{}).length)}));
+    });
+    out = {tracks, named:{"Genre":(j.genres||[]).map(g => g.name).slice(0, 4).map(g => g.replace(/\b\w/g, c => c.toUpperCase())).join(", "), "Released":(j.date||"").length > 4 ? j.date : ""}};
+  }
+  // Only one heading and it's the whole thing ("Vinyl 1")? Drop it.
+  if(out.tracks.filter(t => t.h).length === 1 && out.tracks[0].h) out.tracks.shift();
+  releaseCache[key] = out;
+  return out;
+}
+/* Add a release's track listing and genres to a lookup result (quietly skipped if the site is slow or busy). */
+async function withReleaseDetails(r){
+  if(!r || !r.ref || r.tracks) return r;
+  try{ const d = await withLimit(releaseDetails(r.ref), 10000); if(d){ r = {...r, tracks:d.tracks}; r.named = {...(r.named||{})}; Object.entries(d.named).forEach(([k,v]) => { if(v && !r.named[k]) r.named[k] = v; }); } }
+  catch(e){ console.warn("release details:", e.message); }
+  return r;
+}
+const hasTrackList = c => lookupKind(c) === "music" || c.id === "records" || c.id === "laserdiscs";
+function tracksToText(tracks){ return (tracks||[]).map(t => t.h ? "# " + t.h : [t.p, t.t, t.d].filter(Boolean).join("  ")).join("\n"); }
+function textToTracks(txt){
+  return String(txt||"").split(/\n/).map(l => l.trim()).filter(Boolean).map(l => {
+    if(/^#/.test(l)) return {h:l.replace(/^#+\s*/, "")};
+    let p = "", d = "", m;
+    if((m = l.match(/\s+\(?(\d{1,2}:\d{2}(?::\d{2})?)\)?$/))){ d = m[1]; l = l.slice(0, m.index).trim(); }
+    // A position is "A1", "B12", "1-3", "CD2-4", or a plain number followed by a dot, bracket, tab or two spaces.
+    if((m = l.match(/^([A-Z]{1,2}\d{1,3}[a-z]?|[A-Z]{1,3}\d*-\d{1,3}|\d{1,2}-\d{1,3})(?:[.):]\s*|\s+)(?=\S)/)) || (m = l.match(/^(\d{1,3})(?:[.):]\s*|\t\s*|\s{2,})(?=\S)/))){ p = m[1]; l = l.slice(m[0].length); }
+    l = l.replace(/^[-–]\s+/, "").replace(/\s+[-–]$/, "");
+    return {p, t:l, d};
+  }).filter(t => t.h || t.t);
+}
+function trackListHTML(tracks){
+  let side = "", secs = 0, timed = 0, rows = "";
+  (tracks||[]).forEach(t => {
+    if(t.h){ rows += `<li class="th">${esc(t.h)}</li>`; side = ""; return; }
+    const s = (String(t.p).match(/^([A-Z]+)\d/)||[])[1] || "";
+    if(side && s && s !== side) rows += `<li class="tgap" aria-hidden="true"></li>`;
+    if(s) side = s;
+    const n = durSecs(t.d); if(n){ secs += n; timed++; }
+    rows += `<li><span class="tp">${esc(t.p)}</span><span class="tt">${esc(t.t)}</span><span class="td">${esc(t.d||"")}</span></li>`;
+  });
+  const total = timed ? (secs >= 3600 ? Math.floor(secs/3600) + ":" + String(Math.floor(secs%3600/60)).padStart(2,"0") : Math.floor(secs/60)) + ":" + String(secs%60).padStart(2,"0") : "";
+  const count = (tracks||[]).filter(t => !t.h).length;
+  return `<ol class="tracks">${rows}</ol><div class="ttot">${count} track${count===1?"":"s"}${total ? " · " + total + (timed < count ? " (of the timed tracks)" : "") : ""}</div>`;
+}
+/* Find the release a saved piece belongs to: its match, or (for older matches) its barcode. */
+async function trackRef(it){
+  const ref = (it.matched||{}).ref;
+  if(ref && (ref.mb || (ref.discogs && (cat.settings||{}).discogsToken))) return ref;
+  if(!it.barcode) return null;
+  const tok = (cat.settings||{}).discogsToken;
+  const r = (tok && await lookupDiscogs(it.barcode, tok).catch(() => null)) || await lookupMusicBrainz(it.barcode).catch(() => null);
+  if(r && r.ref){ it.matched = {...(it.matched||{source:r.source, at:new Date().toISOString()}), ref:r.ref}; return r.ref; }
+  return null;
+}
+/* Fill track listings (and blank genre/style details) for every piece in music galleries that doesn't have one yet. */
+async function fillAllTracks(){
+  const todo = cat.items.filter(i => hasTrackList(coll(i.collectionId)) && !(i.tracks||[]).length && (((i.matched||{}).ref) || i.barcode));
+  if(!todo.length) return alert("Every matched record already has a track listing. For others, open the piece and use 🔎 Match (or type the tracks in ✎ Edit).");
+  if(!confirm(`Look up track listings for ${todo.length} piece${todo.length===1?"":"s"}? This takes about ${Math.max(1, Math.round(todo.length * 1.3 / 60))} minute${todo.length * 1.3 > 90 ? "s" : ""} (the music sites ask for a slow pace). You can keep the screen open and stop at any time.`)) return;
+  const b = document.createElement("div"); b.className = "busy"; let stop = false;
+  b.innerHTML = `<div style="text-align:center;max-width:320px"><div id="ftMsg">Starting…</div><button type="button" class="iconbtn" id="ftStop" style="margin-top:10px">Stop</button></div>`;
+  document.body.appendChild(b); b.querySelector("#ftStop").onclick = () => { stop = true; b.querySelector("#ftMsg").textContent = "Stopping after this one…"; };
+  let filled = 0, none = 0, n = 0;
+  try{
+    for(const it of todo){
+      if(stop) break;
+      n++; b.querySelector("#ftMsg").textContent = `${n} of ${todo.length}: ${it.title}`;
+      try{
+        const ref = await trackRef(it), d = ref && await withLimit(releaseDetails(ref), 15000);
+        if(d && d.tracks.length){ const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks}, false); it.matched = was; it.updated = new Date().toISOString(); filled++; } else none++;
+      }catch(e){ none++; console.warn(it.title, e.message); if(/too fast/.test(e.message)) await new Promise(r => setTimeout(r, 30000)); }
+      if(filled && filled % 15 === 0) await persist().catch(() => {});
+      await new Promise(r => setTimeout(r, 1100));   // MusicBrainz asks for about one request a second; Discogs allows 60 a minute
+    }
+    if(filled) await persist();
+  }catch(e){ alert(e.message); }
+  finally{ b.remove(); }
+  alert(`Added track listings to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} couldn't be found automatically. Open one and use 🔎 Re-match to pick the right release, or type the tracks in ✎ Edit.` : ""));
+  refreshView();
 }
 function chooseCover(it, opts){
   opts = opts || {};
@@ -2756,7 +2893,7 @@ function pickResult(kind, q, maker, onPick, opts){
       <span class="grow" style="white-space:normal"><b>${esc(c.title)}</b>${c.year ? ` <span style="color:var(--muted)">(${esc(c.year)})</span>` : ""}<br><small style="color:var(--muted)">${esc([c.maker, c.sub].filter(Boolean).join(" · "))}</small></span></button>`).join("");
     out.querySelectorAll("[data-n]").forEach(b => b.onclick = async () => {
       const done = busy("Getting details…");
-      try{ const r = await list[+b.dataset.n].get(); close(); await onPick(r); }
+      try{ const r = await withReleaseDetails(await list[+b.dataset.n].get()); close(); await onPick(r); }
       catch(e){ alert(e.message); } finally{ done(); }
     });
   }
@@ -2800,7 +2937,7 @@ async function lookupOpenLibrary(code){
   const b = j["ISBN:" + code]; if(!b) return null;
   return {source:"Open Library", collectionId:"books", title:[b.title, b.subtitle].filter(Boolean).join(": "), maker:(b.authors||[]).map(a=>a.name).join(", "),
     year:((b.publish_date||"").match(/\d{4}/)||[""])[0], cover:b.cover && (b.cover.large || b.cover.medium),
-    fields:{publisher:(b.publishers||[]).map(p=>p.name).join(", "), isbn:code}};
+    fields:{publisher:(b.publishers||[]).map(p=>p.name).join(", "), isbn:code, pages:b.number_of_pages ? String(b.number_of_pages) : ""}};
 }
 function formatFrom(fmts){
   const f = fmts.join(" ").toLowerCase();
@@ -2915,6 +3052,11 @@ function viewEdit(id, params, ov){
         <div class="f"><label for="price">Price paid ($)</label><input id="price" name="price" value="${esc(it.price??"")}" inputmode="decimal"></div>
         <div class="f"><label for="value">Estimated value ($)</label><input id="value" name="value" value="${esc(it.value??"")}" inputmode="decimal"></div>
       </div><p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">🔒 Values, prices and private fields are hidden whenever “Show values” is off.</p></fieldset>
+      ${hasTrackList(c) || (it.tracks||[]).length ? `<fieldset><legend>Track listing</legend>
+        <p style="color:var(--muted);font-size:.82rem;margin:0 0 8px">One track per line, like <code>A1&nbsp;&nbsp;Song title&nbsp;&nbsp;3:45</code> (side/number and time are optional). Start a line with <code>#</code> for a heading, like <code># Disc two</code>. Filled in automatically when the piece is matched or scanned.</p>
+        <div class="f full"><textarea id="tracksTxt" name="tracks" rows="${Math.min(18, Math.max(4, (it.tracks||[]).length + 1))}" style="font-variant-numeric:tabular-nums" placeholder="A1  Speak to Me  1:13\nA2  Breathe  2:43\nB1  Money  6:22">${esc(tracksToText(it.tracks))}</textarea></div>
+        ${(it.matched||{}).ref || it.barcode ? `<div class="actions" style="margin-top:8px"><button type="button" class="iconbtn" id="tracksFill">🎶 ${(it.tracks||[]).length ? "Replace with" : "Fill in from"} ${esc(lookupName("music"))}</button></div>` : ""}
+      </fieldset>` : ""}
       <fieldset><legend>More details</legend>
         <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Anything else worth recording: edition number, pressing plant, signed by, variant, original box…</p>
         <div id="extras" style="display:grid;gap:8px">${(it.extra||[]).concat(it.extra && it.extra.length ? [] : [{l:"",v:""}]).map(x => extraRow(x)).join("")}</div>
@@ -2962,6 +3104,13 @@ function viewEdit(id, params, ov){
     renderCopies(); document.getElementById("qty").oninput = renderCopies;
     document.getElementById("addExtra").onclick = () => { document.getElementById("extras").insertAdjacentHTML("beforeend", extraRow({l:"",v:""})); wireExtras(); document.querySelector("#extras .xrow:last-child [data-xl]").focus(); };
     wireExtras();
+    if(document.getElementById("tracksFill")) document.getElementById("tracksFill").onclick = async () => {
+      collect(); const done = busy("Getting the track listing…");
+      try{ const ref = await trackRef(it), d = ref && await releaseDetails(ref);
+        if(!d || !d.tracks.length) toast("No track listing found. Use 🔎 Look up by the title to pick the exact release.", 5000);
+        else { const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks}, false); it.tracks = d.tracks; it.matched = was; render(); toast("Track listing filled in. Save to keep it."); } }
+      catch(e){ alert(e.message); } finally{ done(); }
+    };
     renderFound();
   }
   function wireExtras(){ document.querySelectorAll("#extras [data-xrm]").forEach(b => b.onclick = () => b.closest(".xrow").remove()); }
@@ -3043,6 +3192,9 @@ function viewEdit(id, params, ov){
     if(q > 1 && cps.some(x => x.condition || x.location || x.note)) it.copies = cps.slice(0, q); else delete it.copies;
     it.fields = it.fields || {};
     c.fields.forEach(x => { const v = (d.get("x_"+x.k)||"").trim().replace(/^__other$/,""); if(v) it.fields[x.k] = v; else delete it.fields[x.k]; });
+    if(document.getElementById("tracksTxt")){ const t = textToTracks(document.getElementById("tracksTxt").value);
+      // Keep the exact saved rows when the text wasn't touched (so nothing is lost to re-reading it).
+      if(tracksToText(t) !== tracksToText(textToTracks(tracksToText(it.tracks)))) { if(t.length) it.tracks = t; else delete it.tracks; } }
     it.extra = [...document.querySelectorAll("#extras .xrow")].map(r => ({l:r.querySelector("[data-xl]").value.trim(), v:r.querySelector("[data-xv]").value.trim()})).filter(x => x.l || x.v);
     document.querySelectorAll("#media [data-label]").forEach(inp => { const m = it.media.find(m=>m.id===inp.dataset.label); if(m) m.label = inp.value.trim(); });
   }
@@ -3300,7 +3452,9 @@ function viewSettings(){
     <h3 style="font-size:1rem;margin-top:14px">Records: Discogs (optional)</h3>
     <p>For better record and laserdisc barcode matches: <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener">discogs.com/settings/developers</a> → <b>Generate new token</b>.</p>
     <div class="actions" style="margin-top:4px"><input id="dtok" type="password" value="${esc((cat.settings||{}).discogsToken||"")}" placeholder="Discogs personal token (optional)" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
-    <div class="actions"><button class="iconbtn primary" id="dtokSave">Save lookup settings</button></div></div>
+    <div class="actions"><button class="iconbtn primary" id="dtokSave">Save lookup settings</button></div>
+    ${(() => { const n = cat.items.filter(i => hasTrackList(coll(i.collectionId)) && !(i.tracks||[]).length && ((i.matched||{}).ref || i.barcode)).length;
+      return n ? `<h3 style="font-size:1rem;margin-top:14px">Track listings</h3><p>${n} record${n===1?"":"s"} could get a track listing (and genre) from the release ${n===1?"it's":"they're"} matched to.</p><div class="actions"><button class="iconbtn" id="fillTracks">🎶 Fill in track listings</button></div>` : ""; })()}</div>
   <div class="panel"><h2>Reports &amp; backups</h2>
     <p>The insurance report lists every piece with values, serials and certificate numbers. Print it or save as PDF.</p>
     <div class="actions"><a class="iconbtn" href="#/report">🧾 Insurance report</a><button class="iconbtn" id="csv">⬇ Spreadsheet (CSV)</button><button class="iconbtn" id="json">⬇ Catalog only (JSON)</button>
@@ -3365,6 +3519,7 @@ function viewSettings(){
     try{ await persist(); toast(quiet ? "Saved ✓" : "Lookup settings saved"); }catch(e){ alert(e.message); }
   };
   $("dtokSave").onclick = () => saveLookups(false);
+  if($("fillTracks")) $("fillTracks").onclick = fillAllTracks;
   // Save as soon as a lookup field changes, so nothing is lost by leaving the page.
   ["mtok","pxurl","dtok","btok","buser","bgal","bauto"].forEach(id => $(id).addEventListener("change", () => saveLookups(true)));
   $("pxtest").onclick = async () => {
@@ -3408,10 +3563,10 @@ function download(blob, name){ const a = document.createElement("a"), u = URL.cr
 function csvBlob(items, g){
   const hide = !!g && priv;
   const fieldCols = []; (g ? [g] : cat.collections).forEach(c => c.fields.forEach(f => { if(!(hide && f.priv) && !fieldCols.some(x=>x.l===f.l)) fieldCols.push(f); }));
-  const head = ["Gallery","Title",g ? (g.maker||"Maker") : "Maker","Year","Barcode","Condition","Location","Acquired","Source", ...(hide ? [] : ["Price paid","Estimated value"]),"Tags","Notes","More details", ...fieldCols.map(f=>f.l), "Photos","Documents"];
+  const head = ["Gallery","Title",g ? (g.maker||"Maker") : "Maker","Year","Barcode","Condition","Location","Acquired","Source", ...(hide ? [] : ["Price paid","Estimated value"]),"Tags","Notes","More details","Tracks", ...fieldCols.map(f=>f.l), "Photos","Documents"];
   const q = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; };
   const rows = (items || sortItems(cat.items,"title")).map(i => { const c = coll(i.collectionId);
-    return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, ...(hide ? [] : [i.price, i.value]), (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "),
+    return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, ...(hide ? [] : [i.price, i.value]), (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "), (i.tracks||[]).filter(t => !t.h).map(t => [t.p, t.t].filter(Boolean).join(" ")).join("; "),
       ...fieldCols.map(fc => { const f = c.fields.find(x=>x.l===fc.l); return f ? (i.fields||{})[f.k] : ""; }),
       (i.media||[]).filter(m=>m.kind==="photo").length, (i.media||[]).filter(m=>m.kind!=="photo").map(m=>m.label||m.name).join("; ")]; });
   return new Blob(["\ufeff" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"});
@@ -4019,7 +4174,11 @@ async function boot(){
     p.fields.forEach((f, n) => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); if(!c.fields.some(x=>x.k===f.k)){
       // Slot it in after the field that comes before it in the preset (e.g. Vinyl color right after Format).
       const after = n ? c.fields.findIndex(x => x.k === p.fields[n-1].k) : -1;
-      c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f))); } } }); });
+      c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f)));
+      // A "More details" line with the same label (e.g. Genre) moves into the new field.
+      const nl = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,""), key = nl(f.l.split(/ [(\/]/)[0]);
+      cat.items.forEach(i => { if(i.collectionId !== c.id || !(i.extra||[]).length || (i.fields||{})[f.k]) return;
+        const x = i.extra.find(e => nl(e.l) === key || nl(e.l) === nl(f.l)); if(x && x.v){ i.fields = i.fields || {}; i.fields[f.k] = x.v; i.extra = i.extra.filter(e => e !== x); } }); } } }); });
   // The upgrades above are the same on every device, so count them as the starting point when merging with another device's changes.
   if(store.kind === "dropbox" && store.base) store.base = JSON.stringify(cat, null, 1);
   setBrand();
