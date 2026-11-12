@@ -827,7 +827,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.6";
+const APP_VERSION = "2026.11.12.7";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2045,8 +2045,9 @@ function viewItem(id, host){
     try{
       const ref = await trackRef(it), d = ref && await releaseDetails(ref);
       if(!d || !d.tracks.length){ done(); return toast("No track listing found for this one. Try 🔎 Re-match to pick the exact release, or type them in ✎ Edit.", 5000); }
-      const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks}, false); it.matched = was;
-      it.updated = new Date().toISOString(); await persist(); toast("Added " + d.tracks.filter(t => !t.h).length + " tracks");
+      const cur = item(it.id) || it;   // the catalog may have been refreshed while waiting
+      const was = it.matched || cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks}, false); cur.matched = was;
+      cur.updated = new Date().toISOString(); await persist(); toast("Added " + d.tracks.filter(t => !t.h).length + " tracks");
     }catch(e){ Object.assign(it, JSON.parse(before)); alert(e.message); } finally{ done(); }
     refreshView();
   };
@@ -2842,7 +2843,8 @@ async function trackRef(it){
   if(ref && (ref.mb || (ref.discogs && (cat.settings||{}).discogsToken))) return ref;
   if(!it.barcode) return null;
   const tok = (cat.settings||{}).discogsToken;
-  const r = (tok && await lookupDiscogs(it.barcode, tok).catch(() => null)) || await lookupMusicBrainz(it.barcode).catch(() => null);
+  const busyErr = e => { if(/ (429|503)$|too fast|took too long|failed to fetch|load failed|networkerror/i.test(e.message)) throw e; return null; };   // "slow down" errors go back to the caller so it can wait and retry
+  const r = (tok && await lookupDiscogs(it.barcode, tok).catch(busyErr)) || await lookupMusicBrainz(it.barcode).catch(busyErr);
   if(r && r.ref){ it.matched = {...(it.matched||{source:r.source, at:new Date().toISOString()}), ref:r.ref}; return r.ref; }
   return null;
 }
@@ -2850,26 +2852,43 @@ async function trackRef(it){
 async function fillAllTracks(){
   const todo = cat.items.filter(i => hasTrackList(coll(i.collectionId)) && !(i.tracks||[]).length && (((i.matched||{}).ref) || i.barcode));
   if(!todo.length) return alert("Every matched record already has a track listing. For others, open the piece and use 🔎 Match (or type the tracks in ✎ Edit).");
-  if(!confirm(`Look up track listings for ${todo.length} piece${todo.length===1?"":"s"}? This takes about ${Math.max(1, Math.round(todo.length * 1.3 / 60))} minute${todo.length * 1.3 > 90 ? "s" : ""} (the music sites ask for a slow pace). You can keep the screen open and stop at any time.`)) return;
+  if(!confirm(`Look up track listings for ${todo.length} piece${todo.length===1?"":"s"}? This takes about ${Math.max(1, Math.round(todo.length * 2 / 60))} minute${todo.length * 2 > 90 ? "s" : ""} (the music sites ask for a slow pace). You can keep the screen open and stop at any time.`)) return;
   const b = document.createElement("div"); b.className = "busy"; let stop = false;
   b.innerHTML = `<div style="text-align:center;max-width:320px"><div id="ftMsg">Starting…</div><button type="button" class="iconbtn" id="ftStop" style="margin-top:10px">Stop</button></div>`;
   document.body.appendChild(b); b.querySelector("#ftStop").onclick = () => { stop = true; b.querySelector("#ftMsg").textContent = "Stopping after this one…"; };
-  let filled = 0, none = 0, n = 0;
+  let filled = 0, none = 0, failed = 0, n = 0;
   try{
     for(const it of todo){
       if(stop) break;
       n++; b.querySelector("#ftMsg").textContent = `${n} of ${todo.length}: ${it.title}`;
-      try{
-        const ref = await trackRef(it), d = ref && await withLimit(releaseDetails(ref), 15000);
-        if(d && d.tracks.length){ const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks}, false); it.matched = was; it.updated = new Date().toISOString(); filled++; } else none++;
-      }catch(e){ none++; console.warn(it.title, e.message); if(/too fast/.test(e.message)) await new Promise(r => setTimeout(r, 30000)); }
-      if(filled && filled % 15 === 0) await persist().catch(() => {});
-      await new Promise(r => setTimeout(r, 1100));   // MusicBrainz asks for about one request a second; Discogs allows 60 a minute
+      // Discogs allows 60 requests a minute and MusicBrainz about one a second. When either says "slow down",
+      // wait a minute and try the same record again instead of counting it as not found.
+      for(let attempt = 0; ; attempt++){
+        try{
+          // Always work on the piece as it is in the catalog *now*: a save that merged in another device's changes swaps in
+          // fresh copies of pieces, and writing to the old copy would be silently lost.
+          const before = item(it.id); if(!before || (before.tracks||[]).length) break;
+          const hadRef = !!((before.matched||{}).ref), ref = await trackRef(before), d = ref && await withLimit(releaseDetails(ref), 20000);
+          const cur = item(it.id); if(!cur) break;
+          if(cur !== before && before.matched && before.matched.ref && !(cur.matched||{}).ref) cur.matched = before.matched;
+          if(d && d.tracks.length){ const was = cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks}, false); cur.matched = was; cur.updated = new Date().toISOString(); filled++; } else none++;
+          await new Promise(r => setTimeout(r, hadRef ? 1300 : 2600));
+          break;
+        }catch(e){
+          console.warn(it.title, e.message);
+          if(/ (429|503)$|too fast|took too long|failed to fetch|load failed|networkerror/i.test(e.message) && attempt < 3 && !stop){
+            for(let w = 60; w > 0 && !stop; w--){ b.querySelector("#ftMsg").textContent = `${n} of ${todo.length}: the music sites asked for a short break. Carrying on in ${w}s…`; await new Promise(r => setTimeout(r, 1000)); }
+            b.querySelector("#ftMsg").textContent = `${n} of ${todo.length}: ${it.title}`; continue; }
+          failed++; break;
+        }
+      }
+      if(filled && filled % 5 === 0) await persist().catch(() => {});
     }
     if(filled) await persist();
   }catch(e){ alert(e.message); }
   finally{ b.remove(); }
-  alert(`Added track listings to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} couldn't be found automatically. Open one and use 🔎 Re-match to pick the right release, or type the tracks in ✎ Edit.` : ""));
+  alert(`Added track listings to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} have no track listing on the release they're matched to. Open one and use 🔎 Re-match to pick a release that has one, or type the tracks in ✎ Edit.` : "")
+    + (failed ? `\n\n${failed} couldn't be reached right now (the music sites were busy). Tap Fill in track listings again later to finish them.` : ""));
   refreshView();
 }
 function chooseCover(it, opts){
@@ -4584,6 +4603,7 @@ function route(){
 
 /* Phones (especially home-screen apps) can keep an old copy of the app; check for a newer one. */
 async function checkUpdate(manual){
+  if(!manual && document.querySelector(".busy")) return;   // don't offer to reload in the middle of a long job (e.g. filling track listings)
   try{
     const t = await (await fetch(location.pathname + "?check=" + Date.now(), {cache:"no-store"})).text();
     const v = (t.match(/APP_VERSION = "([^"]+)"/)||[])[1];
