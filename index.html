@@ -4112,10 +4112,10 @@ function askAnswer(raw){
   const gal = cat.collections.filter(c => galKeys(c).some(k => hasR(k) && (take(k), true)));
   if(gal.length){ items = items.filter(i => gal.some(c => c.id === i.collectionId)); scope.push(gal.map(c => c.name).join(" & ")); }
   else if(any("album","albums","lp","lps","song","songs","track","tracks","vinyl","vinyls","single","singles","ep","eps","band","bands","musician","musicians","singer","singers","7inch","12inch","10inch","2xlp","listen","play","spin")){
-    // Music words mean the music collections (Records). Laserdiscs only count when they're music ones with a track listing.
-    const mus = cat.collections.filter(hasTrackList), core = mus.filter(c => lookupKind(c) === "music"), base = core.length ? core : mus;
-    const l = items.filter(i => base.some(c => c.id === i.collectionId) || (mus.some(c => c.id === i.collectionId) && (i.tracks||[]).some(t => !t.h)));
-    if(l.length){ items = l; scope.push(mus.filter(c => l.some(i => i.collectionId === c.id)).map(c => c.name).join(" & ")); } }
+    // Music words mean the music collections (Records). Laserdiscs never count as albums, even music ones with a track listing.
+    const mus = cat.collections.filter(c => hasTrackList(c) && c.id !== "laserdiscs"), core = mus.filter(c => lookupKind(c) === "music"), base = core.length ? core : mus;
+    const l = items.filter(i => base.some(c => c.id === i.collectionId));
+    if(l.length){ items = l; scope.push(base.filter(c => l.some(i => i.collectionId === c.id)).map(c => c.name).join(" & ")); } }
   const galItems = items.slice();
   const galsInScope = gal.length ? gal : cat.collections;
   const makerNouns = [...new Set([...ASK_MAKER, ...galsInScope.map(c => nk(c.maker).split(" ")[0]).filter(w => w && w.length > 3 && !ASK_GROUP[w]).flatMap(w => [w, w + "s"])])];
