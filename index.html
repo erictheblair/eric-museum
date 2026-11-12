@@ -827,7 +827,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.5";
+const APP_VERSION = "2026.11.12.6";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2728,6 +2728,7 @@ function matchSaved(it, opts){
   pickResult(kind, kind === "comic" && iss && !/#/.test(it.title) ? it.title + " #" + iss : it.title, it.maker, async r => {
     const before = JSON.stringify(it);
     mergeResult(it, r, false);
+    if((r.tracks||[]).length) it.tracks = r.tracks;   // the track listing belongs to the release you just picked, so it replaces the old one
     if(r.cover && !(it.media||[]).some(m => m.kind === "photo")){
       try{
         const resp = await fetchT(r.cover, {}, 20000), blob = await resp.blob();
