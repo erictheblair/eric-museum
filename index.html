@@ -664,6 +664,9 @@ body.wallmode #fsc{display:none}
 /* Edit collection: drag handle for reordering fields */
 .grip{border:0;background:none;color:var(--muted);font-size:1.25rem;line-height:1;padding:6px 4px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .frow.dragging{opacity:.6;background:var(--surface);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* Personnel list on a piece */
+.personnel{margin-top:20px}.personnel summary{cursor:pointer;list-style:none}.personnel summary::-webkit-details-marker{display:none}
+.credits{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:4px}.credits li{font-size:.92rem}.credits li span{color:var(--muted);font-size:.85rem}
 /* Cels: caption for a screen grab, a mark on its thumbnail, and the scene clip player */
 .pcap{margin:8px 0 0;font-size:.85rem;color:var(--muted);text-align:center}
 .thumbs button.fr{position:relative}.thumbs button.fr::after{content:"🎬";position:absolute;right:2px;bottom:2px;font-size:.7rem;line-height:1;background:rgba(0,0,0,.55);border-radius:4px;padding:2px}
@@ -861,7 +864,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.15";
+const APP_VERSION = "2026.11.12.16";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1589,7 +1592,7 @@ function fuzzyHas(hay, w){
 function matches(it, q){
   if(!q) return true;
   const c = coll(it.collectionId);
-  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
+  const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.credits||[]).map(x => x.n), ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" ").toLowerCase();
   return q.toLowerCase().split(/\s+/).filter(Boolean).every(w => fuzzyHas(hay, w));
 }
@@ -2086,6 +2089,7 @@ function viewItem(id, host){
       ${hasTrackList(c) ? playButtons(playQuery(it.title, it.maker)) : ""}
       ${(it.tracks||[]).length ? `<h3 style="margin-top:20px;font-size:1.05rem">Track listing</h3>${trackListHTML(it.tracks, it.maker)}`
         : hasTrackList(c) && ((it.matched||{}).ref || it.barcode) ? `<div class="actions noprint" style="margin-top:14px"><button class="iconbtn" id="tracksBtn">🎶 Get the track listing</button></div>` : ""}
+      ${(it.credits||[]).length ? `<details class="personnel"${it.credits.length <= 8 ? " open" : ""}><summary><h3 style="display:inline;font-size:1.05rem">Personnel</h3> <span style="color:var(--muted);font-size:.85rem">${it.credits.length}</span></summary><ul class="credits">${it.credits.map(x => `<li><a href="#/?q=${encodeURIComponent(x.n)}">${esc(x.n)}</a>${x.r ? ` <span>${esc(x.r)}</span>` : ""}</li>`).join("")}</ul></details>` : ""}
       ${(it.tags||[]).length ? `<div class="chips" style="margin-top:14px">${it.tags.map(t=>`<a class="chip" href="#/c/${c.id}?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join("")}</div>` : ""}
       ${it.qty > 1 && (it.copies||[]).some(x => x.condition || x.location || x.note) ? `<h3 style="margin-top:20px;font-size:1.05rem">Your ${it.qty} copies</h3><ul class="copylist">${Array.from({length:it.qty}, (_, i) => { const x = it.copies[i] || {};
         return `<li><b>Copy ${i+1}</b>${x.condition ? " · " + esc(x.condition) : ""}${x.location ? " · 📍 " + esc(x.location) : ""}${x.note ? `<div class="cm">${esc(x.note)}</div>` : ""}</li>`; }).join("")}</ul>` : ""}
@@ -2150,7 +2154,7 @@ function viewItem(id, host){
       const ref = await trackRef(it), d = ref && await releaseDetails(ref);
       if(!d || !d.tracks.length){ done(); return toast("No track listing found for this one. Try 🔎 Re-match to pick the exact release, or type them in ✎ Edit.", 5000); }
       const cur = item(it.id) || it;   // the catalog may have been refreshed while waiting
-      const was = it.matched || cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks}, false); cur.matched = was;
+      const was = it.matched || cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks, credits:d.credits}, false); cur.matched = was;
       cur.updated = new Date().toISOString(); await persist(); toast("Added " + d.tracks.filter(t => !t.h).length + " tracks");
     }catch(e){ Object.assign(it, JSON.parse(before)); alert(e.message); } finally{ done(); }
     refreshView();
@@ -2871,6 +2875,7 @@ function mergeResult(it, r, overwrite){
   Object.entries(r.fields||{}).forEach(([k,v]) => { if(v && (overwrite || !it.fields[k]) && gf.some(f=>f.k===k)) it.fields[k] = v; });
   if(r.barcode && !it.barcode) it.barcode = r.barcode;
   if((r.tracks||[]).length && (overwrite || !(it.tracks||[]).length)) it.tracks = r.tracks;
+  if(Array.isArray(r.credits) && (r.credits.length ? overwrite || !(it.credits||[]).length : !Array.isArray(it.credits))) it.credits = r.credits;
   const keyed = new Set(Object.entries(r.fields||{}).filter(([k,v]) => v && gf.some(f=>f.k===k)).map(([k]) => k));
   Object.entries(r.named||{}).forEach(([label, v]) => {
     if(!v) return; v = String(v);
@@ -2930,6 +2935,16 @@ async function releaseImages(ref){
 const fmtMs = ms => { if(!ms) return ""; const s = Math.round(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
 const durSecs = d => { const m = String(d||"").match(/^(?:(\d+):)?(\d{1,3}):(\d{2})$/); return m ? (+(m[1]||0)) * 3600 + (+m[2]) * 60 + (+m[3]) : 0; };
 const releaseCache = {};
+/* Personnel: who played and worked on a release, as [{n:"Name", r:"Bass, Vocals"}]. One line per person, their roles joined.
+   Musicians come first, then production and the rest. An empty list means "looked it up, the release lists nobody". */
+function creditList(pairs){
+  const m = new Map(); pairs.forEach(([n, r]) => { n = String(n||"").replace(/\s*\(\d+\)$/, "").trim(); r = String(r||"").replace(/\s*\[.*?\]\s*/g, " ").replace(/\s+/g, " ").trim(); if(!n) return;
+    const e = m.get(n.toLowerCase()) || m.set(n.toLowerCase(), {n, r:[]}).get(n.toLowerCase()); r.split(/\s*,\s*/).filter(Boolean).forEach(x => { if(!e.r.some(y => y.toLowerCase() === x.toLowerCase())) e.r.push(x); }); });
+  const tech = /produc|engineer|mix|master|lacquer|design|photo|art direction|artwork|layout|liner|management|a&r|recorded|cut|executive|coordinat|legal|lettering|illustrat|cover|notes|booking/i;
+  return [...m.values()].map(e => ({n:e.n, r:e.r.join(", ")})).sort((a, b) => tech.test(a.r) - tech.test(b.r)).slice(0, 60);
+}
+const creditsToText = cs => (cs||[]).map(c => c.r ? c.n + " — " + c.r : c.n).join("\n");
+const textToCredits = t => String(t||"").split("\n").map(l => l.trim()).filter(Boolean).map(l => { const m = l.match(/^(.+?)\s+[—–-]\s+(.+)$/); return m ? {n:m[1].trim(), r:m[2].trim()} : {n:l, r:""}; });
 async function releaseDetails(ref){
   if(!ref) return null;
   const key = ref.discogs ? "d" + ref.discogs : ref.mb ? "m" + ref.mb : ""; if(!key) return null;
@@ -2945,15 +2960,18 @@ async function releaseDetails(ref){
       if(t.title) tracks.push({p:t.position||"", t:t.title + ((t.artists||[]).length && j.artists && j.artists[0] && /various/i.test(j.artists[0].name) ? " (" + t.artists.map(a => a.name.replace(/\s*\(\d+\)$/,"")).join(", ") + ")" : ""), d:t.duration||""});
     });
     const credits = role => [...new Set((j.extraartists||[]).filter(a => new RegExp("\\b" + role + "\\b", "i").test(a.role||"") && !a.tracks).map(a => (a.anv || a.name || "").replace(/\s*\(\d+\)$/,"")))].join(", ");
-    out = {tracks, named:{"Genre":(j.genres||[]).join(", "), "Style":(j.styles||[]).join(", "), "Producer":credits("Producer"), "Released":j.released && j.released.length > 4 ? j.released : ""}};
+    const people = creditList([...(j.extraartists||[]), ...(j.tracklist||[]).flatMap(t => [...(t.extraartists||[]), ...(t.sub_tracks||[]).flatMap(x => x.extraartists||[])])].map(a => [a.anv || a.name, a.role]));
+    out = {tracks, credits:people, named:{"Genre":(j.genres||[]).join(", "), "Style":(j.styles||[]).join(", "), "Producer":credits("Producer"), "Released":j.released && j.released.length > 4 ? j.released : ""}};
   } else {
-    const j = await getJSON("https://musicbrainz.org/ws/2/release/" + ref.mb + "?fmt=json&inc=recordings+genres");
+    const j = await getJSON("https://musicbrainz.org/ws/2/release/" + ref.mb + "?fmt=json&inc=recordings+genres+artist-rels+recording-level-rels");
+    const relRole = x => x.type === "instrument" ? (x.attributes||[]).filter(a => !/^(additional|guest|solo)$/.test(a)).join(", ") || "instruments" : x.type === "vocal" ? ((x.attributes||[]).join(", ") || "vocals") : x.type;
+    const rels = [...(j.relations||[]), ...(j.media||[]).flatMap(m => (m.tracks||[]).flatMap(t => ((t.recording||{}).relations||[])))].filter(x => x.artist);
     const media = j.media || [], tracks = [];
     media.forEach(m => {
       if(media.length > 1) tracks.push({h:m.title || (/vinyl|shellac/i.test(m.format||"") ? "Record " : "Disc ") + (m.position || "")});
       (m.tracks||[]).forEach(t => tracks.push({p:t.number || String(t.position||""), t:t.title || (t.recording||{}).title || "", d:fmtMs(t.length || (t.recording||{}).length)}));
     });
-    out = {tracks, named:{"Genre":(j.genres||[]).map(g => g.name).slice(0, 4).map(g => g.replace(/\b\w/g, c => c.toUpperCase())).join(", "), "Released":(j.date||"").length > 4 ? j.date : ""}};
+    out = {tracks, credits:creditList(rels.map(x => [x["target-credit"] || x.artist.name, relRole(x).replace(/^\w/, c => c.toUpperCase())])), named:{"Genre":(j.genres||[]).map(g => g.name).slice(0, 4).map(g => g.replace(/\b\w/g, c => c.toUpperCase())).join(", "), "Released":(j.date||"").length > 4 ? j.date : ""}};
   }
   // Only one heading and it's the whole thing ("Vinyl 1")? Drop it.
   if(out.tracks.filter(t => t.h).length === 1 && out.tracks[0].h) out.tracks.shift();
@@ -2963,7 +2981,7 @@ async function releaseDetails(ref){
 /* Add a release's track listing and genres to a lookup result (quietly skipped if the site is slow or busy). */
 async function withReleaseDetails(r){
   if(!r || !r.ref || r.tracks) return r;
-  try{ const d = await withLimit(releaseDetails(r.ref), 10000); if(d){ r = {...r, tracks:d.tracks}; r.named = {...(r.named||{})}; Object.entries(d.named).forEach(([k,v]) => { if(v && !r.named[k]) r.named[k] = v; }); } }
+  try{ const d = await withLimit(releaseDetails(r.ref), 10000); if(d){ r = {...r, tracks:d.tracks, credits:d.credits}; r.named = {...(r.named||{})}; Object.entries(d.named).forEach(([k,v]) => { if(v && !r.named[k]) r.named[k] = v; }); } }
   catch(e){ console.warn("release details:", e.message); }
   return r;
 }
@@ -3017,7 +3035,8 @@ async function trackRef(it){
    and remembers it's unfinished so reopening the app offers to carry on. */
 let trackJob = null;
 const TRACKJOB_KEY = "cm.trackJob";
-function trackTodo(){ return cat.items.filter(i => hasTrackList(coll(i.collectionId)) && !(i.tracks||[]).length && (((i.matched||{}).ref) || i.barcode)); }
+const needsDetails = i => !(i.tracks||[]).length || !Array.isArray(i.credits);   // no track listing, or personnel never looked up
+function trackTodo(){ return cat.items.filter(i => hasTrackList(coll(i.collectionId)) && needsDetails(i) && (((i.matched||{}).ref) || i.barcode)); }
 async function keepAwake(job){
   try{ if(!job.done && navigator.wakeLock && document.visibilityState === "visible" && !(job.lock && !job.lock.released)) job.lock = await navigator.wakeLock.request("screen"); }catch(e){}
 }
@@ -3026,7 +3045,7 @@ async function fillAllTracks(resume){
   if(trackJob) return toast("Track listings are already being filled in. Watch the bar at the bottom.");
   const todo = trackTodo();
   if(!todo.length){ LS.del(TRACKJOB_KEY); if(resume !== true) alert("Every matched record already has a track listing. For others, open the piece and use 🔎 Match (or type the tracks in ✎ Edit)."); return; }
-  if(resume !== true && !confirm(`Look up track listings for ${todo.length} piece${todo.length===1?"":"s"}? This takes about ${Math.max(1, Math.round(todo.length * 2 / 60))} minute${todo.length * 2 > 90 ? "s" : ""} (the music sites ask for a slow pace).\n\nYou can keep using the app while it works. Leave the app open: if you switch away or it closes, it picks up where it left off next time.`)) return;
+  if(resume !== true && !confirm(`Look up track listings and personnel for ${todo.length} piece${todo.length===1?"":"s"}? This takes about ${Math.max(1, Math.round(todo.length * 2 / 60))} minute${todo.length * 2 > 90 ? "s" : ""} (the music sites ask for a slow pace).\n\nYou can keep using the app while it works. Leave the app open: if you switch away or it closes, it picks up where it left off next time.`)) return;
   const job = trackJob = {stop:false, done:false};
   LS.set(TRACKJOB_KEY, {at:new Date().toISOString()});
   keepAwake(job);
@@ -3046,11 +3065,13 @@ async function fillAllTracks(resume){
         try{
           // Always work on the piece as it is in the catalog *now*: a save that merged in another device's changes swaps in
           // fresh copies of pieces, and writing to the old copy would be silently lost.
-          const before = item(it.id); if(!before || (before.tracks||[]).length) break;
+          const before = item(it.id); if(!before || !needsDetails(before)) break;
           const hadRef = !!((before.matched||{}).ref), ref = await trackRef(before), d = ref && await withLimit(releaseDetails(ref), 20000);
           const cur = item(it.id); if(!cur) break;
           if(cur !== before && before.matched && before.matched.ref && !(cur.matched||{}).ref) cur.matched = before.matched;
-          if(d && d.tracks.length && !(cur.tracks||[]).length){ const was = cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks}, false); cur.matched = was; cur.updated = new Date().toISOString(); filled++; } else if(!(cur.tracks||[]).length) none++;
+          if(d && (d.tracks.length && !(cur.tracks||[]).length || !Array.isArray(cur.credits))){ const was = cur.matched, had = (cur.tracks||[]).length, hadC = (cur.credits||[]).length;
+            mergeResult(cur, {named:d.named, tracks:d.tracks, credits:d.credits || []}, false); cur.matched = was; cur.updated = new Date().toISOString();
+            if((cur.tracks||[]).length > had || (cur.credits||[]).length > hadC) filled++; else if(!(cur.tracks||[]).length) none++; } else if(!(cur.tracks||[]).length) none++;
           await new Promise(r => setTimeout(r, hadRef ? 1300 : 2600));
           break;
         }catch(e){
@@ -3068,7 +3089,7 @@ async function fillAllTracks(resume){
   }catch(e){ alert("Filling track listings stopped: " + e.message); }
   finally{ job.done = true; trackJob = null; b.remove(); try{ job.lock && job.lock.release(); }catch(e){} }
   if(job.stop) LS.del(TRACKJOB_KEY);
-  const msg = `Added track listings to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} have no track listing on the release they're matched to. Open one and use 🔎 Re-match to pick a release that has one, or type the tracks in ✎ Edit.` : "")
+  const msg = `Added track listings or personnel to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} have no track listing on the release they're matched to. Open one and use 🔎 Re-match to pick a release that has one, or type the tracks in ✎ Edit.` : "")
     + (failed ? `\n\n${failed} couldn't be reached right now (the music sites were busy). Tap Fill in track listings again later to finish them.` : "");
   // Don't pull the rug out from under a form or pop-up the person is using; a short note is enough then.
   if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) toast(`🎶 Track listings done: ${filled} added`, 4000);
@@ -3314,6 +3335,10 @@ function viewEdit(id, params, ov){
         <div class="f"><label for="price">Price paid ($)</label><input id="price" name="price" value="${esc(it.price??"")}" inputmode="decimal"></div>
         <div class="f"><label for="value">Estimated value ($)</label><input id="value" name="value" value="${esc(it.value??"")}" inputmode="decimal"></div>
       </div><p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">🔒 Values, prices and private fields are hidden whenever “Show values” is off.</p></fieldset>
+      ${hasTrackList(c) || (it.credits||[]).length ? `<fieldset><legend>Personnel</legend>
+        <p style="color:var(--muted);font-size:.82rem;margin:0 0 8px">One person per line, like <code>Paul McCartney — Bass, Vocals</code>. Filled in with the track listing from the matched release.</p>
+        <div class="f full"><textarea id="creditsTxt" rows="${Math.min(14, Math.max(3, (it.credits||[]).length + 1))}" placeholder="John Lennon — Vocals, Guitar\nGeorge Martin — Producer">${esc(creditsToText(it.credits))}</textarea></div>
+      </fieldset>` : ""}
       ${hasTrackList(c) || (it.tracks||[]).length ? `<fieldset><legend>Track listing</legend>
         <p style="color:var(--muted);font-size:.82rem;margin:0 0 8px">One track per line, like <code>A1&nbsp;&nbsp;Song title&nbsp;&nbsp;3:45</code> (side/number and time are optional). Start a line with <code>#</code> for a heading, like <code># Disc two</code>. Filled in automatically when the piece is matched or scanned.</p>
         <div class="f full"><textarea id="tracksTxt" name="tracks" rows="${Math.min(18, Math.max(4, (it.tracks||[]).length + 1))}" style="font-variant-numeric:tabular-nums" placeholder="A1  Speak to Me  1:13\nA2  Breathe  2:43\nB1  Money  6:22">${esc(tracksToText(it.tracks))}</textarea></div>
@@ -3372,7 +3397,7 @@ function viewEdit(id, params, ov){
       collect(); const done = busy("Getting the track listing…");
       try{ const ref = await trackRef(it), d = ref && await releaseDetails(ref);
         if(!d || !d.tracks.length) toast("No track listing found. Use 🔎 Look up by the title to pick the exact release.", 5000);
-        else { const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks}, false); it.tracks = d.tracks; it.matched = was; render(); toast("Track listing filled in. Save to keep it."); } }
+        else { const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks, credits:d.credits}, false); it.tracks = d.tracks; it.matched = was; render(); toast("Track listing filled in. Save to keep it."); } }
       catch(e){ alert(e.message); } finally{ done(); }
     };
     renderFound();
@@ -3461,6 +3486,8 @@ function viewEdit(id, params, ov){
       // Compare with what the box showed when the form opened, so a listing filled in meanwhile isn't wiped by an untouched box.
       const tb = document.getElementById("tracksTxt");
       if(tb.value !== tb.defaultValue && tracksToText(t) !== tracksToText(textToTracks(tracksToText(it.tracks)))) { if(t.length) it.tracks = t; else delete it.tracks; } }
+    { const cb = document.getElementById("creditsTxt");   // untouched box keeps the saved list (and "looked up, nobody listed")
+      if(cb && cb.value !== cb.defaultValue){ const cs = textToCredits(cb.value); if(cs.length) it.credits = cs; else delete it.credits; } }
     it.extra = [...document.querySelectorAll("#extras .xrow")].map(r => ({l:r.querySelector("[data-xl]").value.trim(), v:r.querySelector("[data-xv]").value.trim()})).filter(x => x.l || x.v);
     document.querySelectorAll("#media [data-label]").forEach(inp => { const m = it.media.find(m=>m.id===inp.dataset.label); if(m) m.label = inp.value.trim(); });
   }
@@ -3737,8 +3764,8 @@ function viewSettings(){
     <p>Records and tracks get a ▶ button that opens your music app already searched for that album or song. No account or key needed.</p>
     <div class="actions" style="margin-top:4px"><select id="playSvc" aria-label="Music app for play buttons" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px">${Object.entries(PLAY).map(([k, p]) => `<option value="${k}" ${playPref() === k ? "selected" : ""}>${p.name}</option>`).join("")}</select></div>
     <div class="actions"><button class="iconbtn primary" id="dtokSave">Save lookup settings</button></div>
-    ${(() => { const n = cat.items.filter(i => hasTrackList(coll(i.collectionId)) && !(i.tracks||[]).length && ((i.matched||{}).ref || i.barcode)).length;
-      return n ? `<h3 style="font-size:1rem;margin-top:14px">Track listings</h3><p>${n} record${n===1?"":"s"} could get a track listing (and genre) from the release ${n===1?"it's":"they're"} matched to.</p><div class="actions"><button class="iconbtn" id="fillTracks">🎶 Fill in track listings</button></div>` : ""; })()}</div>
+    ${(() => { const n = trackTodo().length;
+      return n ? `<h3 style="font-size:1rem;margin-top:14px">Track listings &amp; personnel</h3><p>${n} record${n===1?"":"s"} could get a track listing, personnel (who played and produced) and genre from the release ${n===1?"it's":"they're"} matched to.</p><div class="actions"><button class="iconbtn" id="fillTracks">🎶 Fill in track listings &amp; personnel</button></div>` : ""; })()}</div>
   <div class="panel"><h2>Reports &amp; backups</h2>
     <p>The insurance report lists every piece with values, serials and certificate numbers. Print it or save as PDF.</p>
     <div class="actions"><a class="iconbtn" href="#/report">🧾 Insurance report</a><button class="iconbtn" id="csv">⬇ Spreadsheet (CSV)</button><button class="iconbtn" id="json">⬇ Catalog only (JSON)</button>
