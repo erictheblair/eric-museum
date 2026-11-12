@@ -52,6 +52,8 @@ main{padding:20px 0 calc(120px + env(safe-area-inset-bottom))}
 .sbox input:placeholder-shown + .sx{display:none}
 @media (max-width:520px){#sf .sbox{flex-basis:100%} #sf select{flex:1 1 0;max-width:none}}
 .stats{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:.88rem;margin-top:8px}
+.stats .homebtns{margin-left:auto;display:flex;gap:8px}
+@media (max-width:560px){.stats .homebtns{flex-basis:100%;margin-left:0}.stats .homebtns a{flex:1;justify-content:center}}
 .stats b{color:var(--ink);font-family:var(--serif);font-size:1.1rem;font-weight:600;margin-right:4px}
 .section-title{display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 12px;gap:10px}
 .section-title h2{font-size:1.35rem}
@@ -832,7 +834,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.8";
+const APP_VERSION = "2026.11.12.9";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1650,7 +1652,7 @@ function viewHome(params){
     <p>A private museum of things worth keeping.</p>
     <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>
     <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${Object.keys(counts).length}</b>collections</span>
-      ${priv ? "" : `<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}${cat.items.length ? `<a class="wallbtn" href="#/ask" style="margin-left:auto">💬 Ask</a><a class="wallbtn" href="#/stats">📊 Stats</a>` : ""}</div>
+      ${priv ? "" : `<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}${cat.items.length ? `<span class="homebtns"><a class="wallbtn" href="#/ask">💬 Ask</a><a class="wallbtn" href="#/stats">📊 Stats</a></span>` : ""}</div>
   </section>
   ${results ? `<div class="section-title"><h2>Results</h2><span>${results.length} found</span></div>
       ${results.length ? `<div class="grid">${results.map(plate).join("")}</div>` : `<div class="empty">Nothing matches “${esc(q)}”.</div>`}` : `
