@@ -827,7 +827,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.4";
+const APP_VERSION = "2026.11.12.5";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1504,12 +1504,24 @@ function plate(it){
     <div class="plaque"><div class="t">${it.favorite?'<span class="star">★</span> ':""}${esc(shown)}</div><div class="s">${esc(sub)||"&nbsp;"}</div></div><div class="meta">${esc(meta.join(" · "))}</div></a>`;
 }
 
+/* Spelling distance allowing one swapped pair ("trakcs" → "tracks" is 1). */
+function osaDist(a, b){ const d = Array.from({length:a.length + 1}, (_, i) => [i]); for(let j = 1; j <= b.length; j++) d[0][j] = j;
+  for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++){ d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    if(i > 1 && j > 1 && a[i-1] === b[j-2] && a[i-2] === b[j-1]) d[i][j] = Math.min(d[i][j], d[i-2][j-2] + 1); } return d[a.length][b.length]; }
+/* Forgiving word match: exact piece of text, the same ignoring spaces and punctuation ("beat down" = "Beatdown"), or one typo away. */
+function fuzzyHas(hay, w){
+  if(hay.includes(w)) return true;
+  const wj = w.replace(/[^a-z0-9]/g, ""); if(!wj) return true;
+  if(hay.replace(/[^a-z0-9]/g, "").includes(wj)) return true;
+  if(wj.length < 4) return false;
+  return hay.split(/[^a-z0-9]+/).some(h => Math.abs(h.length - wj.length) <= 1 && osaDist(h, wj) <= 1);
+}
 function matches(it, q){
   if(!q) return true;
   const c = coll(it.collectionId);
   const hay = [it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" ").toLowerCase();
-  return q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(w => fuzzyHas(hay, w));
 }
 const conditionList = () => CONDITIONS.concat(((cat && cat.settings)||{}).conditions || []);
 const condRank = c => { const i = conditionList().findIndex(x => x.toLowerCase() === String(c||"").toLowerCase()); return i < 0 ? (c ? 50 : 99) : i; };
@@ -2473,13 +2485,33 @@ async function searchCandidates(kind, q, maker){
   if(kind === "music"){
     // Discogs (when a token is set) and MusicBrainz are searched together; Discogs first, vinyl ahead of CDs.
     const tok = (cat.settings||{}).discogsToken;
-    const [dg, mb] = await Promise.allSettled([tok ? discogsSearch(q, maker, tok) : Promise.resolve([]), musicBrainzSearch(q, maker)]);
+    let [dg, mb] = await Promise.allSettled([tok ? discogsSearch(q, maker, tok) : Promise.resolve([]), musicBrainzSearch(q, maker)]);
+    // Forgiving: if Discogs found little, try again with the spelling MusicBrainz found ("Beat Down" → "Beatdown", typos),
+    // with neighbouring words joined, and without the artist (in case that's the part with the typo).
+    if(tok && (dg.value || []).length < 3){
+      const norm = x => String(x||"").toLowerCase().replace(/[^a-z0-9]/g, ""), seen = new Set((dg.value || []).map(c => c.ref && c.ref.discogs));
+      const tries = [], top = (mb.value || [])[0];
+      if(top && (norm(top.title) !== norm(q) || (maker && norm(top.maker) !== norm(maker)))) tries.push([top.title, top.maker]);
+      const ws = q.split(/\s+/); ws.slice(1).forEach((w, n) => tries.push([ws.slice(0, n).concat([ws[n] + w], ws.slice(n + 2)).join(" "), maker]));
+      if(maker) tries.push([q, ""]);
+      let extra = [];
+      for(const [tq, tm] of tries.slice(0, 4)){
+        if(extra.length + (dg.value || []).length >= 8) break;
+        try{ (await discogsSearch(tq, tm, tok)).forEach(c => { const k = c.ref && c.ref.discogs; if(!seen.has(k)){ seen.add(k); extra.push(c); } }); }catch(e){ break; }
+      }
+      if(extra.length) dg = {status:"fulfilled", value:(dg.value || []).concat(extra)};
+    }
     const vinylFirst = list => list.map((c,n) => [c,n]).sort((a,b) => (/vinyl|lp|12"|7"|10"/i.test(b[0].sub) - /vinyl|lp|12"|7"|10"/i.test(a[0].sub)) || a[1]-b[1]).map(x => x[0]);
     const all = vinylFirst(dg.value || []).concat(vinylFirst(mb.value || []));
     if(!all.length && (dg.status === "rejected" || mb.status === "rejected")) throw (dg.reason || mb.reason);
     return all;
   }
-  return searchOther(kind, q, maker);
+  let res = await searchOther(kind, q, maker);
+  // Nothing found: try again with neighbouring words joined ("beat down" → "beatdown"), then without the second box.
+  if(!res.length && kind !== "comic"){ const ws = q.split(/\s+/);
+    for(const v of ws.slice(1).map((w, n) => ws.slice(0, n).concat([ws[n] + w], ws.slice(n + 2)).join(" ")).slice(0, 3)){ res = await searchOther(kind, v, maker).catch(() => []); if(res.length) break; }
+    if(!res.length && maker) res = await searchOther(kind, q, "").catch(() => []); }
+  return res;
 }
 // Vinyl colour from Discogs: the free-text format note ("Red Translucent") or a colour word in the format list.
 const COLOR_WORDS = /\b(black|clear|transparent|translucent|white|red|orange|yellow|green|blue|purple|violet|pink|gold|silver|grey|gray|smoke|brown|splatter|marble|marbled|swirl|swirled|glow|coloured|colored|picture)\b/i;
@@ -2504,7 +2536,11 @@ async function discogsSearch(q, maker, tok){
 }
 async function musicBrainzSearch(q, maker){
   {
-    const query = 'release:"' + q.replace(/"/g,"") + '"' + (maker ? ' AND artist:"' + maker.replace(/"/g,"") + '"' : "");
+    // Exact phrase first, then each word allowing a typo, then neighbouring words run together ("beat down" → beatdown).
+    const fz = t => { const ws = String(t).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean); if(!ws.length) return "";
+      const fuzzy = ws.map(w => w.length >= 4 ? w + "~1" : w).join(" AND "), joins = ws.slice(1).map((w, n) => ws.slice(0, n).concat([ws[n] + w], ws.slice(n + 2)).map(x => x.length >= 4 ? x + "~1" : x).join(" AND "));
+      return "(" + ['"' + ws.join(" ") + '"^3', "(" + fuzzy + ")", ...joins.map(j => "(" + j + ")")].join(" OR ") + ")"; };
+    const query = "release:" + fz(q) + (maker && fz(maker) ? " AND artist:" + fz(maker) : "");
     const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=12&query=" + encodeURIComponent(query));
     return (j.releases||[]).map(r => { const li = (r["label-info"]||[])[0] || {}, fmts = (r.media||[]).map(m=>m.format||""), fm = formatFrom(fmts);
       const res = {source:"MusicBrainz", ref:{mb:r.id}, title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""), year:(r.date||"").slice(0,4),
