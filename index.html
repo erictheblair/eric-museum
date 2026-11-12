@@ -667,6 +667,8 @@ body.wallmode #fsc{display:none}
 /* Search: how the words match (all / any / exact phrase) */
 .smodes{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 0;font-size:.82rem;color:var(--muted)}
 .smodes button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 10px;font:inherit;cursor:pointer}
+.smodes .sin select{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 8px;font:inherit;margin-left:4px}
+.smodes .sin{margin-right:6px}
 .smodes button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 /* Personnel list on a piece */
 .personnel{margin-top:20px}.personnel summary{cursor:pointer;list-style:none}.personnel summary::-webkit-details-marker{display:none}
@@ -868,7 +870,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.17";
+const APP_VERSION = "2026.11.12.20";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -902,7 +904,7 @@ const PRESETS = [
     {k:"production",l:"Production (film, show, commercial)"},{k:"season",l:"Season #"},{k:"episode",l:"Episode #"},{k:"characters",l:"Character(s)"},
     {k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"},{k:"scene",l:"Scene / sequence"},{k:"size",l:"Size"}]},
   {id:"pennies", name:"Pressed Pennies", icon:"🪙", maker:"Machine / set", fields:[
-    {k:"place",l:"Location / attraction"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"},
+    {k:"place",l:"Location / attraction"},{k:"country",l:"Country",opts:["USA"],def:"USA"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"},
     {k:"series",l:"Set position (e.g. 2 of 4)"},{k:"retired",l:"Retired design",opts:["Yes","No"]}]},
   {id:"memorabilia", name:"Memorabilia", icon:"🏆", maker:"Franchise / team", fields:[
     {k:"type",l:"Type of piece"},{k:"event",l:"Event / occasion"},{k:"provenance",l:"Provenance"},
@@ -1600,15 +1602,21 @@ function fuzzyHas(hay, w){
 let searchMode = LS.get("cm.smode", "all");
 const SEARCH_MODES = [["all","All words"],["any","Any word"],["phrase","Exact phrase"]];
 const normWords = t => String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/['’]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
-function searchHay(it){
+// Search in one part of a piece: title, maker, one field, tracks, personnel, tags or notes ("all" = everything).
+function searchHay(it, where){
   const c = coll(it.collectionId);
+  if(where && where !== "all"){
+    const one = where === "title" ? [it.title] : where === "maker" ? [it.maker] : where === "tracks" ? (it.tracks||[]).map(t => t.t || "") : where === "credits" ? (it.credits||[]).map(x => x.n + " " + (x.r||""))
+      : where === "tags" ? (it.tags||[]) : where === "notes" ? [it.notes, ...(it.extra||[]).map(x => x.v)] : where.startsWith("f:") ? [(it.fields||{})[where.slice(2)]] : [];
+    return normWords(one.join(" "));
+  }
   return normWords([it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.credits||[]).map(x => x.n), ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" "));
 }
-function matches(it, q, fuzzy){
+function matches(it, q, fuzzy, where){
   if(!q) return true;
   const qw = normWords(q); if(!qw.length) return true;
-  const hw = searchHay(it), line = " " + hw.join(" ") + " ";
+  const hw = searchHay(it, where), line = " " + hw.join(" ") + " ";
   if(searchMode === "phrase") return line.includes(" " + qw.join(" ") + " ") || (fuzzy && line.replace(/ /g, "").includes(qw.join("")));
   const set = new Set(hw), last = qw.length - 1, open = !/\s$/.test(q);
   const hit = (w, n) => set.has(w) || (w.length > 2 && /s$/.test(w) && set.has(w.slice(0, -1))) || set.has(w + "s") || set.has(w + "es")
@@ -1619,8 +1627,19 @@ function matches(it, q, fuzzy){
   return searchMode === "any" ? qw.some(hit) : qw.every(hit);
 }
 // Strict first; only if that finds nothing, allow a typo per word.
-function searchItems(list, q){ if(!q) return list; const l = list.filter(i => matches(i, q)); return l.length ? l : list.filter(i => matches(i, q, true)); }
-const searchModeBar = q => q ? `<div class="smodes noprint" role="group" aria-label="How to match the words"><span>Match</span>${SEARCH_MODES.map(([k, l]) => `<button type="button" data-smode="${k}" class="${searchMode === k ? "on" : ""}" aria-pressed="${searchMode === k}">${l}</button>`).join("")}</div>` : "";
+function searchItems(list, q, where){ if(!q) return list; const l = list.filter(i => matches(i, q, false, where)); return l.length ? l : list.filter(i => matches(i, q, true, where)); }
+// The "Search in" choices for a collection, from its own labels (Artist, Album title… or Studio, Production…)
+function searchIns(c, items){
+  const any = f => items.some(f);
+  return [["all","Everything"], ["title","Title"], ["maker", c.maker || "Maker"], ...c.fields.filter(f => !(priv && f.priv)).map(f => ["f:" + f.k, f.l.split(/ [(\/]/)[0]]),
+    ...(hasTrackList(c) || any(i => (i.tracks||[]).length) ? [["tracks","Songs"]] : []), ...(any(i => (i.credits||[]).length) ? [["credits","Personnel"]] : []),
+    ...(any(i => (i.tags||[]).length) ? [["tags","Tags"]] : []), ["notes","Notes & details"]];
+}
+const searchModeBar = (q, ins, sin) => q || (sin && sin !== "all") ? `<div class="smodes noprint" role="group" aria-label="How to match the words">${ins ? `<label class="sin">In <select data-sin aria-label="Search in">${ins.map(([k, l]) => `<option value="${esc(k)}" ${k === sin ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>` : ""}<span>Match</span>${SEARCH_MODES.map(([k, l]) => `<button type="button" data-smode="${k}" class="${searchMode === k ? "on" : ""}" aria-pressed="${searchMode === k}">${l}</button>`).join("")}</div>` : "";
+document.addEventListener("change", e => { const s = e.target.closest && e.target.closest("[data-sin]"); if(!s) return;
+  const m = location.hash.match(/^#\/c\/([^?]+)\??(.*)$/); if(!m) return; const p = new URLSearchParams(m[2]);
+  LS.set("cm.sin." + decodeURIComponent(m[1]), s.value); if(s.value === "all") p.delete("in"); else p.set("in", s.value);
+  const y = scrollY; history.replaceState(history.state, "", "#/c/" + m[1] + (p.toString() ? "?" + p : "")); navCur = location.hash; route(); scrollTo(0, y); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-smode]"); if(!b) return; searchMode = b.dataset.smode; LS.set("cm.smode", searchMode); const y = scrollY; route(); scrollTo(0, y); });
 const conditionList = () => CONDITIONS.concat(((cat && cat.settings)||{}).conditions || []);
 const condRank = c => { const i = conditionList().findIndex(x => x.toLowerCase() === String(c||"").toLowerCase()); return i < 0 ? (c ? 50 : 99) : i; };
@@ -1762,17 +1781,18 @@ function viewHome(params){
 function viewHall(id, params){
   const c = coll(id);
   const q = params.get("q") || "", sort = params.get("sort") || (c && c.sort) || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
+  const ins = searchIns(c, cat.items.filter(i => i.collectionId === id)), sinRaw = params.get("in") || LS.get("cm.sin." + id, "all"), sin = ins.some(x => x[0] === sinRaw) ? sinRaw : "all";
   const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1";
   const fsel = {}; c.fields.forEach(f => { const v = params.get("f." + f.k); if(v && !(priv && f.priv)) fsel[f.k] = v; });
   document.title = c.name + " · " + (cat.title||"The Museum");
   const all = cat.items.filter(i => i.collectionId === id);
   const tags = [...new Set(all.flatMap(i => i.tags||[]))].sort();
-  const list = sortItems(searchItems(all, q).filter(i => (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
+  const list = sortItems(searchItems(all, q, sin).filter(i => (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
     && (!cond || (i.condition||"") === cond) && Object.entries(fsel).every(([k,v]) => ((i.fields||{})[k]||"") === v)), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
   if(sort === "maker" && lookupKind(c) === "music"){ const h0 = location.hash; fillMakerSort(all, () => { if(location.hash === h0 && scrollY < 300 && !pieceOv) route(); }); }
   hallOrder[id] = list.map(i => i.id);
-  const state = {q, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
+  const state = {q, in:sin === "all" ? "" : sin, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
   const link = (o) => { const p = new URLSearchParams({...state, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
   // Filter choices come from what's actually in this gallery.
   const distinct = get => [...new Set(all.map(get).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true}));
@@ -1797,7 +1817,7 @@ function viewHall(id, params){
     <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
     <form class="search" id="sf">${searchBox("Search " + c.name.toLowerCase() + "…", q)}
       <select name="sort" aria-label="Sort">${sorts.map(([v,l])=>`<option value="${v}" ${v===sort?"selected":""}>Sort: ${esc(l)}</option>`).join("")}</select>
-      <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>${searchModeBar(q)}
+      <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>${searchModeBar(q, ins, sin)}
     ${showFilters ? `<div class="filters" id="filt">
       ${conds.length ? `<label>Condition<select data-p="cond"><option value="">Any</option>${conds.map(v=>`<option ${v===cond?"selected":""}>${esc(v)}</option>`).join("")}</select></label>` : ""}
       ${ffields.map(({f,vals}) => `<label>${esc(f.l)}<select data-p="f.${f.k}"><option value="">Any</option>${vals.map(v=>`<option ${v===fsel[f.k]?"selected":""}>${esc(v)}</option>`).join("")}</select></label>`).join("")}
@@ -2177,7 +2197,7 @@ function viewItem(id, host){
   if(document.getElementById("tracksBtn")) document.getElementById("tracksBtn").onclick = async () => {
     const done = busy("Getting the track listing…"), before = JSON.stringify(it);
     try{
-      const ref = await trackRef(it), d = ref && await releaseDetails(ref);
+      const ref = await trackRef(it), d = ref && await releaseDetails(ref, it.year);
       if(!d || !d.tracks.length){ done(); return toast("No track listing found for this one. Try 🔎 Re-match to pick the exact release, or type them in ✎ Edit.", 5000); }
       const cur = item(it.id) || it;   // the catalog may have been refreshed while waiting
       const was = it.matched || cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks, credits:d.credits}, false); cur.matched = was;
@@ -2969,11 +2989,63 @@ function creditList(pairs){
   const tech = /produc|engineer|mix|master|lacquer|design|photo|art direction|artwork|layout|liner|management|a&r|recorded|cut|executive|coordinat|legal|lettering|illustrat|cover|notes|booking/i;
   return [...m.values()].map(e => ({n:e.n, r:e.r.join(", ")})).sort((a, b) => tech.test(a.r) - tech.test(b.r)).slice(0, 60);
 }
+/* Band members from MusicBrainz (it knows when each person joined and left), or from Discogs when MusicBrainz doesn't know the band.
+   a = {name, mbid?, dgId?, years:[...], credited:[names on the release]}. Returns [{n, r:"Band member, Guitar…"}], [] for a solo artist
+   or a band nobody lists, or null when the sites couldn't be reached (so it's tried again later). */
+const bandCache = {};
+const lowName = n => String(n||"").replace(/\s*\(\d+\)$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]+/g, " ").trim();
+async function bandMembers(a){
+  const name = String(a.name||"").replace(/\s*\(\d+\)$/, "").trim(); if(!name || /^various/i.test(name) || /^unknown artist/i.test(name)) return [];
+  const y = Math.min(...(a.years||[]).map(v => parseInt(String(v||"").slice(0, 4))).filter(v => v > 1800), 9999), year = y === 9999 ? 0 : y;
+  const key = (a.mbid || lowName(name)) + "|" + year; if(bandCache[key]) return bandCache[key];
+  const wait = () => new Promise(r => setTimeout(r, 1100));   // MusicBrainz asks for about one request a second
+  const cap = x => x.replace(/^\w/, c => c.toUpperCase());
+  let out = null, solo = false;
+  try{
+    let id = a.mbid;
+    if(!id){ await wait();
+      const j = await getJSON("https://musicbrainz.org/ws/2/artist/?fmt=json&limit=5&query=" + encodeURIComponent('artist:"' + name.replace(/"/g, "") + '"'));
+      const hit = (j.artists||[]).find(x => (x.score||0) >= 90 && [x.name, ...((x.aliases||[]).map(z => z.name))].some(n => lowName(n) === lowName(name)));
+      if(hit){ if(hit.type === "Person") solo = true; else id = hit.id; } }
+    if(id){ await wait();
+      const j = await getJSON("https://musicbrainz.org/ws/2/artist/" + id + "?fmt=json&inc=artist-rels");
+      if(j.type === "Person") solo = true;
+      else { const m = new Map();
+        (j.relations||[]).filter(r => r.type === "member of band" && r.direction === "backward" && r.artist).forEach(r => {
+          const b = parseInt(r.begin)||0, e = parseInt(r.end)||0;
+          if(year && ((b && b > year) || (e && e < year))) return;   // joined after, or left before, this record
+          const k = lowName(r.artist.name), x = m.get(k) || m.set(k, {n:r.artist.name, r:["Band member"]}).get(k);
+          (r.attributes||[]).filter(t => !/^(original|founder|additional|guest|lead|minor|touring)$/i.test(t)).map(t => cap(t.replace(/\s*\(.*?\)/g, ""))).forEach(t => { if(!x.r.includes(t)) x.r.push(t); });
+        });
+        if(m.size) out = [...m.values()].map(x => ({n:x.n, r:x.r.join(", ")})); }
+    }
+  }catch(e){ console.warn("band members:", e.message); if(!a.dgId) return null; }
+  if(!out && !solo && a.dgId && (cat.settings||{}).discogsToken){
+    try{ const j = await getJSON("https://api.discogs.com/artists/" + a.dgId + "?token=" + encodeURIComponent(cat.settings.discogsToken));
+      const ms = j.members || [], on = new Set((a.credited||[]).map(lowName));
+      // Discogs doesn't say when people were in the band: keep the ones credited on this record, or everyone if it's a small band.
+      const keep = ms.length <= 5 ? ms : ms.filter(x => on.has(lowName(x.name)));
+      out = keep.map(x => ({n:String(x.name||"").replace(/\s*\(\d+\)$/, ""), r:"Band member"}));
+    }catch(e){ console.warn("band members:", e.message); return null; }
+  }
+  return bandCache[key] = out || [];
+}
+/* Put band members at the top of a Personnel list, adding "Band member" to anyone already listed. */
+function addMembers(credits, members){
+  const cs = (credits||[]).map(c => ({...c})), lead = [];
+  (members||[]).forEach(m => {
+    const i = cs.findIndex(c => lowName(c.n) === lowName(m.n)), c = i >= 0 ? cs.splice(i, 1)[0] : {n:m.n, r:""};
+    const roles = [];
+    [...m.r.split(/\s*,\s*/), ...String(c.r||"").split(/\s*,\s*/)].filter(Boolean).forEach(r => { if(!roles.some(z => z.toLowerCase() === r.toLowerCase())) roles.push(r); });
+    lead.push({n:c.n, r:roles.join(", ")});
+  });
+  return [...lead, ...cs];
+}
 const creditsToText = cs => (cs||[]).map(c => c.r ? c.n + " — " + c.r : c.n).join("\n");
 const textToCredits = t => String(t||"").split("\n").map(l => l.trim()).filter(Boolean).map(l => { const m = l.match(/^(.+?)\s+[—–-]\s+(.+)$/); return m ? {n:m[1].trim(), r:m[2].trim()} : {n:l, r:""}; });
-async function releaseDetails(ref){
+async function releaseDetails(ref, yearHint){
   if(!ref) return null;
-  const key = ref.discogs ? "d" + ref.discogs : ref.mb ? "m" + ref.mb : ""; if(!key) return null;
+  const key = (ref.discogs ? "d" + ref.discogs : ref.mb ? "m" + ref.mb : "") + "|" + (parseInt(yearHint)||""); if(key[0] === "|") return null;
   if(releaseCache[key]) return releaseCache[key];
   let out = null;
   if(ref.discogs){
@@ -2988,8 +3060,10 @@ async function releaseDetails(ref){
     const credits = role => [...new Set((j.extraartists||[]).filter(a => new RegExp("\\b" + role + "\\b", "i").test(a.role||"") && !a.tracks).map(a => (a.anv || a.name || "").replace(/\s*\(\d+\)$/,"")))].join(", ");
     const people = creditList([...(j.extraartists||[]), ...(j.tracklist||[]).flatMap(t => [...(t.extraartists||[]), ...(t.sub_tracks||[]).flatMap(x => x.extraartists||[])])].map(a => [a.anv || a.name, a.role]));
     out = {tracks, credits:people, named:{"Genre":(j.genres||[]).join(", "), "Style":(j.styles||[]).join(", "), "Producer":credits("Producer"), "Released":j.released && j.released.length > 4 ? j.released : ""}};
+    const a0 = (j.artists||[])[0] || {};
+    out.band = {name:a0.name, dgId:a0.id, years:[j.year, yearHint], credited:people.map(c => c.n)};
   } else {
-    const j = await getJSON("https://musicbrainz.org/ws/2/release/" + ref.mb + "?fmt=json&inc=recordings+genres+artist-rels+recording-level-rels");
+    const j = await getJSON("https://musicbrainz.org/ws/2/release/" + ref.mb + "?fmt=json&inc=recordings+genres+artist-rels+recording-level-rels+artist-credits+release-groups");
     const relRole = x => x.type === "instrument" ? (x.attributes||[]).filter(a => !/^(additional|guest|solo)$/.test(a)).join(", ") || "instruments" : x.type === "vocal" ? ((x.attributes||[]).join(", ") || "vocals") : x.type;
     const rels = [...(j.relations||[]), ...(j.media||[]).flatMap(m => (m.tracks||[]).flatMap(t => ((t.recording||{}).relations||[])))].filter(x => x.artist);
     const media = j.media || [], tracks = [];
@@ -2998,16 +3072,21 @@ async function releaseDetails(ref){
       (m.tracks||[]).forEach(t => tracks.push({p:t.number || String(t.position||""), t:t.title || (t.recording||{}).title || "", d:fmtMs(t.length || (t.recording||{}).length)}));
     });
     out = {tracks, credits:creditList(rels.map(x => [x["target-credit"] || x.artist.name, relRole(x).replace(/^\w/, c => c.toUpperCase())])), named:{"Genre":(j.genres||[]).map(g => g.name).slice(0, 4).map(g => g.replace(/\b\w/g, c => c.toUpperCase())).join(", "), "Released":(j.date||"").length > 4 ? j.date : ""}};
+    const a0 = ((j["artist-credit"]||[])[0] || {}).artist || {};
+    out.band = {name:a0.name, mbid:a0.id, years:[(j["release-group"]||{})["first-release-date"], j.date, yearHint], credited:out.credits.map(c => c.n)};
   }
+  // Band members: who was in the band when the record came out, put at the top of Personnel.
+  if(out.band){ const m = await bandMembers(out.band); delete out.band;
+    if(m === null) out.bandFail = true; else { out.members = m; out.credits = addMembers(out.credits, m); } }
   // Only one heading and it's the whole thing ("Vinyl 1")? Drop it.
   if(out.tracks.filter(t => t.h).length === 1 && out.tracks[0].h) out.tracks.shift();
-  releaseCache[key] = out;
+  if(!out.bandFail) releaseCache[key] = out;
   return out;
 }
 /* Add a release's track listing and genres to a lookup result (quietly skipped if the site is slow or busy). */
 async function withReleaseDetails(r){
   if(!r || !r.ref || r.tracks) return r;
-  try{ const d = await withLimit(releaseDetails(r.ref), 10000); if(d){ r = {...r, tracks:d.tracks, credits:d.credits}; r.named = {...(r.named||{})}; Object.entries(d.named).forEach(([k,v]) => { if(v && !r.named[k]) r.named[k] = v; }); } }
+  try{ const d = await withLimit(releaseDetails(r.ref, r.year), 15000); if(d){ r = {...r, tracks:d.tracks, credits:d.credits}; r.named = {...(r.named||{})}; Object.entries(d.named).forEach(([k,v]) => { if(v && !r.named[k]) r.named[k] = v; }); } }
   catch(e){ console.warn("release details:", e.message); }
   return r;
 }
@@ -3061,8 +3140,10 @@ async function trackRef(it){
    and remembers it's unfinished so reopening the app offers to carry on. */
 let trackJob = null;
 const TRACKJOB_KEY = "cm.trackJob";
-const needsDetails = i => !(i.tracks||[]).length || !Array.isArray(i.credits);   // no track listing, or personnel never looked up
-function trackTodo(){ return cat.items.filter(i => hasTrackList(coll(i.collectionId)) && needsDetails(i) && (((i.matched||{}).ref) || i.barcode)); }
+const bandColl = c => !!c && c.id !== "laserdiscs" && (lookupKind(c) === "music" || c.id === "records");
+const needsBand = i => !i.bandChk && !!i.maker && bandColl(coll(i.collectionId));   // band members never looked up
+const needsDetails = i => (((i.matched||{}).ref) || i.barcode) && (!(i.tracks||[]).length || !Array.isArray(i.credits)) || needsBand(i);   // no track listing, or personnel never looked up
+function trackTodo(){ return cat.items.filter(i => hasTrackList(coll(i.collectionId)) && needsDetails(i)); }
 async function keepAwake(job){
   try{ if(!job.done && navigator.wakeLock && document.visibilityState === "visible" && !(job.lock && !job.lock.released)) job.lock = await navigator.wakeLock.request("screen"); }catch(e){}
 }
@@ -3080,7 +3161,7 @@ async function fillAllTracks(resume){
   document.body.appendChild(b);
   const say = t => { b.querySelector("#ftMsg").textContent = t; };
   b.querySelector("#ftStop").onclick = () => { job.stop = true; say("Stopping after this one…"); };
-  let filled = 0, none = 0, failed = 0, n = 0;
+  let filled = 0, none = 0, failed = 0, n = 0, bands = 0;
   try{
     for(const it of todo){
       if(job.stop) break;
@@ -3092,12 +3173,21 @@ async function fillAllTracks(resume){
           // Always work on the piece as it is in the catalog *now*: a save that merged in another device's changes swaps in
           // fresh copies of pieces, and writing to the old copy would be silently lost.
           const before = item(it.id); if(!before || !needsDetails(before)) break;
-          const hadRef = !!((before.matched||{}).ref), ref = await trackRef(before), d = ref && await withLimit(releaseDetails(ref), 20000);
+          const snap = JSON.stringify(before);
+          const hadRef = !!((before.matched||{}).ref), ref = await trackRef(before), d = ref && await withLimit(releaseDetails(ref, before.year), 30000);
+          // Not matched to a release? Band members can still be found from the artist's name.
+          const mem = d ? (d.bandFail ? null : d.members || []) : needsBand(before) ? await withLimit(bandMembers({name:before.maker, years:[before.year]}), 20000) : [];
           const cur = item(it.id); if(!cur) break;
           if(cur !== before && before.matched && before.matched.ref && !(cur.matched||{}).ref) cur.matched = before.matched;
-          if(d && (d.tracks.length && !(cur.tracks||[]).length || !Array.isArray(cur.credits))){ const was = cur.matched, had = (cur.tracks||[]).length, hadC = (cur.credits||[]).length;
-            mergeResult(cur, {named:d.named, tracks:d.tracks, credits:d.credits || []}, false); cur.matched = was; cur.updated = new Date().toISOString();
-            if((cur.tracks||[]).length > had || (cur.credits||[]).length > hadC) filled++; else if(!(cur.tracks||[]).length) none++; } else if(!(cur.tracks||[]).length) none++;
+          const had = (cur.tracks||[]).length, hadC = (cur.credits||[]).length, hadB = (cur.credits||[]).filter(c => /band member/i.test(c.r||"")).length;
+          if(d && (d.tracks.length && !had || !Array.isArray(cur.credits))){ const was = cur.matched;
+            mergeResult(cur, {named:d.named, tracks:d.tracks, credits:d.credits || []}, false); cur.matched = was; }
+          if(mem && mem.length) cur.credits = addMembers(cur.credits, mem);
+          if(mem && bandColl(coll(cur.collectionId))) cur.bandChk = 1;   // looked for band members (null = the sites were busy: try again next time)
+          const nowB = (cur.credits||[]).filter(c => /band member/i.test(c.r||"")).length;
+          if((cur.tracks||[]).length > had || (cur.credits||[]).length > hadC || nowB > hadB){ filled++; if(nowB > hadB) bands++; }
+          else if(ref && !(cur.tracks||[]).length) none++;
+          if(JSON.stringify(cur) !== snap) cur.updated = new Date().toISOString();
           await new Promise(r => setTimeout(r, hadRef ? 1300 : 2600));
           break;
         }catch(e){
@@ -3115,7 +3205,7 @@ async function fillAllTracks(resume){
   }catch(e){ alert("Filling track listings stopped: " + e.message); }
   finally{ job.done = true; trackJob = null; b.remove(); try{ job.lock && job.lock.release(); }catch(e){} }
   if(job.stop) LS.del(TRACKJOB_KEY);
-  const msg = `Added track listings or personnel to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} have no track listing on the release they're matched to. Open one and use 🔎 Re-match to pick a release that has one, or type the tracks in ✎ Edit.` : "")
+  const msg = `Added track listings or personnel to ${filled} piece${filled===1?"":"s"}` + (bands ? `, with band members on ${bands}` : "") + "." + (none ? `\n\n${none} have no track listing on the release they're matched to. Open one and use 🔎 Re-match to pick a release that has one, or type the tracks in ✎ Edit.` : "")
     + (failed ? `\n\n${failed} couldn't be reached right now (the music sites were busy). Tap Fill in track listings again later to finish them.` : "");
   // Don't pull the rug out from under a form or pop-up the person is using; a short note is enough then.
   if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) toast(`🎶 Track listings done: ${filled} added`, 4000);
@@ -3312,10 +3402,12 @@ function viewEdit(id, params, ov){
     : {id:uid(), collectionId:params.get("c") || cat.collections[0].id, title:"", fields:{}, tags:[], media:[]};
   const pending = []; // {m, blob, thumbBlob, previewUrl}
   const removed = [];
+  const defsDone = new Set();   // a new piece starts with each field's default (e.g. Country: USA) once; clearing it sticks
   document.title = (existing ? "Edit " + existing.title : "Add a piece") + " · " + (cat.title||"The Museum");
 
   function render(){
     const c = coll(it.collectionId);
+    if(!existing && !from) c.fields.forEach(f => { if(f.def && !defsDone.has(c.id + "." + f.k)){ defsDone.add(c.id + "." + f.k); it.fields = it.fields || {}; if(!it.fields[f.k]) it.fields[f.k] = f.def; } });
     const fv = k => esc((it.fields||{})[k] ?? "");
     const yearBox = `<div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>`;
     app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › ${existing ? `<a href="#/i/${it.id}">${esc(existing.title)}</a> › Edit` : "Add a piece"}</div>
@@ -3421,7 +3513,7 @@ function viewEdit(id, params, ov){
     wireExtras();
     if(document.getElementById("tracksFill")) document.getElementById("tracksFill").onclick = async () => {
       collect(); const done = busy("Getting the track listing…");
-      try{ const ref = await trackRef(it), d = ref && await releaseDetails(ref);
+      try{ const ref = await trackRef(it), d = ref && await releaseDetails(ref, it.year);
         if(!d || !d.tracks.length) toast("No track listing found. Use 🔎 Look up by the title to pick the exact release.", 5000);
         else { const was = it.matched; mergeResult(it, {named:d.named, tracks:d.tracks, credits:d.credits}, false); it.tracks = d.tracks; it.matched = was; render(); toast("Track listing filled in. Save to keep it."); } }
       catch(e){ alert(e.message); } finally{ done(); }
@@ -3791,7 +3883,7 @@ function viewSettings(){
     <div class="actions" style="margin-top:4px"><select id="playSvc" aria-label="Music app for play buttons" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px">${Object.entries(PLAY).map(([k, p]) => `<option value="${k}" ${playPref() === k ? "selected" : ""}>${p.name}</option>`).join("")}</select></div>
     <div class="actions"><button class="iconbtn primary" id="dtokSave">Save lookup settings</button></div>
     ${(() => { const n = trackTodo().length;
-      return n ? `<h3 style="font-size:1rem;margin-top:14px">Track listings &amp; personnel</h3><p>${n} record${n===1?"":"s"} could get a track listing, personnel (who played and produced) and genre from the release ${n===1?"it's":"they're"} matched to.</p><div class="actions"><button class="iconbtn" id="fillTracks">🎶 Fill in track listings &amp; personnel</button></div>` : ""; })()}</div>
+      return n ? `<h3 style="font-size:1rem;margin-top:14px">Track listings &amp; personnel</h3><p>${n} record${n===1?"":"s"} could get a track listing, band members, personnel (who played and produced) and genre.</p><div class="actions"><button class="iconbtn" id="fillTracks">🎶 Fill in track listings &amp; personnel</button></div>` : ""; })()}</div>
   <div class="panel"><h2>Reports &amp; backups</h2>
     <p>The insurance report lists every piece with values, serials and certificate numbers. Print it or save as PDF.</p>
     <div class="actions"><a class="iconbtn" href="#/report">🧾 Insurance report</a><button class="iconbtn" id="csv">⬇ Spreadsheet (CSV)</button><button class="iconbtn" id="json">⬇ Catalog only (JSON)</button>
@@ -4771,7 +4863,8 @@ function viewGallery(id){
     ${grip}<input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
     <label class="check" title="Private: hidden when values are hidden"><input type="checkbox" data-fp ${f.priv?"checked":""}> 🔒</label>
     <button type="button" class="iconbtn" data-frm title="Remove field" style="height:auto">✕</button>
-    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}></div>`;
+    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}>
+    <input data-fd value="${esc(f.def||"")}" placeholder="Starts as (optional), e.g. USA" aria-label="Value new pieces start with" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}></div>`;
   // Year is built in (not a field), but it can be dragged into place among the fields too.
   const yearRow = `<div class="frow" data-core="year" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">${grip}<div style="padding:9px 10px;color:var(--muted)">Year <small>(built in, always there)</small></div></div>`;
   const yAt = g.yearAfter ? g.fields.findIndex(f => f.k === g.yearAfter) : -1;
@@ -4785,7 +4878,7 @@ function viewGallery(id){
       <div class="f"><label for="glook">Look up info from</label><select id="glook">${Object.entries(LOOKUPS).map(([k,l]) => `<option value="${k}" ${k===lookupKind(g)?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
     </div></fieldset>
     <fieldset><legend>Fields</legend>
-      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece.</p>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece. “Starts as” fills that field in for each new piece (you can still change it).</p>
       <div id="frows" style="display:grid;gap:8px">${rowsHTML}</div>
       <div class="actions" style="margin-top:10px"><button type="button" class="iconbtn" id="addF">＋ Add a field</button></div>
     </fieldset>
@@ -4854,8 +4947,8 @@ function viewGallery(id){
   document.getElementById("gf").onsubmit = async e => {
     e.preventDefault();
     const fields = [...app.querySelectorAll("#frows .frow:not([data-core])")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked,
-        opts:[...new Set(r.querySelector("[data-fo]").value.split(",").map(x=>x.trim()).filter(Boolean))]}))
-      .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined}; if(!out.opts.length) delete out.opts; return out; });
+        opts:[...new Set(r.querySelector("[data-fo]").value.split(",").map(x=>x.trim()).filter(Boolean))], def:r.querySelector("[data-fd]").value.trim()}))
+      .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined}; if(!out.opts.length) delete out.opts; if(!out.def) delete out.def; return out; });
     // Year goes after whichever field is just above its row (none: before the fields, as usual)
     const yr = app.querySelector('#frows [data-core="year"]'), rowsAll = [...app.querySelectorAll("#frows .frow")], above = rowsAll.slice(0, rowsAll.indexOf(yr)).filter(r => !r.dataset.core && r.querySelector("[data-fl]").value.trim());
     const yearAfter = above.length ? fields[[...app.querySelectorAll("#frows .frow:not([data-core])")].filter(r => r.querySelector("[data-fl]").value.trim()).indexOf(above[above.length - 1])].k : "";
@@ -5015,7 +5108,8 @@ async function boot(){
       cat.items.forEach(i => { if(i.collectionId === "records" && i.fields && i.fields.format === '7" single') i.fields.format = '7"'; }); } }
   // Add preset fields introduced in newer versions, but never re-add ones the user removed.
   PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; c.seen = c.seen || c.fields.map(f=>f.k);
-    p.fields.forEach((f, n) => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); if(!c.fields.some(x=>x.k===f.k)){
+    p.fields.forEach((f, n) => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); const nlab = x => String(x).toLowerCase().split(/ [(\/]/)[0].replace(/[^a-z0-9]/g,"");
+      if(!c.fields.some(x => x.k === f.k || nlab(x.l) === nlab(f.l) || (nlab(f.l).length >= 5 && nlab(x.l).startsWith(nlab(f.l))))){   // a field you made yourself with the same name counts as having it
       // Slot it in after the field that comes before it in the preset (e.g. Vinyl color right after Format).
       const after = n ? c.fields.findIndex(x => x.k === p.fields[n-1].k) : -1;
       c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f)));
@@ -5038,6 +5132,11 @@ async function boot(){
       c.fields = lead.map(k => c.fields.find(x => x.k === k)).filter(Boolean).concat(c.fields.filter(x => !lead.includes(x.k)));
       c.seen = [...new Set([...(c.seen||[]), ...pc.fields.map(f => f.k)])];
       Object.assign(c, {yearAfter:"episode", hide:["condition","qty"], frames:true, clips:true}); } }
+  // One-time: Pressed Pennies' Country starts as USA for new pieces (your own Country field if you made one). Existing pieces are left as they are.
+  { const pc = cat.collections.find(x => x.id === "pennies"); if(pc && !pc.countrySetup){ pc.countrySetup = 1;
+      const f = pc.fields.find(x => x.k === "country") || pc.fields.find(x => /^country\b/i.test(String(x.l).trim()));
+      if(f && !f.def){ f.def = "USA"; if(f.opts && f.opts.length && !f.opts.some(o => /^(usa|us|united states( of america)?)$/i.test(o))) f.opts = ["USA", ...f.opts];
+        if(f.opts) { const us = f.opts.find(o => /^(usa|us|united states( of america)?)$/i.test(o)); if(us) f.def = us; } } } }
   // The upgrades above are the same on every device, so count them as the starting point when merging with another device's changes.
   if(store.kind === "dropbox" && store.base) store.base = JSON.stringify(cat, null, 1);
   // One-time: laserdiscs filed under Records (a format, tag or title that says Laserdisc) move to their own Laserdiscs collection,
