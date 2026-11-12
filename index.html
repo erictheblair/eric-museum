@@ -667,6 +667,8 @@ body.wallmode #fsc{display:none}
 /* Search: how the words match (all / any / exact phrase) */
 .smodes{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 0;font-size:.82rem;color:var(--muted)}
 .smodes button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 10px;font:inherit;cursor:pointer}
+.smodes .sin select{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 8px;font:inherit;margin-left:4px}
+.smodes .sin{margin-right:6px}
 .smodes button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 /* Personnel list on a piece */
 .personnel{margin-top:20px}.personnel summary{cursor:pointer;list-style:none}.personnel summary::-webkit-details-marker{display:none}
@@ -868,7 +870,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.17";
+const APP_VERSION = "2026.11.12.18";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1600,15 +1602,21 @@ function fuzzyHas(hay, w){
 let searchMode = LS.get("cm.smode", "all");
 const SEARCH_MODES = [["all","All words"],["any","Any word"],["phrase","Exact phrase"]];
 const normWords = t => String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/['’]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
-function searchHay(it){
+// Search in one part of a piece: title, maker, one field, tracks, personnel, tags or notes ("all" = everything).
+function searchHay(it, where){
   const c = coll(it.collectionId);
+  if(where && where !== "all"){
+    const one = where === "title" ? [it.title] : where === "maker" ? [it.maker] : where === "tracks" ? (it.tracks||[]).map(t => t.t || "") : where === "credits" ? (it.credits||[]).map(x => x.n + " " + (x.r||""))
+      : where === "tags" ? (it.tags||[]) : where === "notes" ? [it.notes, ...(it.extra||[]).map(x => x.v)] : where.startsWith("f:") ? [(it.fields||{})[where.slice(2)]] : [];
+    return normWords(one.join(" "));
+  }
   return normWords([it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.credits||[]).map(x => x.n), ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" "));
 }
-function matches(it, q, fuzzy){
+function matches(it, q, fuzzy, where){
   if(!q) return true;
   const qw = normWords(q); if(!qw.length) return true;
-  const hw = searchHay(it), line = " " + hw.join(" ") + " ";
+  const hw = searchHay(it, where), line = " " + hw.join(" ") + " ";
   if(searchMode === "phrase") return line.includes(" " + qw.join(" ") + " ") || (fuzzy && line.replace(/ /g, "").includes(qw.join("")));
   const set = new Set(hw), last = qw.length - 1, open = !/\s$/.test(q);
   const hit = (w, n) => set.has(w) || (w.length > 2 && /s$/.test(w) && set.has(w.slice(0, -1))) || set.has(w + "s") || set.has(w + "es")
@@ -1619,8 +1627,19 @@ function matches(it, q, fuzzy){
   return searchMode === "any" ? qw.some(hit) : qw.every(hit);
 }
 // Strict first; only if that finds nothing, allow a typo per word.
-function searchItems(list, q){ if(!q) return list; const l = list.filter(i => matches(i, q)); return l.length ? l : list.filter(i => matches(i, q, true)); }
-const searchModeBar = q => q ? `<div class="smodes noprint" role="group" aria-label="How to match the words"><span>Match</span>${SEARCH_MODES.map(([k, l]) => `<button type="button" data-smode="${k}" class="${searchMode === k ? "on" : ""}" aria-pressed="${searchMode === k}">${l}</button>`).join("")}</div>` : "";
+function searchItems(list, q, where){ if(!q) return list; const l = list.filter(i => matches(i, q, false, where)); return l.length ? l : list.filter(i => matches(i, q, true, where)); }
+// The "Search in" choices for a collection, from its own labels (Artist, Album title… or Studio, Production…)
+function searchIns(c, items){
+  const any = f => items.some(f);
+  return [["all","Everything"], ["title","Title"], ["maker", c.maker || "Maker"], ...c.fields.filter(f => !(priv && f.priv)).map(f => ["f:" + f.k, f.l.split(/ [(\/]/)[0]]),
+    ...(hasTrackList(c) || any(i => (i.tracks||[]).length) ? [["tracks","Songs"]] : []), ...(any(i => (i.credits||[]).length) ? [["credits","Personnel"]] : []),
+    ...(any(i => (i.tags||[]).length) ? [["tags","Tags"]] : []), ["notes","Notes & details"]];
+}
+const searchModeBar = (q, ins, sin) => q || (sin && sin !== "all") ? `<div class="smodes noprint" role="group" aria-label="How to match the words">${ins ? `<label class="sin">In <select data-sin aria-label="Search in">${ins.map(([k, l]) => `<option value="${esc(k)}" ${k === sin ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>` : ""}<span>Match</span>${SEARCH_MODES.map(([k, l]) => `<button type="button" data-smode="${k}" class="${searchMode === k ? "on" : ""}" aria-pressed="${searchMode === k}">${l}</button>`).join("")}</div>` : "";
+document.addEventListener("change", e => { const s = e.target.closest && e.target.closest("[data-sin]"); if(!s) return;
+  const m = location.hash.match(/^#\/c\/([^?]+)\??(.*)$/); if(!m) return; const p = new URLSearchParams(m[2]);
+  LS.set("cm.sin." + decodeURIComponent(m[1]), s.value); if(s.value === "all") p.delete("in"); else p.set("in", s.value);
+  const y = scrollY; history.replaceState(history.state, "", "#/c/" + m[1] + (p.toString() ? "?" + p : "")); navCur = location.hash; route(); scrollTo(0, y); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-smode]"); if(!b) return; searchMode = b.dataset.smode; LS.set("cm.smode", searchMode); const y = scrollY; route(); scrollTo(0, y); });
 const conditionList = () => CONDITIONS.concat(((cat && cat.settings)||{}).conditions || []);
 const condRank = c => { const i = conditionList().findIndex(x => x.toLowerCase() === String(c||"").toLowerCase()); return i < 0 ? (c ? 50 : 99) : i; };
@@ -1762,17 +1781,18 @@ function viewHome(params){
 function viewHall(id, params){
   const c = coll(id);
   const q = params.get("q") || "", sort = params.get("sort") || (c && c.sort) || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
+  const ins = searchIns(c, cat.items.filter(i => i.collectionId === id)), sinRaw = params.get("in") || LS.get("cm.sin." + id, "all"), sin = ins.some(x => x[0] === sinRaw) ? sinRaw : "all";
   const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1";
   const fsel = {}; c.fields.forEach(f => { const v = params.get("f." + f.k); if(v && !(priv && f.priv)) fsel[f.k] = v; });
   document.title = c.name + " · " + (cat.title||"The Museum");
   const all = cat.items.filter(i => i.collectionId === id);
   const tags = [...new Set(all.flatMap(i => i.tags||[]))].sort();
-  const list = sortItems(searchItems(all, q).filter(i => (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
+  const list = sortItems(searchItems(all, q, sin).filter(i => (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
     && (!cond || (i.condition||"") === cond) && Object.entries(fsel).every(([k,v]) => ((i.fields||{})[k]||"") === v)), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
   if(sort === "maker" && lookupKind(c) === "music"){ const h0 = location.hash; fillMakerSort(all, () => { if(location.hash === h0 && scrollY < 300 && !pieceOv) route(); }); }
   hallOrder[id] = list.map(i => i.id);
-  const state = {q, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
+  const state = {q, in:sin === "all" ? "" : sin, sort, tag, fav:fav?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
   const link = (o) => { const p = new URLSearchParams({...state, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
   // Filter choices come from what's actually in this gallery.
   const distinct = get => [...new Set(all.map(get).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true}));
@@ -1797,7 +1817,7 @@ function viewHall(id, params){
     <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
     <form class="search" id="sf">${searchBox("Search " + c.name.toLowerCase() + "…", q)}
       <select name="sort" aria-label="Sort">${sorts.map(([v,l])=>`<option value="${v}" ${v===sort?"selected":""}>Sort: ${esc(l)}</option>`).join("")}</select>
-      <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>${searchModeBar(q)}
+      <a class="iconbtn" href="${link({filters:showFilters?"":"1"})}" style="height:42px" aria-expanded="${showFilters}">⚲ Filter${active.length ? " (" + active.length + ")" : ""}</a></form>${searchModeBar(q, ins, sin)}
     ${showFilters ? `<div class="filters" id="filt">
       ${conds.length ? `<label>Condition<select data-p="cond"><option value="">Any</option>${conds.map(v=>`<option ${v===cond?"selected":""}>${esc(v)}</option>`).join("")}</select></label>` : ""}
       ${ffields.map(({f,vals}) => `<label>${esc(f.l)}<select data-p="f.${f.k}"><option value="">Any</option>${vals.map(v=>`<option ${v===fsel[f.k]?"selected":""}>${esc(v)}</option>`).join("")}</select></label>`).join("")}
