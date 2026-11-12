@@ -217,6 +217,11 @@ legend{font-family:var(--serif);font-weight:600;padding:0 6px}
 .found .grow{flex:1;min-width:0}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:.9rem;z-index:60;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
 .busy{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center}
+.jobbar{position:fixed;left:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:54;max-width:min(440px,calc(100% - 150px));display:flex;align-items:center;gap:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px 6px 8px 12px;font-size:.85rem;overflow:hidden}
+body:has(.savebar) .jobbar{bottom:calc(80px + env(safe-area-inset-bottom))}
+.jobbar .jt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jobbar .iconbtn{padding:4px 10px;font-size:.8rem}
+.jobbar .jp{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);transition:width .4s}
 .busy div{background:var(--surface);padding:14px 18px;border-radius:12px;box-shadow:var(--shadow)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
 .panel h2{font-size:1.15rem;margin-bottom:6px}
@@ -827,7 +832,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.7";
+const APP_VERSION = "2026.11.12.8";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1162,8 +1167,9 @@ const cover = it => (it.media||[]).find(m => m.kind === "photo");
 
 function toast(msg, ms=2600){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
 function busy(msg){ const b=document.createElement("div"); b.className="busy"; b.innerHTML="<div>"+esc(msg||"Saving…")+"</div>"; document.body.appendChild(b); return ()=>b.remove(); }
-async function persist(){ cat.updated = new Date().toISOString(); await store.save(cat);
-  if(store.merged){ store.merged = false; toast("Also brought in changes from your other device"); } }
+let saveChain = Promise.resolve();   // one save at a time, so a background job and an edit never race each other
+function persist(){ const run = saveChain.catch(() => {}).then(async () => { cat.updated = new Date().toISOString(); await store.save(cat);
+  if(store.merged){ store.merged = false; toast("Also brought in changes from your other device"); } }); saveChain = run; return run; }
 
 /* ============================================================
    Readable media folders: media/<Gallery>/<Maker – Title (Year)>/<Cover.jpg, Photo 1.jpg, COA.pdf>
@@ -2848,19 +2854,34 @@ async function trackRef(it){
   if(r && r.ref){ it.matched = {...(it.matched||{source:r.source, at:new Date().toISOString()}), ref:r.ref}; return r.ref; }
   return null;
 }
-/* Fill track listings (and blank genre/style details) for every piece in music galleries that doesn't have one yet. */
-async function fillAllTracks(){
-  const todo = cat.items.filter(i => hasTrackList(coll(i.collectionId)) && !(i.tracks||[]).length && (((i.matched||{}).ref) || i.barcode));
-  if(!todo.length) return alert("Every matched record already has a track listing. For others, open the piece and use 🔎 Match (or type the tracks in ✎ Edit).");
-  if(!confirm(`Look up track listings for ${todo.length} piece${todo.length===1?"":"s"}? This takes about ${Math.max(1, Math.round(todo.length * 2 / 60))} minute${todo.length * 2 > 90 ? "s" : ""} (the music sites ask for a slow pace). You can keep the screen open and stop at any time.`)) return;
-  const b = document.createElement("div"); b.className = "busy"; let stop = false;
-  b.innerHTML = `<div style="text-align:center;max-width:320px"><div id="ftMsg">Starting…</div><button type="button" class="iconbtn" id="ftStop" style="margin-top:10px">Stop</button></div>`;
-  document.body.appendChild(b); b.querySelector("#ftStop").onclick = () => { stop = true; b.querySelector("#ftMsg").textContent = "Stopping after this one…"; };
+/* Fill track listings (and blank genre/style details) for every piece in music galleries that doesn't have one yet.
+   Runs as a small bar at the bottom so the rest of the app stays usable, keeps the screen awake while it works,
+   and remembers it's unfinished so reopening the app offers to carry on. */
+let trackJob = null;
+const TRACKJOB_KEY = "cm.trackJob";
+function trackTodo(){ return cat.items.filter(i => hasTrackList(coll(i.collectionId)) && !(i.tracks||[]).length && (((i.matched||{}).ref) || i.barcode)); }
+async function keepAwake(job){
+  try{ if(!job.done && navigator.wakeLock && document.visibilityState === "visible" && !(job.lock && !job.lock.released)) job.lock = await navigator.wakeLock.request("screen"); }catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if(trackJob && document.visibilityState === "visible") keepAwake(trackJob); });
+async function fillAllTracks(resume){
+  if(trackJob) return toast("Track listings are already being filled in. Watch the bar at the bottom.");
+  const todo = trackTodo();
+  if(!todo.length){ LS.del(TRACKJOB_KEY); if(resume !== true) alert("Every matched record already has a track listing. For others, open the piece and use 🔎 Match (or type the tracks in ✎ Edit)."); return; }
+  if(resume !== true && !confirm(`Look up track listings for ${todo.length} piece${todo.length===1?"":"s"}? This takes about ${Math.max(1, Math.round(todo.length * 2 / 60))} minute${todo.length * 2 > 90 ? "s" : ""} (the music sites ask for a slow pace).\n\nYou can keep using the app while it works. Leave the app open: if you switch away or it closes, it picks up where it left off next time.`)) return;
+  const job = trackJob = {stop:false, done:false};
+  LS.set(TRACKJOB_KEY, {at:new Date().toISOString()});
+  keepAwake(job);
+  const b = document.createElement("div"); b.className = "jobbar noprint"; b.setAttribute("role", "status");
+  b.innerHTML = `<span class="jt" id="ftMsg">Starting…</span><button type="button" class="iconbtn" id="ftStop">Stop</button><i class="jp" id="ftBar"></i>`;
+  document.body.appendChild(b);
+  const say = t => { b.querySelector("#ftMsg").textContent = t; };
+  b.querySelector("#ftStop").onclick = () => { job.stop = true; say("Stopping after this one…"); };
   let filled = 0, none = 0, failed = 0, n = 0;
   try{
     for(const it of todo){
-      if(stop) break;
-      n++; b.querySelector("#ftMsg").textContent = `${n} of ${todo.length}: ${it.title}`;
+      if(job.stop) break;
+      n++; say(`🎶 ${n} of ${todo.length}: ${it.title}`); b.querySelector("#ftBar").style.width = Math.round(100 * (n - 1) / todo.length) + "%";
       // Discogs allows 60 requests a minute and MusicBrainz about one a second. When either says "slow down",
       // wait a minute and try the same record again instead of counting it as not found.
       for(let attempt = 0; ; attempt++){
@@ -2871,25 +2892,37 @@ async function fillAllTracks(){
           const hadRef = !!((before.matched||{}).ref), ref = await trackRef(before), d = ref && await withLimit(releaseDetails(ref), 20000);
           const cur = item(it.id); if(!cur) break;
           if(cur !== before && before.matched && before.matched.ref && !(cur.matched||{}).ref) cur.matched = before.matched;
-          if(d && d.tracks.length){ const was = cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks}, false); cur.matched = was; cur.updated = new Date().toISOString(); filled++; } else none++;
+          if(d && d.tracks.length && !(cur.tracks||[]).length){ const was = cur.matched; mergeResult(cur, {named:d.named, tracks:d.tracks}, false); cur.matched = was; cur.updated = new Date().toISOString(); filled++; } else if(!(cur.tracks||[]).length) none++;
           await new Promise(r => setTimeout(r, hadRef ? 1300 : 2600));
           break;
         }catch(e){
           console.warn(it.title, e.message);
-          if(/ (429|503)$|too fast|took too long|failed to fetch|load failed|networkerror/i.test(e.message) && attempt < 3 && !stop){
-            for(let w = 60; w > 0 && !stop; w--){ b.querySelector("#ftMsg").textContent = `${n} of ${todo.length}: the music sites asked for a short break. Carrying on in ${w}s…`; await new Promise(r => setTimeout(r, 1000)); }
-            b.querySelector("#ftMsg").textContent = `${n} of ${todo.length}: ${it.title}`; continue; }
+          if(/ (429|503)$|too fast|took too long|failed to fetch|load failed|networkerror/i.test(e.message) && attempt < 3 && !job.stop){
+            for(let w = 60; w > 0 && !job.stop; w--){ say(`🎶 ${n} of ${todo.length}: the music sites asked for a short break. Carrying on in ${w}s…`); await new Promise(r => setTimeout(r, 1000)); }
+            say(`🎶 ${n} of ${todo.length}: ${it.title}`); continue; }
           failed++; break;
         }
       }
       if(filled && filled % 5 === 0) await persist().catch(() => {});
     }
     if(filled) await persist();
-  }catch(e){ alert(e.message); }
-  finally{ b.remove(); }
-  alert(`Added track listings to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} have no track listing on the release they're matched to. Open one and use 🔎 Re-match to pick a release that has one, or type the tracks in ✎ Edit.` : "")
-    + (failed ? `\n\n${failed} couldn't be reached right now (the music sites were busy). Tap Fill in track listings again later to finish them.` : ""));
-  refreshView();
+    if(!job.stop && !failed) LS.del(TRACKJOB_KEY);   // finished: nothing to resume (stopping on purpose also clears it below)
+  }catch(e){ alert("Filling track listings stopped: " + e.message); }
+  finally{ job.done = true; trackJob = null; b.remove(); try{ job.lock && job.lock.release(); }catch(e){} }
+  if(job.stop) LS.del(TRACKJOB_KEY);
+  const msg = `Added track listings to ${filled} piece${filled===1?"":"s"}.` + (none ? `\n\n${none} have no track listing on the release they're matched to. Open one and use 🔎 Re-match to pick a release that has one, or type the tracks in ✎ Edit.` : "")
+    + (failed ? `\n\n${failed} couldn't be reached right now (the music sites were busy). Tap Fill in track listings again later to finish them.` : "");
+  // Don't pull the rug out from under a form or pop-up the person is using; a short note is enough then.
+  if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) toast(`🎶 Track listings done: ${filled} added`, 4000);
+  else { alert(msg); refreshView(); }
+}
+/* Opened the app with a fill that never finished (switched away, phone locked, app closed)? Offer to carry on. */
+function offerTrackResume(){
+  const j = LS.get(TRACKJOB_KEY, null); if(!j || trackJob || !cat) return;
+  if(Date.now() - Date.parse(j.at || 0) > 7 * 864e5){ LS.del(TRACKJOB_KEY); return; }
+  const left = trackTodo().length; if(!left){ LS.del(TRACKJOB_KEY); return; }
+  if(confirm(`Filling in track listings didn't finish last time. ${left} record${left===1?"":"s"} still need${left===1?"s":""} one. Carry on now?`)) fillAllTracks(true);
+  else LS.del(TRACKJOB_KEY);
 }
 function chooseCover(it, opts){
   opts = opts || {};
@@ -3261,7 +3294,9 @@ function viewEdit(id, params, ov){
     c.fields.forEach(x => { const v = (d.get("x_"+x.k)||"").trim().replace(/^__other$/,""); if(v) it.fields[x.k] = v; else delete it.fields[x.k]; });
     if(document.getElementById("tracksTxt")){ const t = textToTracks(document.getElementById("tracksTxt").value);
       // Keep the exact saved rows when the text wasn't touched (so nothing is lost to re-reading it).
-      if(tracksToText(t) !== tracksToText(textToTracks(tracksToText(it.tracks)))) { if(t.length) it.tracks = t; else delete it.tracks; } }
+      // Compare with what the box showed when the form opened, so a listing filled in meanwhile isn't wiped by an untouched box.
+      const tb = document.getElementById("tracksTxt");
+      if(tb.value !== tb.defaultValue && tracksToText(t) !== tracksToText(textToTracks(tracksToText(it.tracks)))) { if(t.length) it.tracks = t; else delete it.tracks; } }
     it.extra = [...document.querySelectorAll("#extras .xrow")].map(r => ({l:r.querySelector("[data-xl]").value.trim(), v:r.querySelector("[data-xv]").value.trim()})).filter(x => x.l || x.v);
     document.querySelectorAll("#media [data-label]").forEach(inp => { const m = it.media.find(m=>m.id===inp.dataset.label); if(m) m.label = inp.value.trim(); });
   }
@@ -3380,6 +3415,9 @@ function viewEdit(id, params, ov){
       it.updated = new Date().toISOString(); it.created = it.created || it.updated;
       const idx = cat.items.findIndex(x => x.id === it.id);
       const before = idx >= 0 ? cat.items[idx] : null;
+      // A track listing filled in (in the background) while this form was open: keep it unless the box was edited.
+      const tb = document.getElementById("tracksTxt");
+      if(before && (before.tracks||[]).length && !(it.tracks||[]).length && (!tb || tb.value === tb.defaultValue)) it.tracks = before.tracks;
       if(idx >= 0) cat.items[idx] = it; else cat.items.push(it);
       try{ await persist(); }catch(e){ if(before) cat.items[idx] = before; else cat.items.pop(); throw e; }
       const live = new Set(it.media.flatMap(m => [m.path, m.thumb]));
@@ -3589,7 +3627,7 @@ function viewSettings(){
     try{ await persist(); toast(quiet ? "Saved ✓" : "Lookup settings saved"); }catch(e){ alert(e.message); }
   };
   $("dtokSave").onclick = () => saveLookups(false);
-  if($("fillTracks")) $("fillTracks").onclick = fillAllTracks;
+  if($("fillTracks")) $("fillTracks").onclick = () => fillAllTracks();
   // Save as soon as a lookup field changes, so nothing is lost by leaving the page.
   ["mtok","pxurl","dtok","btok","buser","bgal","bauto"].forEach(id => $(id).addEventListener("change", () => saveLookups(true)));
   $("pxtest").onclick = async () => {
@@ -4603,11 +4641,12 @@ function route(){
 
 /* Phones (especially home-screen apps) can keep an old copy of the app; check for a newer one. */
 async function checkUpdate(manual){
-  if(!manual && document.querySelector(".busy")) return;   // don't offer to reload in the middle of a long job (e.g. filling track listings)
+  if(!manual && (document.querySelector(".busy") || trackJob)) return;   // don't offer to reload in the middle of a long job (e.g. filling track listings)
   try{
     const t = await (await fetch(location.pathname + "?check=" + Date.now(), {cache:"no-store"})).text();
     const v = (t.match(/APP_VERSION = "([^"]+)"/)||[])[1];
     if(v && v !== APP_VERSION){
+      if(trackJob && !confirm("Updating now stops filling in track listings (it carries on after the update). Update now?")) return;
       if(manual || confirm("A newer version of the museum is available. Update now?")) location.replace(location.pathname + "?v=" + encodeURIComponent(v) + location.hash);
     }else if(manual) toast("You're on the latest version.");
   }catch(e){ if(manual) toast("Couldn't check for updates."); }
@@ -4689,7 +4728,7 @@ async function boot(){
    Skipped while a form, pop-up or gallery walk is open so nothing in progress is disturbed. */
 let lastFresh = 0;
 async function refreshFromDropbox(){
-  if(!store || store.kind !== "dropbox" || !cat || Date.now() - lastFresh < 20000) return;
+  if(!store || store.kind !== "dropbox" || !cat || trackJob || Date.now() - lastFresh < 20000) return;
   if(/^#\/(new|edit)/.test(location.hash) || document.querySelector("#layer > *, #edlayer > *, .busy") || document.body.classList.contains("wallmode")) return;
   lastFresh = Date.now();
   try{
@@ -4706,6 +4745,7 @@ document.addEventListener("visibilitychange", () => { if(document.visibilityStat
 boot();
 setTimeout(() => checkUpdate(false), 1500);
 setTimeout(() => { if(cat) autoSyncBGG(); }, 2500);
+setTimeout(() => { if(cat) offerTrackResume(); }, 4000);
 
 /* Swipe a pop-up sheet down (from the top of its scroll) to close it, like iPhone sheets. */
 (() => {
