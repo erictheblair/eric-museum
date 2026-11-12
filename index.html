@@ -870,7 +870,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.18";
+const APP_VERSION = "2026.11.12.19";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -904,7 +904,7 @@ const PRESETS = [
     {k:"production",l:"Production (film, show, commercial)"},{k:"season",l:"Season #"},{k:"episode",l:"Episode #"},{k:"characters",l:"Character(s)"},
     {k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"},{k:"scene",l:"Scene / sequence"},{k:"size",l:"Size"}]},
   {id:"pennies", name:"Pressed Pennies", icon:"🪙", maker:"Machine / set", fields:[
-    {k:"place",l:"Location / attraction"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"},
+    {k:"place",l:"Location / attraction"},{k:"country",l:"Country",opts:["USA"],def:"USA"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"},
     {k:"series",l:"Set position (e.g. 2 of 4)"},{k:"retired",l:"Retired design",opts:["Yes","No"]}]},
   {id:"memorabilia", name:"Memorabilia", icon:"🏆", maker:"Franchise / team", fields:[
     {k:"type",l:"Type of piece"},{k:"event",l:"Event / occasion"},{k:"provenance",l:"Provenance"},
@@ -3332,10 +3332,12 @@ function viewEdit(id, params, ov){
     : {id:uid(), collectionId:params.get("c") || cat.collections[0].id, title:"", fields:{}, tags:[], media:[]};
   const pending = []; // {m, blob, thumbBlob, previewUrl}
   const removed = [];
+  const defsDone = new Set();   // a new piece starts with each field's default (e.g. Country: USA) once; clearing it sticks
   document.title = (existing ? "Edit " + existing.title : "Add a piece") + " · " + (cat.title||"The Museum");
 
   function render(){
     const c = coll(it.collectionId);
+    if(!existing && !from) c.fields.forEach(f => { if(f.def && !defsDone.has(c.id + "." + f.k)){ defsDone.add(c.id + "." + f.k); it.fields = it.fields || {}; if(!it.fields[f.k]) it.fields[f.k] = f.def; } });
     const fv = k => esc((it.fields||{})[k] ?? "");
     const yearBox = `<div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>`;
     app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › ${existing ? `<a href="#/i/${it.id}">${esc(existing.title)}</a> › Edit` : "Add a piece"}</div>
@@ -4791,7 +4793,8 @@ function viewGallery(id){
     ${grip}<input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
     <label class="check" title="Private: hidden when values are hidden"><input type="checkbox" data-fp ${f.priv?"checked":""}> 🔒</label>
     <button type="button" class="iconbtn" data-frm title="Remove field" style="height:auto">✕</button>
-    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}></div>`;
+    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}>
+    <input data-fd value="${esc(f.def||"")}" placeholder="Starts as (optional), e.g. USA" aria-label="Value new pieces start with" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}></div>`;
   // Year is built in (not a field), but it can be dragged into place among the fields too.
   const yearRow = `<div class="frow" data-core="year" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">${grip}<div style="padding:9px 10px;color:var(--muted)">Year <small>(built in, always there)</small></div></div>`;
   const yAt = g.yearAfter ? g.fields.findIndex(f => f.k === g.yearAfter) : -1;
@@ -4805,7 +4808,7 @@ function viewGallery(id){
       <div class="f"><label for="glook">Look up info from</label><select id="glook">${Object.entries(LOOKUPS).map(([k,l]) => `<option value="${k}" ${k===lookupKind(g)?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
     </div></fieldset>
     <fieldset><legend>Fields</legend>
-      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece.</p>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece. “Starts as” fills that field in for each new piece (you can still change it).</p>
       <div id="frows" style="display:grid;gap:8px">${rowsHTML}</div>
       <div class="actions" style="margin-top:10px"><button type="button" class="iconbtn" id="addF">＋ Add a field</button></div>
     </fieldset>
@@ -4874,8 +4877,8 @@ function viewGallery(id){
   document.getElementById("gf").onsubmit = async e => {
     e.preventDefault();
     const fields = [...app.querySelectorAll("#frows .frow:not([data-core])")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked,
-        opts:[...new Set(r.querySelector("[data-fo]").value.split(",").map(x=>x.trim()).filter(Boolean))]}))
-      .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined}; if(!out.opts.length) delete out.opts; return out; });
+        opts:[...new Set(r.querySelector("[data-fo]").value.split(",").map(x=>x.trim()).filter(Boolean))], def:r.querySelector("[data-fd]").value.trim()}))
+      .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined}; if(!out.opts.length) delete out.opts; if(!out.def) delete out.def; return out; });
     // Year goes after whichever field is just above its row (none: before the fields, as usual)
     const yr = app.querySelector('#frows [data-core="year"]'), rowsAll = [...app.querySelectorAll("#frows .frow")], above = rowsAll.slice(0, rowsAll.indexOf(yr)).filter(r => !r.dataset.core && r.querySelector("[data-fl]").value.trim());
     const yearAfter = above.length ? fields[[...app.querySelectorAll("#frows .frow:not([data-core])")].filter(r => r.querySelector("[data-fl]").value.trim()).indexOf(above[above.length - 1])].k : "";
@@ -5035,7 +5038,8 @@ async function boot(){
       cat.items.forEach(i => { if(i.collectionId === "records" && i.fields && i.fields.format === '7" single') i.fields.format = '7"'; }); } }
   // Add preset fields introduced in newer versions, but never re-add ones the user removed.
   PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; c.seen = c.seen || c.fields.map(f=>f.k);
-    p.fields.forEach((f, n) => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); if(!c.fields.some(x=>x.k===f.k)){
+    p.fields.forEach((f, n) => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); const nlab = x => String(x).toLowerCase().split(/ [(\/]/)[0].replace(/[^a-z0-9]/g,"");
+      if(!c.fields.some(x => x.k === f.k || nlab(x.l) === nlab(f.l) || (nlab(f.l).length >= 5 && nlab(x.l).startsWith(nlab(f.l))))){   // a field you made yourself with the same name counts as having it
       // Slot it in after the field that comes before it in the preset (e.g. Vinyl color right after Format).
       const after = n ? c.fields.findIndex(x => x.k === p.fields[n-1].k) : -1;
       c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f)));
@@ -5058,6 +5062,11 @@ async function boot(){
       c.fields = lead.map(k => c.fields.find(x => x.k === k)).filter(Boolean).concat(c.fields.filter(x => !lead.includes(x.k)));
       c.seen = [...new Set([...(c.seen||[]), ...pc.fields.map(f => f.k)])];
       Object.assign(c, {yearAfter:"episode", hide:["condition","qty"], frames:true, clips:true}); } }
+  // One-time: Pressed Pennies' Country starts as USA for new pieces (your own Country field if you made one). Existing pieces are left as they are.
+  { const pc = cat.collections.find(x => x.id === "pennies"); if(pc && !pc.countrySetup){ pc.countrySetup = 1;
+      const f = pc.fields.find(x => x.k === "country") || pc.fields.find(x => /^country\b/i.test(String(x.l).trim()));
+      if(f && !f.def){ f.def = "USA"; if(f.opts && f.opts.length && !f.opts.some(o => /^(usa|us|united states( of america)?)$/i.test(o))) f.opts = ["USA", ...f.opts];
+        if(f.opts) { const us = f.opts.find(o => /^(usa|us|united states( of america)?)$/i.test(o)); if(us) f.def = us; } } } }
   // The upgrades above are the same on every device, so count them as the starting point when merging with another device's changes.
   if(store.kind === "dropbox" && store.base) store.base = JSON.stringify(cat, null, 1);
   // One-time: laserdiscs filed under Records (a format, tag or title that says Laserdisc) move to their own Laserdiscs collection,
