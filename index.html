@@ -858,7 +858,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.12";
+const APP_VERSION = "2026.11.12.13";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2176,6 +2176,44 @@ function lightbox(src, nav){
 }
 
 /* ---------- Image processing ---------- */
+// Photos are stored at most 2000 px on the long side as JPEG: sharp on any screen, a fraction of the original size.
+const PHOTO_MAX = 2000, PHOTO_Q = .82;
+/* Scene clips: re-recorded in the browser at up to 720p and about 2.5 Mbps (no uploads to any service; nothing to install).
+   The clip plays through once silently while it's recorded, so it takes as long as the clip. Returns null (keep the original)
+   when the browser can't do it, it's already small, it was stopped, or the result isn't clearly smaller. */
+async function shrinkVideo(file, prog, stopped){
+  if(typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) return null;
+  const mime = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(t => { try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } });
+  if(!mime) return null;
+  const url = URL.createObjectURL(file), v = document.createElement("video");
+  v.playsInline = true; v.preload = "auto"; v.src = url; v.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0";
+  document.body.appendChild(v);
+  let ac = null;
+  const clean = () => { try{ v.pause(); }catch(e){} v.remove(); URL.revokeObjectURL(url); if(ac) ac.close().catch(() => {}); };
+  try{
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error("unreadable")); setTimeout(() => rej(new Error("timeout")), 15000); });
+    const big = Math.max(v.videoWidth, v.videoHeight), sc = Math.min(1, 1280 / (big || 1280));
+    if(!v.videoWidth || (sc === 1 && file.size < 15e6) || !isFinite(v.duration) || v.duration > 20 * 60){ clean(); return null; }
+    const w = Math.round(v.videoWidth * sc / 2) * 2, h = Math.round(v.videoHeight * sc / 2) * 2;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const cx = cv.getContext("2d");
+    const stream = cv.captureStream(30);
+    try{ ac = new (window.AudioContext || window.webkitAudioContext)(); const src = ac.createMediaElementSource(v), dst = ac.createMediaStreamDestination(); src.connect(dst);
+      dst.stream.getAudioTracks().forEach(t => stream.addTrack(t)); await ac.resume(); }catch(e){ clean(); return null; }   // no audio route: keep the original rather than lose the sound
+    const rec = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:2500000, audioBitsPerSecond:128000}), chunks = [];
+    rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+    const finished = new Promise(r => rec.onstop = r);
+    const frame = () => { if(rec.state !== "recording") return; cx.drawImage(v, 0, 0, w, h); prog(Math.min(1, v.currentTime / v.duration));
+      if(stopped()){ v.pause(); rec.stop(); return; } if(!v.ended) v.requestVideoFrameCallback ? v.requestVideoFrameCallback(frame) : requestAnimationFrame(frame); };
+    v.onended = () => { if(rec.state === "recording") rec.stop(); };
+    rec.start(1000);
+    try{ await v.play(); }catch(e){ rec.stop(); await finished; clean(); return null; }
+    frame();
+    await finished; clean();
+    if(stopped()) return null;
+    const out = new Blob(chunks, {type:mime.split(";")[0]});
+    return out.size > 10000 && out.size < file.size * .85 ? out : null;
+  }catch(e){ clean(); return null; }
+}
 async function shrink(file, max, quality){
   let bmp;
   try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
@@ -2836,7 +2874,7 @@ function matchSaved(it, opts){
         const resp = await fetchT(r.cover, {}, 20000), blob = await resp.blob();
         if(!resp.ok || !/^image\//.test(blob.type)){ const e = new Error("no cover"); e.noCover = true; throw e; }
         const nm = tmpMedia(it, {id:uid(), kind:"photo", name:"cover.jpg"}); placeNew(it, [nm]);
-        await store.putFile(nm.path, await shrink(blob, 2400, .88)); await store.putFile(nm.thumb, await shrink(blob, 520, .8));
+        await store.putFile(nm.path, await shrink(blob, PHOTO_MAX, PHOTO_Q)); await store.putFile(nm.thumb, await shrink(blob, 520, .8));
         it.media.unshift(nm);
       }catch(e){ if(!e.noCover && /^https:/.test(r.cover)) it.media.unshift({id:uid(), kind:"photo", remote:true, name:"cover", path:r.cover, thumb:r.thumb || r.cover}); }
     }
@@ -3051,7 +3089,7 @@ async function useCover(it, url, thumb, replace, after){
       const resp = await fetchT(url, {}, 25000), blob = await resp.blob();
       if(!resp.ok || !/^image\//.test(blob.type)) throw new Error("not an image");
       m = tmpMedia(it, {id:uid(), kind:"photo", name:"cover.jpg"}); placeNew(it, [m]);
-      await store.putFile(m.path, await shrink(blob, 2400, .88)); await store.putFile(m.thumb, await shrink(blob, 520, .8));
+      await store.putFile(m.path, await shrink(blob, PHOTO_MAX, PHOTO_Q)); await store.putFile(m.thumb, await shrink(blob, 520, .8));
     }catch(e){ m = {id:uid(), kind:"photo", remote:true, name:"cover", path:url, thumb:thumb || url}; }
     it.media = it.media || [];
     if(replace && old) it.media = it.media.filter(x => x !== old);
@@ -3432,7 +3470,7 @@ function viewEdit(id, params, ov){
       done();
     }
     const out = await photoEditor(src); if(!out) return;
-    const th = await shrink(out, 520, .8), big = await shrink(out, 2400, .88);
+    const th = await shrink(out, 520, .8), big = await shrink(out, PHOTO_MAX, PHOTO_Q);
     if(p){ p.blob = big; p.thumbBlob = th; URL.revokeObjectURL(p.previewUrl); p.previewUrl = URL.createObjectURL(th); }
     else {
       // A saved photo keeps its file name and is overwritten on save (cached links are dropped then).
@@ -3463,14 +3501,21 @@ function viewEdit(id, params, ov){
         const base = "media/tmp/" + mid; // real readable names are given on save, once the title is known
         if(kind === "photo"){
           if(!isImg) continue;
-          const full = await shrink(file, 2400, .88), th = await shrink(file, 520, .8);
+          const full = await shrink(file, PHOTO_MAX, PHOTO_Q), th = await shrink(file, 520, .8);
           const m = {id:mid, kind:"photo", name:safeName(file.name), path:base + ".jpg", thumb:base + "_t.jpg"}; if(role) m.role = role;
           it.media.push(m); pending.push({m, blob:full, thumbBlob:th, previewUrl:URL.createObjectURL(th)});
         }else if(kind === "video"){
           if(!/^video\//.test(file.type) && !/\.(mp4|m4v|mov|webm)$/i.test(file.name)) continue;
-          const ext = (file.name.match(/\.\w+$/)||[".mp4"])[0].toLowerCase();
-          const m = {id:mid, kind:"video", name:safeName(file.name), path:base + ext, label:"Scene clip"};
-          it.media.push(m); pending.push({m, blob:file, previewUrl:URL.createObjectURL(file)});
+          // Make the clip smaller before it goes to Dropbox; "Keep full size" stops and uses the original.
+          done(); let stop = false;
+          const pb = progressBox("Making the clip smaller…"); const kb = document.createElement("button"); kb.className = "iconbtn"; kb.textContent = "Keep full size"; kb.style.marginTop = "12px";
+          kb.onclick = () => { stop = true; }; pb.el.style.flexDirection = "column"; pb.el.firstChild.after(kb);
+          const small = await shrinkVideo(file, f => pb.set(`Making the clip smaller… ${Math.round(f * 100)}%`), () => stop).catch(() => null);
+          pb.done();
+          const blob = small || file, ext = small ? (/mp4/.test(small.type) ? ".mp4" : ".webm") : (file.name.match(/\.\w+$/)||[".mp4"])[0].toLowerCase();
+          if(small) toast(`Clip shrunk from ${Math.round(file.size / 1e6)} MB to ${Math.max(1, Math.round(small.size / 1e6))} MB`, 3500);
+          const m = {id:mid, kind:"video", name:safeName(file.name).replace(/\.\w+$/, "") + ext, path:base + ext, label:"Scene clip"};
+          it.media.push(m); pending.push({m, blob});
         }else{
           const ext = (file.name.match(/\.\w+$/)||[isImg?".jpg":".pdf"])[0].toLowerCase();
           const m = {id:mid, kind:"document", name:safeName(file.name), path:base + ext, label:/coa|cert|authent/i.test(file.name) ? "Certificate of authenticity" : ""};
@@ -3954,7 +3999,7 @@ function exportCSV(){ download(csvBlob(), "collection-" + new Date().toISOString
 const CRC_T = (() => { const t = new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n]=c>>>0; } return t; })();
 function crc32(u8){ let c = 0xFFFFFFFF; for(let i=0;i<u8.length;i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
 function progressBox(msg){ const b = document.createElement("div"); b.className = "busy"; b.innerHTML = "<div></div>"; document.body.appendChild(b);
-  const set = m => b.firstChild.textContent = m; set(msg); return {set, done:() => b.remove()}; }
+  const set = m => b.firstChild.textContent = m; set(msg); return {set, el:b, done:() => b.remove()}; }
 // Plain "stored" zip (photos are already compressed), built from Blobs so big collections don't need to fit in memory at once.
 async function makeZip(entries){
   const parts = [], central = []; let off = 0;
