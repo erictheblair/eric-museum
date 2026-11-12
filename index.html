@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>The Collection</title>
+<title>The Museum</title>
 <meta name="description" content="A private museum for personal collections.">
 <meta name="theme-color" content="#1d1a16">
 <link rel="manifest" href="manifest.webmanifest">
@@ -159,6 +159,23 @@ form.edit{padding-bottom:84px}
 .viewer .frame{padding:10px}
 .viewer .matte{aspect-ratio:auto;min-height:260px;max-height:70vh;padding:14px;cursor:zoom-in}
 .viewer .matte img{max-height:calc(70vh - 28px)}
+/* Arrows over the main photo when a piece has more than one */
+.viewer .frame{position:relative}
+.viewer #hero{touch-action:pan-y pinch-zoom}
+.pnav{position:absolute;top:50%;transform:translateY(-50%);z-index:4;width:44px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:rgba(20,17,14,.55);color:#f3ead9;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;opacity:0;transition:opacity .2s,background .2s;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.pnav:hover{background:rgba(20,17,14,.8)}
+.pnav.prev{left:14px}.pnav.next{right:14px}
+.frame:hover .pnav,.pnav:focus-visible{opacity:1}
+.pcount{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:4;background:rgba(20,17,14,.6);color:#f3ead9;font:600 .74rem/1 var(--sans,system-ui);padding:5px 9px;border-radius:999px;pointer-events:none;opacity:0;transition:opacity .2s}
+.frame:hover .pcount{opacity:1}
+@media (hover:none){.pnav{opacity:.85;width:40px;height:40px}.pnav.prev{left:10px}.pnav.next{right:10px}.pcount{opacity:.9}}
+@keyframes slideFromR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes slideFromL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+.slidel{animation:slideFromR .22s ease-out}.slider{animation:slideFromL .22s ease-out}
+@media (prefers-reduced-motion:reduce){.slidel,.slider{animation:none}}
+.lbnav{position:fixed;top:50%;transform:translateY(-50%);z-index:2;width:48px;height:48px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(30,26,22,.7);color:#f3ead9;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.lbnav.prev{left:12px}.lbnav.next{right:12px}
+.lbcount{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:2;color:#f3ead9;font:600 .8rem/1 var(--sans,system-ui);background:rgba(30,26,22,.7);padding:6px 10px;border-radius:999px;pointer-events:none}
 .thumbs{display:flex;gap:8px;overflow-x:auto;padding:10px 2px}
 .thumbs button{flex:0 0 64px;height:64px;border:2px solid transparent;border-radius:6px;padding:0;overflow:hidden;background:var(--mat);cursor:pointer}
 .thumbs button.on{border-color:var(--accent)}
@@ -641,6 +658,13 @@ ol.tracks li.tgap{display:block;padding:0;height:10px;border-bottom:0}
 #fsc .bub{position:absolute;right:58px;top:50%;transform:translateY(-50%);background:var(--ink,#222);color:var(--bg);padding:8px 16px;min-width:52px;text-align:center;border-radius:999px;font:600 1.35rem/1.2 var(--serif,serif);white-space:nowrap;max-width:60vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 12px rgba(0,0,0,.25);display:none}
 #fsc.drag .bub:not(:empty){display:block}
 body.wallmode #fsc{display:none}
+/* Edit collection: drag handle for reordering fields */
+.grip{border:0;background:none;color:var(--muted);font-size:1.25rem;line-height:1;padding:6px 4px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.frow.dragging{opacity:.6;background:var(--surface);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* Cels: caption for a screen grab, a mark on its thumbnail, and the scene clip player */
+.pcap{margin:8px 0 0;font-size:.85rem;color:var(--muted);text-align:center}
+.thumbs button.fr{position:relative}.thumbs button.fr::after{content:"🎬";position:absolute;right:2px;bottom:2px;font-size:.7rem;line-height:1;background:rgba(0,0,0,.55);border-radius:4px;padding:2px}
+.clip{margin-top:8px}.clip .cl{font-size:.85rem;color:var(--muted);margin-bottom:4px}.clip video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block}
 /* Back to the gallery from a piece */
 .backbtn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px 0 12px;margin:0 0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink,inherit);text-decoration:none;font-weight:600;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .backbtn:active{transform:scale(.97)}
@@ -824,8 +848,8 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <a class="brand" href="#/" id="brand">The Collection<small>Private museum</small></a>
-  <div id="galnav" class="gnav"><button type="button" id="gnavBtn" aria-haspopup="true" aria-expanded="false" title="Go to a gallery"></button><div class="gmenu" id="gnavMenu" hidden></div></div>
+  <a class="brand" href="#/" id="brand">The Museum<small>Private collections</small></a>
+  <div id="galnav" class="gnav"><button type="button" id="gnavBtn" aria-haspopup="true" aria-expanded="false" title="Go to a collection"></button><div class="gmenu" id="gnavMenu" hidden></div></div>
   <a class="iconbtn setbtn" href="#/settings" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl">Settings</span></a>
 </div></header>
 <main><div class="wrap" id="app"></div></main>
@@ -834,7 +858,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.9";
+const APP_VERSION = "2026.11.12.13";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -862,10 +886,11 @@ const PRESETS = [
   {id:"autographs", name:"Autographs", icon:"✍️", maker:"Signer", fields:[
     {k:"signedItem",l:"Signed item"},{k:"inscription",l:"Inscription"},{k:"dateSigned",l:"Date / place signed"},{k:"authenticator",l:"Authenticator (PSA, JSA, BAS…)"},{k:"cert",l:"Cert #",priv:true},
     {k:"obtained",l:"How obtained (in person, by mail, show…)"},{k:"pen",l:"Ink / pen"}]},
-  {id:"cels", name:"Animation Cels", icon:"🎞️", maker:"Studio", fields:[
-    {k:"production",l:"Production / film / show"},{k:"characters",l:"Character(s)"},{k:"celType",l:"Type",opts:["Production cel","Production cel + drawing","Sericel","Limited edition","Key setup","Drawing"]},
-    {k:"edition",l:"Edition #"},{k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"},
-    {k:"scene",l:"Scene / sequence"},{k:"size",l:"Size"},{k:"framing",l:"Matted / framed"}]},
+  // One of a kind: no condition or quantity. Year sits after Episode #. Pieces can have screen grabs of the frame and a scene clip.
+  {id:"cels", name:"Animation Cels", icon:"🎞️", maker:"Studio", yearAfter:"episode", hide:["condition","qty"], frames:true, clips:true, fields:[
+    {k:"celType",l:"Type",opts:["Production cel","Production cel + drawing","Sericel","Limited edition","Key setup","Drawing"]},
+    {k:"production",l:"Production (film, show, commercial)"},{k:"season",l:"Season #"},{k:"episode",l:"Episode #"},{k:"characters",l:"Character(s)"},
+    {k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"},{k:"scene",l:"Scene / sequence"},{k:"size",l:"Size"}]},
   {id:"pennies", name:"Pressed Pennies", icon:"🪙", maker:"Machine / set", fields:[
     {k:"place",l:"Location / attraction"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"},
     {k:"series",l:"Set position (e.g. 2 of 4)"},{k:"retired",l:"Retired design",opts:["Yes","No"]}]},
@@ -880,7 +905,7 @@ const PRESETS = [
     {k:"restoration",l:"Restoration / repairs"},{k:"appraised",l:"Last appraised"}]},
 ];
 function newCatalog(){
-  return {version:1, title:"The Collection", collections:JSON.parse(JSON.stringify(PRESETS)), presetsSeen:PRESETS.map(p=>p.id), items:[], updated:new Date().toISOString()};
+  return {version:1, title:"The Museum", collections:JSON.parse(JSON.stringify(PRESETS)), presetsSeen:PRESETS.map(p=>p.id), items:[], updated:new Date().toISOString()};
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1055,7 +1080,16 @@ class DropboxStore {
     const daily = (await this.listSnapshots()).filter(e => /^catalog-\d{4}-\d\d-\d\d\.json$/.test(e.name));
     for(const e of daily.slice(30)) await this.rpc("files/delete_v2", {path:e.path_lower});
   }
-  async putFile(path, blob){ await this.upload("/" + path, blob, "overwrite"); }
+  async putFile(path, blob){
+    if(blob.size <= 140e6) return void await this.upload("/" + path, blob, "overwrite");
+    // Big files (scene clips) go up in 64 MB pieces through an upload session.
+    const send = async (ep, arg, body) => { const r = await fetch("https://content.dropboxapi.com/2/files/" + ep, {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Content-Type":"application/octet-stream", "Dropbox-API-Arg":DropboxStore.arg(arg)}, body});
+      if(!r.ok) throw new Error("Dropbox upload failed (" + r.status + ")"); return r.json().catch(() => ({})); };
+    const CH = 64 * 1024 * 1024, { session_id } = await send("upload_session/start", {close:false}, blob.slice(0, CH));
+    let off = Math.min(CH, blob.size);
+    while(blob.size - off > CH){ await send("upload_session/append_v2", {cursor:{session_id, offset:off}, close:false}, blob.slice(off, off + CH)); off += CH; }
+    await send("upload_session/finish", {cursor:{session_id, offset:off}, commit:{path:"/" + path, mode:"overwrite", autorename:false, mute:true}}, blob.slice(off));
+  }
   async deleteFile(path){ this.links.delete(path); try{ await this.rpc("files/delete_v2", {path:"/" + path}); }catch(e){ if(!(e.summary||"").includes("not_found")) throw e; } }
   forget(path){ this.links.delete(path); clearTimeout(this._lt); this._lt = setTimeout(()=>LS.set("cm.links", Object.fromEntries(this.links)), 500); }
   // Dropbox batch jobs answer "working on it": ask again until done.
@@ -1165,7 +1199,8 @@ function authLog(msg){ const l = LS.get("cm.authlog", []); l.unshift(new Date().
 let store, cat, priv = LS.get("cm.private", true);
 const coll = id => cat.collections.find(c => c.id === id) || {id, name:"Uncategorized", icon:"📦", maker:"Maker", fields:[]};
 const item = id => cat.items.find(i => i.id === id);
-const cover = it => (it.media||[]).find(m => m.kind === "photo");
+const cover = it => (it.media||[]).find(m => m.kind === "photo" && m.role !== "frame") || (it.media||[]).find(m => m.kind === "photo");
+const hides = (c, k) => (c.hide||[]).includes(k);
 
 function toast(msg, ms=2600){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
 function busy(msg){ const b=document.createElement("div"); b.className="busy"; b.innerHTML="<div>"+esc(msg||"Saving…")+"</div>"; document.body.appendChild(b); return ()=>b.remove(); }
@@ -1191,6 +1226,8 @@ function itemFolderName(it){
 function fileBase(m){
   const nm = String(m.name || "").replace(/\.[A-Za-z0-9]{1,5}$/, "");
   if(m.kind === "document") return cleanName(m.label || nm, 60) || "Document";
+  if(m.kind === "video") return cleanName(m.label, 60) || "Scene clip";
+  if(m.role === "frame") return "Screen grab";
   if(/^cover$/i.test(nm)) return "Cover";
   if(!nm || /^(img|dsc|dscn|pxl|image|photo|picture|screenshot|file|mvimg|boardgamegeek)\b|^(img|dsc|pxl|mvimg)_|^\d|^[\w-]{20,}$/i.test(nm)) return "Photo";
   return cleanName(nm, 60) || "Photo";
@@ -1270,7 +1307,7 @@ async function tidyItems(items, opts){
 }
 // A renamed gallery: move its pieces' folders along with it.
 async function tidyGallery(items){
-  const pb = items.length > 3 ? progressBox("Renaming the gallery's folders…") : null;
+  const pb = items.length > 3 ? progressBox("Renaming the collection's folders…") : null;
   try{ await tidyItems(items, {progress:(n, t) => pb && pb.set(`Moving files… ${n} of ${t}`)}); }
   catch(e){ /* files stay where they are; Settings > Tidy up retries */ }
   finally{ if(pb) pb.done(); }
@@ -1280,7 +1317,7 @@ async function tidyAll(){
   const own = folderOwners(cat.items); let n = 0;
   for(const it of cat.items) n += planItem(it, own).moves.length;
   if(!n) return alert("Everything is already in tidy, readable folders.");
-  if(!confirm(`Move ${n} file${n===1?"":"s"} into folders named after each gallery and piece (media › Gallery › Piece)? A copy of your catalog is saved first, and nothing is deleted except folders left empty.`)) return;
+  if(!confirm(`Move ${n} file${n===1?"":"s"} into folders named after each collection and piece (media › Collection › Piece)? A copy of your catalog is saved first, and nothing is deleted except folders left empty.`)) return;
   const pb = progressBox("Saving a copy of your catalog…");
   try{
     if(store.kind === "dropbox") await store.putFile("backups/catalog-before-tidy-" + new Date().toISOString().slice(0,19).replace(/:/g,"-") + ".json", new Blob([JSON.stringify(cat, null, 1)], {type:"application/json"}));
@@ -1367,7 +1404,7 @@ function arrangeHalls(){
   }
   grid.classList.add("arranging"); link.textContent = "Done";
   const fabs = document.querySelector(".fabs"); if(fabs) fabs.style.display = "none";
-  toast("Drag galleries into the order you like, then tap Done", 3500);
+  toast("Drag collections into the order you like, then tap Done", 3500);
   // Drag state lives on the grid: the window listeners are wired once, so a second Arrange on the same page must share it.
   const st = grid._st || (grid._st = {drag:null});
   const move = e => {
@@ -1640,7 +1677,7 @@ function liveSearch(hashFor){
 
 function viewHome(params){
   const q = params.get("q") || "";
-  document.title = cat.title || "The Collection";
+  document.title = cat.title || "The Museum";
   const counts = {}; cat.items.forEach(i => counts[i.collectionId] = (counts[i.collectionId]||0) + 1);
   const total = cat.items.reduce((s,i)=> s + (+i.value||0), 0);
   const halls = cat.arranged ? cat.collections : cat.collections.filter(c => counts[c.id]).concat(cat.collections.filter(c => !counts[c.id]));
@@ -1648,7 +1685,7 @@ function viewHome(params){
   const favs = cat.items.filter(i => i.favorite).slice(0, 12);
   const recent = sortItems(cat.items, "recent").slice(0, 12);
   paint(`${modeBanner()}
-  <section class="hero"><h1>${esc(cat.title || "The Collection")}</h1>
+  <section class="hero"><h1>${esc(cat.title || "The Museum")}</h1>
     <p>A private museum of things worth keeping.</p>
     <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>
     <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${Object.keys(counts).length}</b>collections</span>
@@ -1657,7 +1694,7 @@ function viewHome(params){
   ${results ? `<div class="section-title"><h2>Results</h2><span>${results.length} found</span></div>
       ${results.length ? `<div class="grid">${results.map(plate).join("")}</div>` : `<div class="empty">Nothing matches “${esc(q)}”.</div>`}` : `
   ${favs.length ? `<div class="section-title"><h2>Highlights</h2><span>Starred pieces</span></div><div class="grid">${favs.map(plate).join("")}</div>` : ""}
-  <div class="section-title"><h2>Galleries</h2><span style="display:flex;gap:10px;align-items:center">${sizer()}<a href="#" id="arrange">Arrange</a></span></div>
+  <div class="section-title"><h2>Collections</h2><span style="display:flex;gap:10px;align-items:center">${sizer()}<a href="#" id="arrange">Arrange</a></span></div>
   <div class="halls" id="halls">${halls.map(c => { const it = sortItems(cat.items.filter(i=>i.collectionId===c.id && cover(i)), "recent").sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0))[0];
     return `<a class="hall" href="#/c/${c.id}" data-id="${c.id}">${it ? `<img alt="" data-path="${esc(cover(it).thumb||cover(it).path)}" loading="lazy">` : `<div class="ph">${c.icon}</div>`}
       <div class="label"><h3>${c.icon} ${esc(c.name)}</h3><span>${counts[c.id]||0} ${counts[c.id]===1?"piece":"pieces"}</span></div></a>`; }).join("")}</div>
@@ -1673,7 +1710,7 @@ function viewHall(id, params){
   const q = params.get("q") || "", sort = params.get("sort") || (c && c.sort) || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
   const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1";
   const fsel = {}; c.fields.forEach(f => { const v = params.get("f." + f.k); if(v && !(priv && f.priv)) fsel[f.k] = v; });
-  document.title = c.name + " · " + (cat.title||"The Collection");
+  document.title = c.name + " · " + (cat.title||"The Museum");
   const all = cat.items.filter(i => i.collectionId === id);
   const tags = [...new Set(all.flatMap(i => i.tags||[]))].sort();
   const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
@@ -1701,7 +1738,7 @@ function viewHall(id, params){
   const groups = []; list.forEach(it => { const g = groupOf(it); const last = groups[groups.length-1]; if(last && last.g === g) last.items.push(it); else groups.push({g, items:[it]}); });
   const grouped = groups.length > 1 && list.length >= 12 && groups[0].g !== null;
   const sorts = [["title","Title (A–Z)"],["maker",c.maker||"Maker"],["year","Year (oldest)"],["yeard","Year (newest)"],["recent","Recently added"],["updated","Recently edited"],["condition","Condition"]].concat(priv?[]:[["value","Value (highest)"]]);
-  paint(`<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><span style="display:flex;gap:16px"><a href="#" id="exportG">⤓ Export</a><a href="#/gallery/${c.id}">✎ Edit gallery</a></span></div>
+  paint(`<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><span style="display:flex;gap:16px"><a href="#" id="exportG">⤓ Export</a><a href="#/gallery/${c.id}">✎ Edit collection</a></span></div>
   <section class="hero" style="padding-top:4px;padding-bottom:10px"><h1>${c.icon} ${esc(c.name)}</h1>
     <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
     <form class="search" id="sf">${searchBox("Search " + c.name.toLowerCase() + "…", q)}
@@ -1720,7 +1757,7 @@ function viewHall(id, params){
     ${grouped && groups.length > 3 ? `<div class="groupbar" aria-label="Jump to">${groups.map((g,n) => `<button type="button" data-jump="${n}">${esc(g.g)}</button>`).join("")}</div>` : ""}
   </section>
   ${lookupKind(c) !== "none" && list.some(i => !isMatched(i)) && (unmatched || showFilters) ? `<div class="banner noprint"><span>🔎</span><div class="grow">${list.filter(i => !isMatched(i)).length} piece${list.filter(i => !isMatched(i)).length===1?"":"s"} here not matched to ${esc(lookupName(lookupKind(c)))} yet. Go through them one by one; anything you've already typed is kept.</div><button class="iconbtn primary" id="bulkMatch">Match them</button></div>` : ""}
-  ${!list.length ? `<div class="empty">${!all.length ? "This gallery is empty. Add the first piece!" : q ? `Nothing here matches “${esc(q)}”.` : "Nothing matches these filters."}</div>`
+  ${!list.length ? `<div class="empty">${!all.length ? "This collection is empty. Add the first piece!" : q ? `Nothing here matches “${esc(q)}”.` : "Nothing matches these filters."}</div>`
     : grouped ? groups.map((g,n) => `<h3 class="grouphead" id="grp${n}">${esc(g.g)} <span style="color:var(--muted);font-family:var(--sans);font-size:.75rem;font-weight:400">${g.items.length}</span></h3><div class="grid">${g.items.map(plate).join("")}</div>`).join("")
     : `<div class="grid">${list.map(plate).join("")}</div>`}
   <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${id}">▦ Scan</a><a class="fab" href="#/new?c=${id}">＋ Add</a></div>`);
@@ -1780,7 +1817,7 @@ function viewWall(id, params){
     <div class="wbar"><a class="wbtn" href="#/c/${id}" aria-label="Leave gallery mode" title="Leave gallery mode">✕</a>
       <div class="wtitle">${c.icon} ${esc(c.name)}</div>
       ${pieces.length ? `<select id="wroom" aria-label="Room">${ROOMS.slice().sort((a, b) => a[1].slice(a[1].indexOf(" ") + 1).localeCompare(b[1].slice(b[1].indexOf(" ") + 1))).map(([k,l]) => `<option value="${k}" ${k===room?"selected":""}>${l}</option>`).join("")}</select>
-      ${pieces.length > 1 ? `<button type="button" class="wbtn${shuffle ? " on" : ""}" id="wshuf" title="${shuffle ? "Shuffle again" : "Shuffle the order"}">🔀</button>${shuffle ? `<button type="button" class="wbtn" id="worder" title="Back to your gallery's order">In order</button>` : ""}` : ""}
+      ${pieces.length > 1 ? `<button type="button" class="wbtn${shuffle ? " on" : ""}" id="wshuf" title="${shuffle ? "Shuffle again" : "Shuffle the order"}">🔀</button>${shuffle ? `<button type="button" class="wbtn" id="worder" title="Back to your collection's order">In order</button>` : ""}` : ""}
       ${pieces.length > 1 ? `<select id="wspeed" aria-label="Tour speed" title="How long the Tour stays on each piece">${[3,5,8,12,20,30,60].map(n => `<option value="${n}" ${n===tourSecs()?"selected":""}>⏱ ${n<60 ? n + "s" : "1 min"}</option>`).join("")}</select>` : ""}
       ${pieces.length > 1 ? `<button type="button" class="wbtn" id="wtour" title="Walk through the gallery on its own">▶ Tour</button>` : ""}
       ${document.fullscreenEnabled || document.webkitFullscreenEnabled ? `<button type="button" class="wbtn" id="wfs" title="Full screen (F)" aria-label="Full screen">⛶</button>` : ""}
@@ -1993,14 +2030,18 @@ function viewItem(id, host){
   const app = host || document.getElementById("app");
   const it = item(id); if(!it) return notFound();
   const c = coll(it.collectionId);
-  document.title = it.title + " · " + (cat.title||"The Collection");
-  const photos = (it.media||[]).filter(m => m.kind === "photo"), docs = (it.media||[]).filter(m => m.kind !== "photo");
+  document.title = it.title + " · " + (cat.title||"The Museum");
+  // The piece's own photos first (the cover leads), then screen grabs of the frame from the production.
+  const allPh = (it.media||[]).filter(m => m.kind === "photo"), photos = allPh.filter(m => m.role !== "frame").concat(allPh.filter(m => m.role === "frame"));
+  if(photos.length && cover(it) !== photos[0]){ photos.splice(photos.indexOf(cover(it)), 1); photos.unshift(cover(it)); }
+  const docs = (it.media||[]).filter(m => m.kind !== "photo" && m.kind !== "video"), clips = (it.media||[]).filter(m => m.kind === "video");
   const hidden = `<span class="hidden-val" title="Hidden in private mode">••••</span>`;
   const facts = [];
   const add = (l, v, isPriv) => { if(v !== "" && v != null) facts.push([l, isPriv && priv ? hidden : esc(v)]); };
-  add(c.maker || "Maker", it.maker); add("Year", it.year);
-  c.fields.forEach(f => add(f.l, (it.fields||{})[f.k], f.priv));
-  add("Release", it.bootleg ? "Bootleg (unofficial)" : ""); add("Condition", it.condition); add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
+  const yearLate = c.yearAfter && c.fields.some(f => f.k === c.yearAfter);
+  add(c.maker || "Maker", it.maker); if(!yearLate) add("Year", it.year);
+  c.fields.forEach(f => { add(f.l, (it.fields||{})[f.k], f.priv); if(yearLate && f.k === c.yearAfter) add("Year", it.year); });
+  add("Release", it.bootleg ? "Bootleg (unofficial)" : ""); if(!hides(c, "condition")) add("Condition", it.condition); if(!hides(c, "qty")) add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
   add("Acquired", [it.acquiredDate, it.source].filter(Boolean).join(" · "));
   if(it.price) facts.push(["Price paid", priv ? hidden : esc(money(it.price))]);
   if(it.value) facts.push(["Estimated value", priv ? hidden : esc(money(it.value))]);
@@ -2008,8 +2049,9 @@ function viewItem(id, host){
   const backTo = (navPrev || "").startsWith("#/c/" + c.id) ? navPrev : "#/c/" + c.id;
   app.innerHTML = `<a class="backbtn" data-back href="${esc(backTo)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>${c.icon} ${esc(c.name)}</a>
   <article class="item">
-    <div class="viewer">${photos.length ? `<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div></div>
-      ${photos.length > 1 ? `<div class="thumbs">${photos.map((p,n)=>`<button data-n="${n}" class="${n?"":"on"}" aria-label="Photo ${n+1}"><img alt="" data-path="${esc(p.thumb||p.path)}"></button>`).join("")}</div>` : ""}`
+    <div class="viewer">${photos.length ? `<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div>${photos.length > 1 ? `<button type="button" class="pnav prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="pnav next" aria-label="Next photo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><span class="pcount" id="pcount">1 / ${photos.length}</span>` : ""}</div>
+      <div class="pcap" id="pcap"${photos[0] && photos[0].role === "frame" ? "" : " hidden"}>🎬 Screen grab from the production</div>
+      ${photos.length > 1 ? `<div class="thumbs">${photos.map((p,n)=>`<button data-n="${n}" class="${n?"":"on"}${p.role === "frame" ? " fr" : ""}" aria-label="${p.role === "frame" ? "Screen grab" : "Photo"} ${n+1}"><img alt="" data-path="${esc(p.thumb||p.path)}"></button>`).join("")}</div>` : ""}`
       : `<div class="frame"><div class="matte" style="aspect-ratio:4/3;min-height:0"><div class="placeholder"><div class="em" style="font-size:4rem">${c.icon}</div><div>No photos yet</div></div></div></div>`}
     </div>
     <div>
@@ -2023,19 +2065,48 @@ function viewItem(id, host){
       ${it.qty > 1 && (it.copies||[]).some(x => x.condition || x.location || x.note) ? `<h3 style="margin-top:20px;font-size:1.05rem">Your ${it.qty} copies</h3><ul class="copylist">${Array.from({length:it.qty}, (_, i) => { const x = it.copies[i] || {};
         return `<li><b>Copy ${i+1}</b>${x.condition ? " · " + esc(x.condition) : ""}${x.location ? " · 📍 " + esc(x.location) : ""}${x.note ? `<div class="cm">${esc(x.note)}</div>` : ""}</li>`; }).join("")}</ul>` : ""}
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
+      ${clips.length ? `<h3 style="margin-top:20px;font-size:1.05rem">${clips.length > 1 ? "Scene clips" : esc(clips[0].label || "Scene clip")}</h3>${clips.map(v => `<div class="clip">${clips.length > 1 && v.label ? `<div class="cl">${esc(v.label)}</div>` : ""}<video controls playsinline preload="metadata" data-vpath="${esc(v.path)}"></video></div>`).join("")}` : ""}
       ${docs.length ? `<h3 style="margin-top:20px;font-size:1.05rem">Documents</h3><div class="docs">${docs.map(d=>`<button class="doc" data-path="${esc(d.path)}" data-name="${esc(d.name||"")}"><span class="ic">${/pdf$/i.test(d.name||"")?"📄":"📜"}</span><span class="grow"><b>${esc(d.label||"Document")}</b><br><small style="color:var(--muted)">${esc(d.name||"")}</small></span><span>↗</span></button>`).join("")}</div>` : ""}
       <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${c.id}">▦ Scan</a><a class="fab" href="#/new?c=${c.id}">＋ Add</a></div>
       <div class="actions noprint"><a class="iconbtn primary" href="#/edit/${it.id}">✎ Edit</a>${lookupKind(c) !== "none" ? `<button class="iconbtn" id="matchBtn">🔎 ${isMatched(it) ? "Re-match" : "Match to"} ${esc(lookupName(lookupKind(c)))}</button>` : ""}${lookupKind(c) !== "none" ? `<button class="iconbtn" id="coverBtn">🖼 Change cover</button>` : ""}<button class="iconbtn" id="dupBtn">Duplicate</button><button class="iconbtn" id="delBtn" style="color:var(--danger)">Delete</button></div>
     </div>
   </article>`;
   hydrate(app);
-  app.querySelectorAll(".thumbs button").forEach(b => b.onclick = async () => {
-    app.querySelectorAll(".thumbs button").forEach(x=>x.classList.toggle("on", x===b));
-    const p = photos[+b.dataset.n], img = document.getElementById("heroImg");
-    img.dataset.path = p.path; const u = await mediaUrl(p.path); if(u) img.src = u;
-  });
-  const hero = document.getElementById("hero"); if(hero) hero.onclick = () => lightbox(document.getElementById("heroImg").src);
+  // Moving between photos: thumbnails, the arrows over the photo, swiping, or the ← → keys.
+  let cur = 0;
+  const showPhoto = async (n, dir) => {
+    if(photos.length < 2) return;
+    n = (n + photos.length) % photos.length; if(n === cur) return; cur = n;
+    app.querySelectorAll(".thumbs button").forEach(x => { const on = +x.dataset.n === n; x.classList.toggle("on", on);
+      if(on && x.parentNode.scrollWidth > x.parentNode.clientWidth) x.parentNode.scrollTo({left:x.offsetLeft - (x.parentNode.clientWidth - x.offsetWidth) / 2, behavior:"smooth"}); });
+    const cnt = document.getElementById("pcount"); if(cnt) cnt.textContent = (n + 1) + " / " + photos.length;
+    const p = photos[n], img = document.getElementById("heroImg"); img.dataset.path = p.path;
+    const cap = document.getElementById("pcap"); if(cap) cap.hidden = p.role !== "frame";
+    const u = await mediaUrl(p.path).catch(() => null); if(cur !== n || !u || !img.isConnected) return;
+    img.classList.remove("slidel", "slider"); void img.offsetWidth; img.src = u; if(dir) img.classList.add(dir > 0 ? "slidel" : "slider");
+    [n + 1, n - 1].forEach(k => mediaUrl(photos[(k + photos.length) % photos.length].path).catch(()=>{}));   // warm up the neighbours
+  };
+  app.querySelectorAll(".thumbs button").forEach(b => b.onclick = () => { const n = +b.dataset.n; showPhoto(n, n > cur ? 1 : -1); });
+  app.querySelectorAll(".pnav").forEach(b => b.onclick = e => { e.stopPropagation(); const d = b.classList.contains("next") ? 1 : -1; showPhoto(cur + d, d); });
+  const hero = document.getElementById("hero");
+  if(hero){
+    let sx = null, sy = 0, swiped = 0;
+    if(photos.length > 1){
+      hero.addEventListener("touchstart", e => { if(e.touches.length !== 1){ sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
+      hero.addEventListener("touchend", e => { if(sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; sx = null;
+        if(Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5){ swiped = Date.now(); const d = dx < 0 ? 1 : -1; showPhoto(cur + d, d); } }, {passive:true});
+    }
+    hero.onclick = () => { if(Date.now() - swiped < 500) return;
+      lightbox(document.getElementById("heroImg").src, photos.length > 1 ? {n:cur, count:photos.length, url:k => mediaUrl(photos[k].path), moved:k => showPhoto(k, 0)} : null); };
+    const here = location.hash;
+    if(photos.length > 1) document.addEventListener("keydown", function k(e){
+      if(location.hash !== here || !hero.isConnected) return document.removeEventListener("keydown", k);
+      if(document.getElementById("lb") || document.getElementById("layer").childElementCount || e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test((e.target||{}).tagName) || (e.target||{}).isContentEditable) return;
+      if(e.key === "ArrowRight") showPhoto(cur + 1, 1); else if(e.key === "ArrowLeft") showPhoto(cur - 1, -1);
+    });
+  }
   app.querySelectorAll(".doc").forEach(b => b.onclick = () => openDoc(b.dataset.path, b.dataset.name));
+  app.querySelectorAll("video[data-vpath]").forEach(v => mediaUrl(v.dataset.vpath).then(u => { if(v.isConnected) v.src = u; }).catch(() => { v.replaceWith(Object.assign(document.createElement("p"), {textContent:"Couldn't load this clip right now.", style:"color:var(--muted)"})); }));
   document.getElementById("delBtn").onclick = async () => {
     if(!confirm(`Delete “${it.title}” and its photos and documents? This can't be undone.`)) return;
     const done = busy("Deleting…");
@@ -2071,18 +2142,78 @@ async function openDoc(path, name){
   else lightbox(u);
 }
 
-function lightbox(src){
+// nav (optional): {n, count, url:k => Promise<url>, moved:k => void} lets the full-size view step through a piece's photos.
+function lightbox(src, nav){
   if(!src) return;
-  const L = document.getElementById("layer");
-  L.innerHTML = `<div class="lightbox" id="lb"><button class="iconbtn x" aria-label="Close">✕</button><img src="${esc(src)}" alt=""></div>`;
+  const L = document.getElementById("layer"), multi = nav && nav.count > 1;
+  const ar = d => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+  L.innerHTML = `<div class="lightbox" id="lb"><button class="iconbtn x" aria-label="Close">✕</button><img src="${esc(src)}" alt="">${multi ? `<button type="button" class="lbnav prev" aria-label="Previous photo">${ar("M15 5l-7 7 7 7")}</button><button type="button" class="lbnav next" aria-label="Next photo">${ar("M9 5l7 7-7 7")}</button><span class="lbcount">${nav.n + 1} / ${nav.count}</span>` : ""}</div>`;
   const lb = document.getElementById("lb"), img = lb.querySelector("img");
+  const close = () => { L.innerHTML = ""; document.removeEventListener("keydown", k); };
+  let n = multi ? nav.n : 0;
+  const go = async d => {
+    n = (n + d + nav.count) % nav.count; const want = n;
+    lb.querySelector(".lbcount").textContent = (n + 1) + " / " + nav.count; nav.moved && nav.moved(n);
+    const u = await nav.url(n).catch(() => null); if(want !== n || !u || !img.isConnected) return;
+    img.classList.remove("zoom", "slidel", "slider"); void img.offsetWidth; img.src = u; img.classList.add(d > 0 ? "slidel" : "slider");
+  };
   img.onclick = e => { e.stopPropagation(); img.classList.toggle("zoom"); };
-  lb.querySelector(".x").onclick = () => L.innerHTML = "";
-  lb.onclick = e => { if(e.target === lb) L.innerHTML = ""; };
-  document.addEventListener("keydown", function k(e){ if(e.key==="Escape"){ L.innerHTML=""; document.removeEventListener("keydown",k);} });
+  lb.querySelector(".x").onclick = close;
+  lb.onclick = e => { if(e.target === lb) close(); };
+  if(multi){
+    lb.querySelectorAll(".lbnav").forEach(b => b.onclick = e => { e.stopPropagation(); go(b.classList.contains("next") ? 1 : -1); });
+    let sx = null, sy = 0;
+    lb.addEventListener("touchstart", e => { if(e.touches.length !== 1 || img.classList.contains("zoom")){ sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
+    lb.addEventListener("touchend", e => { if(sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; sx = null;
+      if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && (!window.visualViewport || visualViewport.scale <= 1.01)) go(dx < 0 ? 1 : -1); }, {passive:true});
+  }
+  function k(e){
+    if(!lb.isConnected) return document.removeEventListener("keydown", k);
+    if(e.key === "Escape") close();
+    else if(multi && e.key === "ArrowRight") go(1); else if(multi && e.key === "ArrowLeft") go(-1);
+  }
+  document.addEventListener("keydown", k);
 }
 
 /* ---------- Image processing ---------- */
+// Photos are stored at most 2000 px on the long side as JPEG: sharp on any screen, a fraction of the original size.
+const PHOTO_MAX = 2000, PHOTO_Q = .82;
+/* Scene clips: re-recorded in the browser at up to 720p and about 2.5 Mbps (no uploads to any service; nothing to install).
+   The clip plays through once silently while it's recorded, so it takes as long as the clip. Returns null (keep the original)
+   when the browser can't do it, it's already small, it was stopped, or the result isn't clearly smaller. */
+async function shrinkVideo(file, prog, stopped){
+  if(typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) return null;
+  const mime = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(t => { try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } });
+  if(!mime) return null;
+  const url = URL.createObjectURL(file), v = document.createElement("video");
+  v.playsInline = true; v.preload = "auto"; v.src = url; v.style.cssText = "position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0";
+  document.body.appendChild(v);
+  let ac = null;
+  const clean = () => { try{ v.pause(); }catch(e){} v.remove(); URL.revokeObjectURL(url); if(ac) ac.close().catch(() => {}); };
+  try{
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error("unreadable")); setTimeout(() => rej(new Error("timeout")), 15000); });
+    const big = Math.max(v.videoWidth, v.videoHeight), sc = Math.min(1, 1280 / (big || 1280));
+    if(!v.videoWidth || (sc === 1 && file.size < 15e6) || !isFinite(v.duration) || v.duration > 20 * 60){ clean(); return null; }
+    const w = Math.round(v.videoWidth * sc / 2) * 2, h = Math.round(v.videoHeight * sc / 2) * 2;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const cx = cv.getContext("2d");
+    const stream = cv.captureStream(30);
+    try{ ac = new (window.AudioContext || window.webkitAudioContext)(); const src = ac.createMediaElementSource(v), dst = ac.createMediaStreamDestination(); src.connect(dst);
+      dst.stream.getAudioTracks().forEach(t => stream.addTrack(t)); await ac.resume(); }catch(e){ clean(); return null; }   // no audio route: keep the original rather than lose the sound
+    const rec = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:2500000, audioBitsPerSecond:128000}), chunks = [];
+    rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+    const finished = new Promise(r => rec.onstop = r);
+    const frame = () => { if(rec.state !== "recording") return; cx.drawImage(v, 0, 0, w, h); prog(Math.min(1, v.currentTime / v.duration));
+      if(stopped()){ v.pause(); rec.stop(); return; } if(!v.ended) v.requestVideoFrameCallback ? v.requestVideoFrameCallback(frame) : requestAnimationFrame(frame); };
+    v.onended = () => { if(rec.state === "recording") rec.stop(); };
+    rec.start(1000);
+    try{ await v.play(); }catch(e){ rec.stop(); await finished; clean(); return null; }
+    frame();
+    await finished; clean();
+    if(stopped()) return null;
+    const out = new Blob(chunks, {type:mime.split(";")[0]});
+    return out.size > 10000 && out.size < file.size * .85 ? out : null;
+  }catch(e){ clean(); return null; }
+}
 async function shrink(file, max, quality){
   let bmp;
   try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
@@ -2733,7 +2864,7 @@ const isMatched = it => !!(it.matched || it.bggId);
 function matchSaved(it, opts){
   opts = opts || {};
   const c = coll(it.collectionId), kind = lookupKind(c), isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
-  if(kind === "none") return toast("Choose a lookup source for this gallery in ✎ Edit gallery first.");
+  if(kind === "none") return toast("Choose a lookup source for this collection in ✎ Edit collection first.");
   pickResult(kind, kind === "comic" && iss && !/#/.test(it.title) ? it.title + " #" + iss : it.title, it.maker, async r => {
     const before = JSON.stringify(it);
     mergeResult(it, r, false);
@@ -2743,7 +2874,7 @@ function matchSaved(it, opts){
         const resp = await fetchT(r.cover, {}, 20000), blob = await resp.blob();
         if(!resp.ok || !/^image\//.test(blob.type)){ const e = new Error("no cover"); e.noCover = true; throw e; }
         const nm = tmpMedia(it, {id:uid(), kind:"photo", name:"cover.jpg"}); placeNew(it, [nm]);
-        await store.putFile(nm.path, await shrink(blob, 2400, .88)); await store.putFile(nm.thumb, await shrink(blob, 520, .8));
+        await store.putFile(nm.path, await shrink(blob, PHOTO_MAX, PHOTO_Q)); await store.putFile(nm.thumb, await shrink(blob, 520, .8));
         it.media.unshift(nm);
       }catch(e){ if(!e.noCover && /^https:/.test(r.cover)) it.media.unshift({id:uid(), kind:"photo", remote:true, name:"cover", path:r.cover, thumb:r.thumb || r.cover}); }
     }
@@ -2958,7 +3089,7 @@ async function useCover(it, url, thumb, replace, after){
       const resp = await fetchT(url, {}, 25000), blob = await resp.blob();
       if(!resp.ok || !/^image\//.test(blob.type)) throw new Error("not an image");
       m = tmpMedia(it, {id:uid(), kind:"photo", name:"cover.jpg"}); placeNew(it, [m]);
-      await store.putFile(m.path, await shrink(blob, 2400, .88)); await store.putFile(m.thumb, await shrink(blob, 520, .8));
+      await store.putFile(m.path, await shrink(blob, PHOTO_MAX, PHOTO_Q)); await store.putFile(m.thumb, await shrink(blob, 520, .8));
     }catch(e){ m = {id:uid(), kind:"photo", remote:true, name:"cover", path:url, thumb:thumb || url}; }
     it.media = it.media || [];
     if(replace && old) it.media = it.media.filter(x => x !== old);
@@ -3109,11 +3240,12 @@ function viewEdit(id, params, ov){
     : {id:uid(), collectionId:params.get("c") || cat.collections[0].id, title:"", fields:{}, tags:[], media:[]};
   const pending = []; // {m, blob, thumbBlob, previewUrl}
   const removed = [];
-  document.title = (existing ? "Edit " + existing.title : "Add a piece") + " · " + (cat.title||"The Collection");
+  document.title = (existing ? "Edit " + existing.title : "Add a piece") + " · " + (cat.title||"The Museum");
 
   function render(){
     const c = coll(it.collectionId);
     const fv = k => esc((it.fields||{})[k] ?? "");
+    const yearBox = `<div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>`;
     app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › ${existing ? `<a href="#/i/${it.id}">${esc(existing.title)}</a> › Edit` : "Add a piece"}</div>
     <form class="edit" id="ef" autocomplete="off">
       <h1 style="font-size:1.8rem;margin-bottom:16px">${existing ? "Edit piece" : "Add a piece"}</h1>
@@ -3122,25 +3254,28 @@ function viewEdit(id, params, ov){
       <fieldset><legend>Photos &amp; documents</legend>
         <div class="actions" style="margin-top:0">
           <label class="iconbtn primary filebtn">📷 Add photos<input type="file" accept="image/*" multiple id="addPhotos"></label>
+          ${c.frames ? `<label class="iconbtn filebtn">🎬 Add screen grab<input type="file" accept="image/*" multiple id="addFrames"></label>` : ""}
+          ${c.clips ? `<label class="iconbtn filebtn">🎥 Add scene clip<input type="file" accept="video/*" id="addClip"></label>` : ""}
           <label class="iconbtn filebtn">📄 Add COA / document<input type="file" accept="image/*,application/pdf" multiple id="addDocs"></label>
           ${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="findCover">🖼 Find a cover</button>` : ""}
         </div>
-        <p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">The first photo is the cover. Photos are resized for quick loading. Documents (COAs, receipts, appraisals) keep their original quality.</p>
+        <p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">${c.frames || c.clips ? "Photos are of the piece itself, and the first is the cover." + (c.frames ? " A screen grab is the frame from the production, so you can see the cel in context." : "") + (c.clips ? " A scene clip is a short video of where it appears." : "") + " Photos are resized for quick loading; clips and documents keep their original quality."
+          : "The first photo is the cover. Photos are resized for quick loading. Documents (COAs, receipts, appraisals) keep their original quality."}</p>
         <div class="media-edit" id="media"></div>
       </fieldset>
       <fieldset><legend>The piece</legend><div class="fgrid">
-        <div class="f"><label for="collectionId">Gallery</label><select id="collectionId" name="collectionId">${[...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(x=>`<option value="${x.id}" ${x.id===it.collectionId?"selected":""}>${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
+        <div class="f"><label for="collectionId">Collection</label><select id="collectionId" name="collectionId">${[...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(x=>`<option value="${x.id}" ${x.id===it.collectionId?"selected":""}>${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
         <div class="f"><label for="title">Title *</label><div class="inrow"><input id="title" name="title" required autocapitalize="words" data-tc value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title">🔎 <span>Look up</span></button>` : ""}</div></div>
         <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
         <div class="f"><label for="makerSort">Sort ${esc((c.maker||"maker").toLowerCase())} as <span style="font-weight:400;color:var(--muted)">(optional)</span></label><div class="inrow"><input id="makerSort" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker) || msGet(cat.makerSort, it.maker) || it.maker || "")}" placeholder="e.g. Bowie, David" autocapitalize="words"><button type="button" class="iconbtn" id="msFlip" title="Last name first (or back again)">⇄ <span>Flip</span></button></div></div>
-        <div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
+        ${c.yearAfter && c.fields.some(f => f.k === c.yearAfter) ? "" : yearBox}
         <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div class="inrow"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" aria-label="Scan with camera">▦ <span>Scan</span></button></div></div>
         ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts && f.opts.length
           ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts)
-          : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}>`}</div>`).join("")}
-        <div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>
+          : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year|season|episode/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}${/season|episode/i.test(f.k) ? ` inputmode="numeric"` : ""}>`}</div>${f.k === c.yearAfter ? yearBox : ""}`).join("")}
+        ${hides(c, "condition") ? "" : `<div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>`}
         <div class="f full"><label class="boottog"><input type="checkbox" name="bootleg" ${it.bootleg ? "checked" : ""}><span><b>Bootleg</b> <span style="color:var(--muted)">· unofficial release; adds a banner to the artwork</span></span></label></div>
-        <div class="f"><label for="qty">How many you have</label><input id="qty" name="qty" type="number" min="1" step="1" value="${esc(it.qty||1)}" inputmode="numeric"></div>
+        ${hides(c, "qty") ? "" : `<div class="f"><label for="qty">How many you have</label><input id="qty" name="qty" type="number" min="1" step="1" value="${esc(it.qty||1)}" inputmode="numeric"></div>`}
         <div class="f"><label for="location">Where it lives (shelf, box, wall)</label><input id="location" name="location" value="${esc(it.location||"")}"></div>
         <div class="f full"><label for="tags">Tags (comma separated)</label><input id="tags" name="tags" value="${esc((it.tags||[]).join(", "))}" placeholder="e.g. Disney, signed, wishlist upgrade"></div>
         <label class="check full"><input type="checkbox" name="favorite" ${it.favorite?"checked":""}> ★ Highlight this piece on the front page</label>
@@ -3184,6 +3319,8 @@ function viewEdit(id, params, ov){
     f.collectionId.onchange = () => { collect(); it.collectionId = f.collectionId.value; render(); };
     document.getElementById("addPhotos").onchange = e => addFiles(e.target.files, "photo");
     document.getElementById("addDocs").onchange = e => addFiles(e.target.files, "document");
+    if(document.getElementById("addFrames")) document.getElementById("addFrames").onchange = e => addFiles(e.target.files, "photo", false, "frame");
+    if(document.getElementById("addClip")) document.getElementById("addClip").onchange = e => addFiles(e.target.files, "video");
     wireChoices(f, (name, v) => {
       if(name === "condition"){ cat.settings = {...(cat.settings||{}), conditions:[...((cat.settings||{}).conditions||[]), v]}; return; }
       const fld = coll(it.collectionId).fields.find(x => "x_" + x.k === name); if(fld){ fld.opts = [...(fld.opts||[]), v]; }
@@ -3203,7 +3340,7 @@ function viewEdit(id, params, ov){
     if(document.getElementById("scanTop")) document.getElementById("scanTop").onclick = startScan;
     document.getElementById("barcode").onchange = e => { const v = e.target.value.trim(); if(v && !existing) { collect(); lookupInto(v); } };
     if(document.getElementById("titleLook")) document.getElementById("titleLook").onclick = lookupTitle;
-    renderCopies(); document.getElementById("qty").oninput = renderCopies;
+    renderCopies(); if(document.getElementById("qty")) document.getElementById("qty").oninput = renderCopies;
     document.getElementById("addExtra").onclick = () => { document.getElementById("extras").insertAdjacentHTML("beforeend", extraRow({l:"",v:""})); wireExtras(); document.querySelector("#extras .xrow:last-child [data-xl]").focus(); };
     wireExtras();
     if(document.getElementById("tracksFill")) document.getElementById("tracksFill").onclick = async () => {
@@ -3269,7 +3406,7 @@ function viewEdit(id, params, ov){
 
   function readCopies(){ return [...document.querySelectorAll("#copies .copyrow")].map(r => ({condition:r.querySelector(".cc").value.trim(), location:r.querySelector(".cl").value.trim(), note:r.querySelector(".cn").value.trim()})); }
   function renderCopies(){
-    const box = document.getElementById("copies"); if(!box) return;
+    const box = document.getElementById("copies"); if(!box || !document.getElementById("qty")) return;
     const n = Math.max(1, Math.min(200, parseInt(document.getElementById("qty").value, 10) || 1));
     const cur = box.children.length ? readCopies() : (it.copies || []);
     document.getElementById("copiesBox").style.display = n > 1 ? "block" : "none";
@@ -3281,14 +3418,14 @@ function viewEdit(id, params, ov){
   }
   function collect(){
     const f = document.getElementById("ef"), d = new FormData(f), c = coll(it.collectionId);
-    ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => it[k] = (d.get(k)||"").trim().replace(/^__other$/,""));
+    ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => { if(d.get(k) === null) return; it[k] = (d.get(k)||"").trim().replace(/^__other$/,""); });   // a box the collection hides keeps what was there
     { const ms = (d.get("makerSort")||"").trim(), mk = (it.maker||"").trim().toLowerCase();   // one sort name per artist, used by all their pieces
       if(mk){ cat.makerSortManual = cat.makerSortManual || {}; const auto = msGet(cat.makerSort, it.maker) || it.maker;   // keep any choice that differs from the automatic one, including "as written" over MusicBrainz
         if(ms && ms !== auto) cat.makerSortManual[mk] = ms; else delete cat.makerSortManual[mk]; } }
     ["price","value"].forEach(k => { const v = (d.get(k)||"").replace(/[$,\s]/g,""); it[k] = v === "" ? "" : (isNaN(+v) ? v : +v); });
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
-    const q = parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
+    const q = d.get("qty") === null ? (+it.qty || 1) : parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
     if(d.get("bootleg")) it.bootleg = true; else delete it.bootleg;
     const cps = readCopies();
     if(q > 1 && cps.some(x => x.condition || x.location || x.note)) it.copies = cps.slice(0, q); else delete it.copies;
@@ -3307,11 +3444,11 @@ function viewEdit(id, params, ov){
     const el = document.getElementById("media");
     el.innerHTML = it.media.map((m,n) => {
       const p = pending.find(p => p.m === m);
-      const im = m.kind === "photo" ? (p ? `<img src="${p.previewUrl}" alt="">` : `<img alt="" data-path="${esc(m.thumb||m.path)}">`) : (/pdf$/i.test(m.name||"") ? "📄" : "📜");
-      const isCover = m.kind === "photo" && n === it.media.findIndex(x=>x.kind==="photo");
-      return `<div class="mtile"><div class="im">${im}${isCover ? `<span class="tag">Cover</span>` : ""}</div><div class="row">
-        ${m.kind === "photo" ? `${isCover ? "" : `<button type="button" data-cover="${m.id}" title="Make cover" aria-label="Make cover">⤒</button>`}<button type="button" data-edit="${m.id}" title="Crop &amp; rotate" aria-label="Crop and rotate">✎</button>`
-          : `<input data-label="${m.id}" value="${esc(m.label||"")}" placeholder="COA, receipt…">`}
+      const im = m.kind === "photo" ? (p ? `<img src="${p.previewUrl}" alt="">` : `<img alt="" data-path="${esc(m.thumb||m.path)}">`) : m.kind === "video" ? "🎥" : (/pdf$/i.test(m.name||"") ? "📄" : "📜");
+      const isCover = m === cover(it), frame = m.role === "frame";
+      return `<div class="mtile"><div class="im">${im}${isCover ? `<span class="tag">Cover</span>` : frame ? `<span class="tag">🎬 Screen grab</span>` : ""}</div><div class="row">
+        ${m.kind === "photo" ? `${isCover || frame ? "" : `<button type="button" data-cover="${m.id}" title="Make cover" aria-label="Make cover">⤒</button>`}<button type="button" data-edit="${m.id}" title="Crop &amp; rotate" aria-label="Crop and rotate">✎</button>`
+          : `<input data-label="${m.id}" value="${esc(m.label||"")}" placeholder="${m.kind === "video" ? "Scene clip" : "COA, receipt…"}">`}
         <button type="button" data-rm="${m.id}" title="Remove" aria-label="Remove">✕</button></div></div>`;
     }).join("");
     el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { collect(); const i = it.media.findIndex(m=>m.id===b.dataset.rm); const [m] = it.media.splice(i,1);
@@ -3333,7 +3470,7 @@ function viewEdit(id, params, ov){
       done();
     }
     const out = await photoEditor(src); if(!out) return;
-    const th = await shrink(out, 520, .8), big = await shrink(out, 2400, .88);
+    const th = await shrink(out, 520, .8), big = await shrink(out, PHOTO_MAX, PHOTO_Q);
     if(p){ p.blob = big; p.thumbBlob = th; URL.revokeObjectURL(p.previewUrl); p.previewUrl = URL.createObjectURL(th); }
     else {
       // A saved photo keeps its file name and is overwritten on save (cached links are dropped then).
@@ -3355,7 +3492,7 @@ function viewEdit(id, params, ov){
     catch(e){ it.media.push({id:uid(), kind:"photo", remote:true, name:"cover", path:url, thumb:thumb || url}); }
     const added = it.media.splice(n); it.media.unshift(...added); renderMedia(); toast("Cover set");
   }
-  async function addFiles(files, kind, noCollect){
+  async function addFiles(files, kind, noCollect, role){
     if(!noCollect) collect();
     const done = busy("Preparing " + files.length + " file" + (files.length>1?"s":"") + "…");
     try{
@@ -3364,9 +3501,21 @@ function viewEdit(id, params, ov){
         const base = "media/tmp/" + mid; // real readable names are given on save, once the title is known
         if(kind === "photo"){
           if(!isImg) continue;
-          const full = await shrink(file, 2400, .88), th = await shrink(file, 520, .8);
-          const m = {id:mid, kind:"photo", name:safeName(file.name), path:base + ".jpg", thumb:base + "_t.jpg"};
+          const full = await shrink(file, PHOTO_MAX, PHOTO_Q), th = await shrink(file, 520, .8);
+          const m = {id:mid, kind:"photo", name:safeName(file.name), path:base + ".jpg", thumb:base + "_t.jpg"}; if(role) m.role = role;
           it.media.push(m); pending.push({m, blob:full, thumbBlob:th, previewUrl:URL.createObjectURL(th)});
+        }else if(kind === "video"){
+          if(!/^video\//.test(file.type) && !/\.(mp4|m4v|mov|webm)$/i.test(file.name)) continue;
+          // Make the clip smaller before it goes to Dropbox; "Keep full size" stops and uses the original.
+          done(); let stop = false;
+          const pb = progressBox("Making the clip smaller…"); const kb = document.createElement("button"); kb.className = "iconbtn"; kb.textContent = "Keep full size"; kb.style.marginTop = "12px";
+          kb.onclick = () => { stop = true; }; pb.el.style.flexDirection = "column"; pb.el.firstChild.after(kb);
+          const small = await shrinkVideo(file, f => pb.set(`Making the clip smaller… ${Math.round(f * 100)}%`), () => stop).catch(() => null);
+          pb.done();
+          const blob = small || file, ext = small ? (/mp4/.test(small.type) ? ".mp4" : ".webm") : (file.name.match(/\.\w+$/)||[".mp4"])[0].toLowerCase();
+          if(small) toast(`Clip shrunk from ${Math.round(file.size / 1e6)} MB to ${Math.max(1, Math.round(small.size / 1e6))} MB`, 3500);
+          const m = {id:mid, kind:"video", name:safeName(file.name).replace(/\.\w+$/, "") + ext, path:base + ext, label:"Scene clip"};
+          it.media.push(m); pending.push({m, blob});
         }else{
           const ext = (file.name.match(/\.\w+$/)||[isImg?".jpg":".pdf"])[0].toLowerCase();
           const m = {id:mid, kind:"document", name:safeName(file.name), path:base + ext, label:/coa|cert|authent/i.test(file.name) ? "Certificate of authenticity" : ""};
@@ -3505,7 +3654,7 @@ document.addEventListener("click", e => {
 
 /* ---------- Settings ---------- */
 function viewSettings(){
-  document.title = "Settings · " + (cat.title||"The Collection");
+  document.title = "Settings · " + (cat.title||"The Museum");
   const dbx = LS.get("cm.dropbox", null), key = appKey();
   app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › Settings</div>
   <h1 style="font-size:1.8rem;margin:4px 0 16px">Settings</h1>
@@ -3533,15 +3682,15 @@ function viewSettings(){
   </div>
   <div class="panel"><h2>Museum name</h2>
     <div class="actions" style="margin-top:4px"><input id="mname" value="${esc(cat.title||"")}" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn" id="mnameSave">Save</button></div></div>
-  <div class="panel"><h2>Galleries</h2><p>Tap a gallery to rename it, change its emoji, or edit its fields. Or add a new one below (add <code>*</code> to a field name to make it private).</p>
+  <div class="panel"><h2>Collections</h2><p>Tap a collection to rename it, change its emoji, or edit its fields. Or add a new one below (add <code>*</code> to a field name to make it private).</p>
     <div class="chips" style="margin:10px 0">${cat.collections.map(c=>`<a class="chip" href="#/gallery/${c.id}">${c.icon} ${esc(c.name)} · ${cat.items.filter(i=>i.collectionId===c.id).length} ✎</a>`).join("")}</div>
-    <div class="fgrid"><div class="f"><label for="nc">New gallery name</label><input id="nc" placeholder="e.g. Comic Books"></div>
+    <div class="fgrid"><div class="f"><label for="nc">New collection name</label><input id="nc" placeholder="e.g. Comic Books"></div>
       <div class="f"><label for="ni">Icon (emoji)</label><input id="ni" placeholder="📖" maxlength="4"></div>
       <div class="f"><label for="nm">What to call the maker</label><input id="nm" placeholder="Publisher"></div>
       <div class="f"><label for="nf">Fields (comma separated)</label><input id="nf" placeholder="Issue #, Grade, Grader cert #*"></div></div>
-    <div class="actions"><button class="iconbtn" id="addc">Add gallery</button></div></div>
+    <div class="actions"><button class="iconbtn" id="addc">Add collection</button></div></div>
   <div class="panel"><h2>Lookups</h2>
-    <p>Records, books, movies and laserdiscs work with no setup. Each gallery's source can be changed in its <b>✎ Edit gallery</b> page. The sources below need a free sign-up first.</p>
+    <p>Records, books, movies and laserdiscs work with no setup. Each collection's source can be changed in its <b>✎ Edit collection</b> page. The sources below need a free sign-up first.</p>
     <h3 style="font-size:1rem;margin-top:14px">Lookup helper (needed for comics and board games)</h3>
     <p>If Metron or BoardGameGeek won't answer the museum directly, a tiny free “helper” you run on Cloudflare can pass searches along. Only needed if lookups fail with a “couldn't reach” message. <a href="https://github.com/erictheblair/eric-museum/blob/main/helper/SETUP.md" target="_blank" rel="noopener">Setup steps (about 10 minutes)</a></p>
     <div class="actions" style="margin-top:4px"><input id="pxurl" value="${esc((cat.settings||{}).proxyUrl||"")}" placeholder="https://museum-helper.yourname.workers.dev" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"><button class="iconbtn" type="button" id="pxtest">Test</button></div>
@@ -3550,7 +3699,7 @@ function viewSettings(){
     <div class="actions" style="margin-top:4px"><input id="btok" type="password" value="${esc((cat.settings||{}).bggToken||"")}" placeholder="BoardGameGeek token" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px"></div>
     <p style="margin-top:12px"><b>Import your BGG collection:</b> add your BGG username and the museum brings in every game marked “Own”. It checks again each time you open the museum (at most once an hour) and adds anything new. Games are never removed automatically.</p>
     <div class="actions" style="margin-top:4px"><input id="buser" value="${esc((cat.settings||{}).bggUser||"")}" placeholder="BoardGameGeek username" autocomplete="off" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px">
-      <select id="bgal" aria-label="Gallery for imported games" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px">${(()=>{ const cur = bggGallery(); return (cur ? "" : `<option value="">New “Board Games” gallery</option>`) + [...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(c => `<option value="${c.id}" ${cur && cur.id===c.id ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join(""); })()}</select></div>
+      <select id="bgal" aria-label="Collection for imported games" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:9px 11px">${(()=>{ const cur = bggGallery(); return (cur ? "" : `<option value="">New “Board Games” collection</option>`) + [...cat.collections].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"})).map(c => `<option value="${c.id}" ${cur && cur.id===c.id ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join(""); })()}</select></div>
     <label class="check" style="margin-top:8px"><input type="checkbox" id="bauto" ${(cat.settings||{}).bggAuto === false ? "" : "checked"}> Check for new games automatically</label>
     <div class="actions"><button class="iconbtn" id="bsync" type="button">⟳ Sync from BoardGameGeek now</button><span style="color:var(--muted);font-size:.8rem;align-self:center">${(cat.settings||{}).bggLastSync ? "Last synced " + esc(new Date(cat.settings.bggLastSync).toLocaleString()) : ""}</span></div>
     <h3 style="font-size:1rem;margin-top:14px">Comics: Metron</h3>
@@ -3579,7 +3728,7 @@ function viewSettings(){
     <p>Each day, before the first change, the app keeps a copy of your catalog in <code>Dropbox/Apps/&lt;your app name&gt;/backups</code> (the last 30 days). If something goes wrong, put an earlier day back.</p>
     <div class="actions"><button class="iconbtn" id="vers">🕘 Earlier versions</button></div>` : ""}
     <h3 style="font-size:1rem;margin:14px 0 4px">Readable folders</h3>
-    <p>Photos and documents are filed as <b>media › Gallery › Piece</b> (for example <i>Records › Pink Floyd – The Dark Side of the Moon (1973) › Cover.jpg</i>), so you can find them${store.kind === "dropbox" ? " in Dropbox" : ""} without the app. Renaming a piece moves its folder. Older photos with coded names move over when you tap below.</p>
+    <p>Photos and documents are filed as <b>media › Collection › Piece</b> (for example <i>Records › Pink Floyd – The Dark Side of the Moon (1973) › Cover.jpg</i>), so you can find them${store.kind === "dropbox" ? " in Dropbox" : ""} without the app. Renaming a piece moves its folder. Older photos with coded names move over when you tap below.</p>
     <div class="actions">${store.kind === "dropbox" ? `<button class="iconbtn" id="keepCov">☁ Save online covers to Dropbox</button>${(() => { const n = cat.items.filter(i => onlineCovers(i).length).length; return n ? `<button class="iconbtn" id="listCov">🔎 Which covers aren't saved (${n})</button>` : ""; })()}` : ""}<button class="iconbtn" id="tidyAll">🗂 Tidy up my ${store.kind === "dropbox" ? "Dropbox " : ""}folders</button></div></div>
   <div class="panel"><h2>On your phone</h2><p>Open this page in Safari or Chrome, then use <b>Share → Add to Home Screen</b> for an app icon.</p>
     <p style="font-size:.8rem">App version ${APP_VERSION} · <a href="#" id="forceUpd">Check for updates</a></p></div>
@@ -3614,13 +3763,13 @@ function viewSettings(){
   };
   if($("disc")) $("disc").onclick = () => { if(!confirm("Disconnect Dropbox on this device? Your catalog stays safe in Dropbox.")) return; LS.del("cm.dropbox"); LS.del("cm.links"); LS.set("cm.mode","local"); location.reload(); };
   $("forceUpd").onclick = e => { e.preventDefault(); checkUpdate(true); };
-  $("mnameSave").onclick = async () => { cat.title = $("mname").value.trim() || "The Collection"; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); setBrand(); };
+  $("mnameSave").onclick = async () => { cat.title = $("mname").value.trim() || "The Museum"; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); setBrand(); };
   $("addc").onclick = async () => {
-    const name = $("nc").value.trim(); if(!name) return toast("Name the gallery first.");
+    const name = $("nc").value.trim(); if(!name) return toast("Name the collection first.");
     const fields = $("nf").value.split(",").map(s=>s.trim()).filter(Boolean).map(s => ({k:"f_"+uid().slice(-5), l:s.replace(/\*$/,"").trim(), priv:/\*$/.test(s)}));
     cat.collections.push({id:"c_"+uid(), name, icon:$("ni").value.trim()||"📦", maker:$("nm").value.trim()||"Maker", fields});
     try{ await persist(); }catch(e){ cat.collections.pop(); return alert(e.message); }
-    viewSettings(); toast("Gallery added");
+    viewSettings(); toast("Collection added");
   };
 
   const saveLookups = async quiet => {
@@ -3673,7 +3822,7 @@ function download(blob, name){ const a = document.createElement("a"), u = URL.cr
 function csvBlob(items, g){
   const hide = !!g && priv;
   const fieldCols = []; (g ? [g] : cat.collections).forEach(c => c.fields.forEach(f => { if(!(hide && f.priv) && !fieldCols.some(x=>x.l===f.l)) fieldCols.push(f); }));
-  const head = ["Gallery","Title",g ? (g.maker||"Maker") : "Maker","Year","Barcode","Condition","Location","Acquired","Source", ...(hide ? [] : ["Price paid","Estimated value"]),"Tags","Notes","More details","Tracks", ...fieldCols.map(f=>f.l), "Photos","Documents"];
+  const head = ["Collection","Title",g ? (g.maker||"Maker") : "Maker","Year","Barcode","Condition","Location","Acquired","Source", ...(hide ? [] : ["Price paid","Estimated value"]),"Tags","Notes","More details","Tracks", ...fieldCols.map(f=>f.l), "Photos","Documents"];
   const q = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; };
   const rows = (items || sortItems(cat.items,"title")).map(i => { const c = coll(i.collectionId);
     return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, ...(hide ? [] : [i.price, i.value]), (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "), (i.tracks||[]).filter(t => !t.h).map(t => [t.p, t.t].filter(Boolean).join(" ")).join("; "),
@@ -3681,7 +3830,7 @@ function csvBlob(items, g){
       (i.media||[]).filter(m=>m.kind==="photo").length, (i.media||[]).filter(m=>m.kind!=="photo").map(m=>m.label||m.name).join("; ")]; });
   return new Blob(["\ufeff" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"});
 }
-const fileSafe = t => String(t||"gallery").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "gallery";
+const fileSafe = t => String(t||"collection").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "collection";
 function exportGallery(c, items){
   const L = document.getElementById("layer"), withCover = sortItems(items, "maker").filter(i => cover(i));
   L.innerHTML = `<div class="lightbox" id="ex" style="align-items:flex-end;background:rgba(10,8,6,.6)"><div class="panel" style="width:100%;max-width:520px;margin:0;border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom))">
@@ -3850,7 +3999,7 @@ function exportCSV(){ download(csvBlob(), "collection-" + new Date().toISOString
 const CRC_T = (() => { const t = new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n]=c>>>0; } return t; })();
 function crc32(u8){ let c = 0xFFFFFFFF; for(let i=0;i<u8.length;i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
 function progressBox(msg){ const b = document.createElement("div"); b.className = "busy"; b.innerHTML = "<div></div>"; document.body.appendChild(b);
-  const set = m => b.firstChild.textContent = m; set(msg); return {set, done:() => b.remove()}; }
+  const set = m => b.firstChild.textContent = m; set(msg); return {set, el:b, done:() => b.remove()}; }
 // Plain "stored" zip (photos are already compressed), built from Blobs so big collections don't need to fit in memory at once.
 async function makeZip(entries){
   const parts = [], central = []; let off = 0;
@@ -3920,8 +4069,8 @@ async function downloadEverything(){
     entries.push({name:"READ ME.txt", blob:new Blob([[
       "Your collection museum - full backup made " + new Date().toLocaleString(),
       "",
-      "catalog.json     every piece, gallery, note and setting",
-      "media/           every photo, COA and document, filed as Gallery / Piece (same folders the app uses)",
+      "catalog.json     every piece, collection, note and setting",
+      "media/           every photo, COA and document, filed as Collection / Piece (same folders the app uses)",
       "collection.csv   the same list as a spreadsheet (opens in Excel / Numbers / Google Sheets)",
       "museum-app.html  the app itself",
       "",
@@ -3991,7 +4140,7 @@ async function showVersions(){
 }
 
 function viewStats(){
-  document.title = "Stats · " + (cat.title || "The Collection");
+  document.title = "Stats · " + (cat.title || "The Museum");
   const items = cat.items, n = items.length;
   const counts = {}; items.forEach(i => counts[i.collectionId] = (counts[i.collectionId]||0) + 1);
   const copies = items.reduce((s, i) => s + (+i.qty > 1 ? +i.qty : 1), 0);
@@ -4019,11 +4168,11 @@ function viewStats(){
   <form class="search noprint" style="margin:0 0 14px" onsubmit="event.preventDefault();const v=this.q.value.trim();if(v)location.hash='#/ask?q='+encodeURIComponent(v)"><input name="q" placeholder="💬 Ask a question, e.g. Which artist do I have the most of?" aria-label="Ask your collection" enterkeyhint="go" autocomplete="off"><button class="iconbtn primary" type="submit" style="height:42px">Ask</button></form>
   ${n ? `<div class="st-tiles">
     ${tile(n, n === 1 ? "piece" : "pieces")}${copies !== n ? tile(copies, "counting every copy") : ""}
-    ${tile(Object.keys(counts).length, "galleries in use")}${tile(since(30), "added in the last 30 days")}
+    ${tile(Object.keys(counts).length, "collections in use")}${tile(since(30), "added in the last 30 days")}
     ${tile(withPhoto, "with a photo")}${stars ? tile(stars, "starred") : ""}</div>
-  <div class="panel st-rand" style="margin-top:16px"><div style="flex:1;min-width:200px"><h3 style="font-size:1.1rem">Can't decide what to look at?</h3><span style="color:var(--muted);font-size:.9rem">Let the museum pull one piece from any gallery.</span></div>
+  <div class="panel st-rand" style="margin-top:16px"><div style="flex:1;min-width:200px"><h3 style="font-size:1.1rem">Can't decide what to look at?</h3><span style="color:var(--muted);font-size:.9rem">Let the museum pull one piece from any collection.</span></div>
     <button type="button" class="iconbtn primary" id="randAll">🎲 Random piece</button></div>
-  <div class="section-title"><h2>By gallery</h2><span>${gal.filter(g => g.v).length} of ${gal.length} have pieces</span></div>
+  <div class="section-title"><h2>By collection</h2><span>${gal.filter(g => g.v).length} of ${gal.length} have pieces</span></div>
   <div class="panel st-bars">${gal.map(g => bar("#/c/" + esc(g.c.id), g.c.icon + " " + esc(g.c.name), g.v, gmax)).join("")}</div>
   <div class="section-title"><h2>Additions</h2><span>${since(7)} this week · ${since(365)} this year</span></div>
   <div class="panel"><div class="st-months" role="img" aria-label="Pieces added per month">${months.map(m => `<div title="${m.v} added"><em>${m.v || ""}</em><i style="height:${m.v / mmax * 100}%"></i><small>${m.lbl}</small></div>`).join("")}</div></div>
@@ -4054,7 +4203,7 @@ const ASK_ITEM = ["album","albums","record","records","lp","lps","piece","pieces
 const ASK_SONG = ["song","songs","track","tracks","tune","tunes"];
 const ASK_GROUP = {genre:"genre", genres:"genre", style:"style", styles:"style", label:"label", labels:"label", format:"format", formats:"format", color:"color", colors:"color",
   decade:"decade", decades:"decade", era:"decade", eras:"decade", year:"year", years:"year", condition:"condition", conditions:"condition", grade:"condition", grades:"condition", tag:"tag", tags:"tag",
-  location:"location", locations:"location", shelf:"location", shelves:"location", room:"location", rooms:"location", box:"location", boxes:"location", crate:"location", crates:"location", bin:"location", bins:"location", drawer:"location", drawers:"location", cabinet:"location", place:"f:place", places:"f:place", attraction:"f:place", attractions:"f:place", gallery:"gallery", galleries:"gallery", category:"gallery", categories:"gallery",
+  location:"location", locations:"location", shelf:"location", shelves:"location", room:"location", rooms:"location", box:"location", boxes:"location", crate:"location", crates:"location", bin:"location", bins:"location", drawer:"location", drawers:"location", cabinet:"location", place:"f:place", places:"f:place", attraction:"f:place", attractions:"f:place", gallery:"gallery", galleries:"gallery", collections:"gallery", category:"gallery", categories:"gallery",
   source:"source", sources:"source", store:"source", stores:"source", shop:"source", shops:"source", seller:"source", country:"pressing", countries:"pressing", pressing:"pressing", publisher:"publisher", publishers:"publisher"};
 const ASK_MAKER = ["artist","artists","band","bands","group","groups","musician","musicians","singer","singers","maker","makers","author","authors","writer","writers","director","directors",
   "brand","brands","signer","signers","studio","studios","creator","creators","designer","designers","manufacturer","manufacturers","composer","composers","act","acts"];
@@ -4082,13 +4231,13 @@ function askAnswer(raw){
 
   // ---- 0. Tidy the wording: fix small typos in question words, join common phrases ----
   const DICT = [...new Set([...ASK_ITEM, ...ASK_SONG, ...Object.keys(ASK_GROUP), ...ASK_MAKER, ...ASK_MEASURE.flatMap(m => m[1]), ...ASK_LOW, ...ASK_HIGH,
-    "average","percent","percentage","without","missing","between","before","after","since","different","unique","common","popular","listings","listing",
+    "average","percent","percentage","multiple","several","without","missing","between","before","after","since","different","unique","common","popular","listings","listing",
     ...cat.collections.flatMap(c => nk(c.name).split(" "))])];
   const catWords = new Set(); cat.items.forEach(i => [i.title, i.maker, i.condition, i.location, ...Object.values(i.fields||{}), ...(i.tags||[])].forEach(v => nk(v).split(" ").forEach(w => w && catWords.add(w))));
   const lev = (a, b) => { const d = Array.from({length:a.length + 1}, (_, i) => [i]); for(let j = 1; j <= b.length; j++) d[0][j] = j;
     for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++){ d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
       if(i > 1 && j > 1 && a[i-1] === b[j-2] && a[i-2] === b[j-1]) d[i][j] = Math.min(d[i][j], d[i-2][j-2] + 1); } return d[a.length][b.length]; };
-  const rawWords = nk(raw).split(" ").filter(Boolean);
+  const rawWords = nk(String(raw).replace(/(\d+)\s*\+/g, "$1 or more")).split(" ").filter(Boolean);
   const words = rawWords.map((w, n) => {
     if(w.length < 4 || rawWords[n-1] === "by" || /\d/.test(w) || catWords.has(w) || DICT.includes(w) || ASK_STOP.has(w)) return w;
     let best = w, bd = 9; DICT.forEach(d => { if(Math.abs(d.length - w.length) > 2) return; const x = lev(w, d); if(x < bd){ bd = x; best = d; } });
@@ -4097,7 +4246,8 @@ function askAnswer(raw){
   [[/ vinyl colou?rs? /g, " color vinyl "], [/ (two|2|three|3|four|4) of /g, " copies of "], [/ more than one copy /g, " copies "], [/ colou?rs? /g, " color "], [/ record labels? /g, " label "], [/ release years? /g, " year "], [/ (came|come|comes|coming) out /g, " released "],
    [/ how long /g, " length "], [/ how old /g, " oldest "], [/ track ?list(ing)?s? /g, " tracks "], [/ (seven|7) ?(inch|in)( singles?)? /g, " 7inch "], [/ (twelve|12) ?(inch|in) /g, " 12inch "],
    [/ (ten|10) ?(inch|in) /g, " 10inch "], [/ (double|2 ?x) ?(lp|album)s? /g, " 2xlp "], [/ (do not|dont|don t) /g, " dont "], [/ how big /g, " how many "], [/ how much music /g, " total length "], [/ (all )?together | combined /g, " total "], [/ (\d+) or more /g, " at least $1 "], [/ (\d+) or (fewer|less) /g, " at most $1 "], [/ (\d+)\+ /g, " at least $1 "],
-   [/ (hasnt|hasn t|havent|haven t|has not|have not|isnt|isn t|arent|aren t|is not|are not) (been |got |yet )*/g, " not "], [/ (number|amount) of /g, " how many "]]
+   [/ (hasnt|hasn t|havent|haven t|has not|have not|isnt|isn t|arent|aren t|is not|are not) (been |got |yet )*/g, " not "], [/ (number|amount) of /g, " how many "], [/ exactly /g, " only "], [/ (multiple|several|a few|a couple of) (?!cop(y|ies) )/g, " at least 2 "], [/ more than once /g, " more than 1 "],
+   [/ (two|three|four|five|six|seven|eight|nine|ten) or more /g, (x, w) => " at least " + ({two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10})[w] + " "]]
     .forEach(([re, to]) => { q = q.replace(re, to); q = q.replace(re, to); });
   const has = w => q.includes(" " + w + " "), any = (...ws) => ws.flat().some(has), pos = w => q.indexOf(" " + w + " ");
   let rest = q;   // the question with the parts already understood taken out
@@ -4111,12 +4261,49 @@ function askAnswer(raw){
   const gal = cat.collections.filter(c => galKeys(c).some(k => hasR(k) && (take(k), true)));
   if(gal.length){ items = items.filter(i => gal.some(c => c.id === i.collectionId)); scope.push(gal.map(c => c.name).join(" & ")); }
   else if(any("album","albums","lp","lps","song","songs","track","tracks","vinyl","vinyls","single","singles","ep","eps","band","bands","musician","musicians","singer","singers","7inch","12inch","10inch","2xlp","listen","play","spin")){
-    const mus = cat.collections.filter(hasTrackList); if(mus.length){ items = items.filter(i => mus.some(c => c.id === i.collectionId)); scope.push(mus.map(c => c.name).join(" & ")); } }
+    // Music words mean the music collections (Records). Laserdiscs never count as albums, even music ones with a track listing.
+    const mus = cat.collections.filter(c => hasTrackList(c) && c.id !== "laserdiscs"), core = mus.filter(c => lookupKind(c) === "music"), base = core.length ? core : mus;
+    const l = items.filter(i => base.some(c => c.id === i.collectionId));
+    if(l.length){ items = l; scope.push(base.filter(c => l.some(i => i.collectionId === c.id)).map(c => c.name).join(" & ")); } }
   const galItems = items.slice();
   const galsInScope = gal.length ? gal : cat.collections;
   const makerNouns = [...new Set([...ASK_MAKER, ...galsInScope.map(c => nk(c.maker).split(" ")[0]).filter(w => w && w.length > 3 && !ASK_GROUP[w]).flatMap(w => [w, w + "s"])])];
   const vocab = new Set([...DICT, ...makerNouns, "time","times","play","listen"]);
   const okAlias = a => a && a.length >= 3 && !ASK_STOP.has(a) && !vocab.has(a);
+  const groupKey = k => k === "maker" ? (i => /^various/i.test(i.maker||"") ? "" : i.maker) : k === "decade" ? (i => yearOf(i) ? Math.floor(yearOf(i) / 10) * 10 + "s" : "")
+      : k === "year" ? (i => yearOf(i) ? String(yearOf(i)) : "") : k === "condition" ? (i => i.condition) : k === "tag" ? (i => i.tags) : k === "location" ? (i => i.location)
+      : k === "gallery" ? (i => coll(i.collectionId).name) : k === "source" ? (i => i.source)
+      : (i => { const w = k.replace(/^f:/, ""), c = coll(i.collectionId), f = c.fields.find(f => f.k === w || nk(f.l).split(" ")[0] === w || (w === "color" && /colou?r/.test(nk(f.l))) || (w === "pressing" && f.k === "pressing"));
+          if(f && (i.fields||{})[f.k]) return i.fields[f.k]; const x = (i.extra||[]).find(e => nk(e.l).split(" ")[0] === w); return x ? x.v : ""; });
+  const groupLabel = k => k === "maker" ? (galsInScope.length === 1 ? galsInScope[0].maker : "artist").toLowerCase() : k === "gallery" ? "collection" : k.replace(/^f:/, "");
+
+  // Pieces picked by how many you have of their artist / genre / label… ("albums by artists I have more than one of",
+  // "the share of my collection from an artist I have 3+ albums by", "records on labels with only one record").
+  // "What percent of artists…" or "which artists do I have more than one album by" are about the artists themselves, so they're left alone here.
+  let groupCond = null;
+  { const NUMW = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, "a single":1};
+    const gNouns = [...new Set([...makerNouns, ...Object.keys(ASK_GROUP)])].filter(w => !/^(galler|categor|year|place)/.test(w)).sort((a, b) => b.length - a.length);
+    const iWords = [...new Set([...ASK_ITEM, ...galsInScope.flatMap(galKeys)])].sort((a, b) => b.length - a.length);
+    const re = new RegExp(" (from|by|of|in|on|with|under|for) (?:an? |the |any |those |these |some |all |one of the |one of my )?(" + gNouns.join("|") + ")((?: (?:that|who|which|where|whose|i|ive|you|we|do|did|have|has|own|got|having|with|there|are|is|collect|collected|bought|still|only|just))*) " +
+      "((?:more than|over|above|at least|at most|no more than|fewer than|less than|under|exactly|only|just) )?(\\d+|one|two|three|four|five|six|seven|eight|nine|ten|a single)(?: (" + iWords.join("|") + "|ones?|pieces?|things?|items?))?(?: (of them|from|by|of|in|on|for|under))?(?= )");
+    const m = q.match(re);
+    if(m){ const before = q.slice(0, m.index).trim(), after = q.slice(m.index + m[0].length).trim();
+      const aboutGroups = /(percent|percentage|proportion|fraction|share|many|number|count|which|what|list|show me the|top|most|all)$/.test(before) && m[1] === "of";
+      if(!aboutGroups && (m[6] || m[7] || !after)){   // "bands with more than 10 tracks" is about tracks, so it needs an album word, a closing "of / by…", or the end
+        const key = ASK_GROUP[m[2]] || "maker", n = NUMW[m[5]] || +m[5], cmp = (m[4] || "").trim();
+        const ok = /more than|over|above/.test(cmp) ? v => v > n : /at least/.test(cmp) ? v => v >= n : /at most|no more than/.test(cmp) ? v => v <= n : /fewer than|less than|under/.test(cmp) ? v => v < n : v => v === n;
+        const keyFn = groupKey(key), keysOf = i => [].concat(keyFn(i) || []).map(x => String(x).trim().toLowerCase()).filter(Boolean), cnt = {};
+        items.forEach(i => keysOf(i).forEach(k => cnt[k] = (cnt[k]||0) + 1));
+        items = items.filter(i => keysOf(i).some(k => ok(cnt[k])));
+        const gl = groupLabel(key), gpl = gl.endsWith("y") ? gl.slice(0, -1) + "ies" : gl.endsWith("s") ? gl : gl + "s";
+        const word = m[6] && !/^(ones?|pieces?|things?|items?)$/.test(m[6]) ? m[6] : "";
+        const unit = word ? (n === 1 ? sing(word) : /s$/.test(word) ? word : word + "s") : "";
+        const only = cmp || (n === 1 ? "just" : "");
+        groupCond = {key, label:(key === "maker" ? "by " : "from ") + gpl + " with " + (only ? only + " " : "") + n + (unit ? " " + unit : n === 1 ? " piece" : " pieces")};
+        scope.push(groupCond.label);
+        q = q.slice(0, m.index) + " · " + (word ? word + " " : "") + q.slice(m.index + m[0].length).replace(/^ /, "");
+        if(!q.endsWith(" ")) q += " "; rest = rest.replace(m[0], " · ");
+      } } }
   const compareQ = / (or|vs|versus|compared to|than) /.test(q);
 
   // Artists / makers named in the question ("Pink Floyd", "the Beatles", just "Floyd")
@@ -4224,11 +4411,14 @@ function askAnswer(raw){
   makerNouns.forEach(w => cand(w, {type:"group", key:"maker"}));
   Object.entries(ASK_GROUP).forEach(([w, key]) => cand(w, {type:"group", key}));
   facets.forEach(fc => { if(!fc.key.startsWith("f:")) return; const w = nk(fc.label).split(" ")[0]; if(w.length > 2 && !vocab.has(w) && !ASK_STOP.has(w)) cand(w, {type:"group", key:fc.key}); });
+  if(/ (which|what|each|per|every|by) collection /.test(q)) cand("collection", {type:"group", key:"gallery"});
   ASK_ITEM.forEach(w => cand(w, {type:"item"}));
   galsInScope.forEach(c => galKeys(c).forEach(w => cand(w, {type:"item"})));
   ASK_SONG.forEach(w => { const p = pos(w); if(p < 0) return; const before = q.slice(0, p).trim().split(" ").slice(-1)[0];
     if(!/^(most|fewest|least|many|of|more|less|fewer|than|average|avg|per|\d+)$/.test(before)) cand(w, {type:"song"}); });
   cands.sort((a, b) => (b.sel - a.sel) || a.p - b.p);
+  { const pm = q.match(/ (?:per|each|every|by) (\w+) $/) || q.match(/ (?:per|each|every) (\w+) /); const pc = pm && cands.find(c => c.s.type === "group" && c.p === pos(pm[1]));   // "albums per artist"
+    if(pc && any("average","avg","mean","typical","typically","per")) cands.unshift(pc); }
   let subject = isWho ? {type:"group", key:"maker"} : cands.length ? cands[0].s : null;
   // Asking about something the question already filtered on ("what's on shelf A") means list them, not group them
   if(subject && subject.type === "group" && valHits.some(h => h.key.replace(/^f:/, "") === subject.key.replace(/^f:/, "") || (subject.key === "color" && /colou?r/.test(h.key)))) subject = null;
@@ -4275,19 +4465,23 @@ function askAnswer(raw){
   const itemName = i => i.title + (i.maker && makersHit.length !== 1 ? " · " + i.maker : "");
   const note = notes.length ? " " + notes.join(" ") : "";
   const play = makersHit.length === 1 && !titled ? {q:mkMap.get(makersHit[0])} : titled && titled.length === 1 && hasTrackList(coll(titled[0].collectionId)) ? {q:titled[0].title + " " + (titled[0].maker||"")} : null;
-  const groupKey = k => k === "maker" ? (i => /^various/i.test(i.maker||"") ? "" : i.maker) : k === "decade" ? (i => yearOf(i) ? Math.floor(yearOf(i) / 10) * 10 + "s" : "")
-      : k === "year" ? (i => yearOf(i) ? String(yearOf(i)) : "") : k === "condition" ? (i => i.condition) : k === "tag" ? (i => i.tags) : k === "location" ? (i => i.location)
-      : k === "gallery" ? (i => coll(i.collectionId).name) : k === "source" ? (i => i.source)
-      : (i => { const w = k.replace(/^f:/, ""), c = coll(i.collectionId), f = c.fields.find(f => f.k === w || nk(f.l).split(" ")[0] === w || (w === "color" && /colou?r/.test(nk(f.l))) || (w === "pressing" && f.k === "pressing"));
-          if(f && (i.fields||{})[f.k]) return i.fields[f.k]; const x = (i.extra||[]).find(e => nk(e.l).split(" ")[0] === w); return x ? x.v : ""; });
-  const groupLabel = k => k === "maker" ? (galsInScope.length === 1 ? galsInScope[0].maker : "artist").toLowerCase() : k === "gallery" ? "gallery" : k.replace(/^f:/, "");
 
   // ---- 4. Answers ----
   if(/ (should i|to|could i|can i) (buy|get|collect) | wish ?list | what next /.test(q)) return {text:"I can only see what's already in the museum, so I can't suggest what to buy. Try “Which artists do I have only one record by?” to spot gaps."};
   // Percent: "what percent of my records are rock"
-  if(pct){ const base = scope.length > 1 || (gal.length && (makersHit.length || valHits.length || yLo != null || dLo != null || lacks.length || favFilter)) ? galItems : cat.items;
+  if(pct){
+    // "What percent of artists do I have more than one album from": a share of the artists, not of the pieces
+    if(subject && subject.type === "group" && thr && (!measure || measure === "count")){
+      const keyFn = groupKey(subject.key), g = {}; items.forEach(i => [].concat(keyFn(i) || []).map(x => String(x).trim()).filter(Boolean).forEach(nm => { const kk = nm.toLowerCase(); (g[kk] = g[kk] || {name:nm, v:0}).v++; }));
+      const rows = Object.values(g).sort((a, b) => b.v - a.v), lowSide = /less|under|below|fewer|at most|only/.test(thr[1]), incl = /at least|at most|only/.test(thr[1]);
+      const l = rows.filter(r => thr[1] === "only" ? r.v === thrN : lowSide ? (incl ? r.v <= thrN : r.v < thrN) : (incl ? r.v >= thrN : r.v > thrN));
+      const gl = groupLabel(subject.key), gpl = gl.endsWith("y") ? gl.slice(0, -1) + "ies" : gl.endsWith("s") ? gl : gl + "s";
+      return {how:`${gpl} with ${thr[1]} ${P(thrN, noun(1), noun(2))}${where}`, text:`<b>${Math.round(l.length / (rows.length || 1) * 1000) / 10}%</b>: ${l.length} of your ${rows.length} ${esc(rows.length === 1 ? gl : gpl)}${where} ${thr[1] === "only" ? "have only" : "have " + thr[1]} ${P(thrN, noun(1), noun(2))}.`, bars:l.slice(0, 60).map(r => ({name:r.name, v:r.v, href:subject.key === "maker" ? "#/ask?q=" + encodeURIComponent("show " + r.name) : ""}))};
+    }
+    // Out of the collection you named (records…), or the whole museum when you said "my collection" or named none
+    const whole = !gal.length && any("collection","museum","everything","overall"), base = !whole && items.length !== galItems.length ? galItems : cat.items;
     const p = Math.round(items.length / (base.length || 1) * 1000) / 10;
-    return {text:`<b>${p}%</b>: ${P(items.length, noun(1), noun(2))}${where} out of ${base.length}${base === galItems && gal.length ? " " + noun(2) : " pieces in the museum"}.`}; }
+    return {text:`<b>${p}%</b>: ${P(items.length, noun(1), noun(2))}${where} out of ${base === cat.items ? base.length + " pieces in the museum" : P(base.length, noun(1), noun(2))}.`}; }
 
   // A or B
   if(compareSides.length >= 2){
@@ -4351,6 +4545,8 @@ function askAnswer(raw){
     const href = r => k === "maker" ? "#/ask?q=" + encodeURIComponent("show " + r.name) : k === "gallery" ? "" : "#/ask?q=" + encodeURIComponent((gal.length === 1 ? gal[0].name + " " : "") + r.name);
     const bar = r => ({name:r.name, v:r.v, label:agg === "count" ? String(r.v) : am.fmt(r.v), href:href(r)});
     const plural = label.endsWith("y") ? label.slice(0, -1) + "ies" : label.endsWith("s") ? label : label + "s";
+    if(avg && agg === "count"){ const tot = rows.reduce((t, r) => t + r.v, 0), a = Math.round(tot / rows.length * 10) / 10;
+      return {how:`Counting ${P(tot, noun(1), noun(2))} across ${P(rows.length, label, plural)}${where}`, text:`About <b>${a}</b> ${a === 1 ? noun(1) : noun(2)} per ${esc(label)}: ${P(tot, noun(1), noun(2))} across ${P(rows.length, esc(label), esc(plural))}${where}. The most is <b>${esc(rows[0].name)}</b> (${rows[0].v}).`, bars:rows.slice(0, topN || 15).map(bar)}; }
     if(thr && agg === "count"){
       const lowSide = /less|under|below|fewer|at most|only/.test(thr[1]), incl = /at least|at most|only/.test(thr[1]);
       const l = rows.filter(r => thr[1] === "only" ? r.v === thrN : lowSide ? (incl ? r.v <= thrN : r.v < thrN) : (incl ? r.v >= thrN : r.v > thrN));
@@ -4405,7 +4601,7 @@ function askAnswer(raw){
       const vals = priv ? 0 : items.reduce((s, i) => s + (+i.value || 0) * qty(i), 0);
       return {text:`You have <b>${n}</b> ${noun(n)}${where}` + (cp !== n ? ` (${cp} counting every copy)` : "") + (any("size","big") && vals ? `, with an estimated value of ${esc(money(vals))}` : "") + ".",
         bars:Object.keys(g).length < 2 ? null : Object.entries(g).map(([id, v]) => ({name:coll(id).icon + " " + coll(id).name, v, href:"#/c/" + id})).sort((a, b) => b.v - a.v),
-        items:scope.length && n <= 60 && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter) ? sortItems(items, "title") : null, play};
+        items:scope.length && n <= 60 && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter || groupCond) ? sortItems(items, "title") : null, play};
     }
     if(measure === "tracks"){
       const secs = withM.reduce((s, i) => s + (secsOf(i)||0), 0);
@@ -4432,7 +4628,7 @@ function askAnswer(raw){
   if(any("buy","wishlist","want","need","missing") && !scope.length) return {text:"I can only see what's already in the museum, so I can't suggest what to buy. Try “Which artists do I have only one record by?” for gaps."};
 
   // A filtered list: "jazz records", "records from the 70s", "what did I add this month", "records without photos"
-  if(scope.length && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter || gal.length)){
+  if(scope.length && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter || gal.length || groupCond)){
     const leftover = rest.trim().split(" ").filter(w => w && w !== "·" && !ASK_STOP.has(w) && !vocab.has(w));
     let l = items; if(leftover.length){ const s = items.filter(i => matches(i, leftover.join(" "))); if(s.length) l = s; }
     const sortBy = dLo != null || measure === "added" ? "recent" : "title";
@@ -4449,7 +4645,7 @@ function askAnswer(raw){
 }
 function viewAsk(params){
   const app = document.getElementById("app"), q = params.get("q") || "";
-  document.title = "Ask · " + (cat.title || "The Collection");
+  document.title = "Ask · " + (cat.title || "The Museum");
   const bar = r => `<${r.href ? `a href="${esc(r.href)}"` : "div"} class="st-bar"><span class="nm">${esc(r.name)}</span><span class="tr"><i style="width:${Math.max(1, r.v / bmax * 100)}%"></i></span><span class="ct">${esc(r.label ?? r.v)}</span></${r.href ? "a" : "div"}>`;
   const ans = q ? askAnswer(q) : null, bmax = ans && ans.bars && ans.bars.length ? Math.max(...ans.bars.map(r => +r.v || 0)) || 1 : 1;
   app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › Ask</div>
@@ -4465,12 +4661,12 @@ function viewAsk(params){
   hydrate(app);
 }
 function viewReport(){
-  document.title = "Insurance report · " + (cat.title||"The Collection");
+  document.title = "Insurance report · " + (cat.title||"The Museum");
   const groups = cat.collections.map(c => ({c, items:sortItems(cat.items.filter(i=>i.collectionId===c.id),"title")})).filter(g=>g.items.length);
   const sum = l => l.reduce((s,i)=>s+(+i.value||0),0), paid = l => l.reduce((s,i)=>s+(+i.price||0),0);
   app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › <a href="#/settings">Settings</a> › Insurance report</div>
   <div class="actions noprint" style="margin:0 0 14px"><button class="iconbtn primary" onclick="print()">🖨 Print / save as PDF</button></div>
-  <h1 style="font-size:1.7rem">${esc(cat.title||"The Collection")}: inventory</h1>
+  <h1 style="font-size:1.7rem">${esc(cat.title||"The Museum")}: inventory</h1>
   <p style="color:var(--muted);margin:.3rem 0 1rem">Prepared ${new Date().toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"})} · ${cat.items.length} pieces · estimated value <b>${esc(money(sum(cat.items))||"$0")}</b> · paid ${esc(money(paid(cat.items))||"$0")}</p>
   ${groups.map(({c,items}) => `<h2 style="font-size:1.2rem;margin:18px 0 6px">${c.icon} ${esc(c.name)} <span style="color:var(--muted);font-size:.9rem;font-family:var(--sans)">· ${items.length} · ${esc(money(sum(items))||"$0")}</span></h2>
     <div class="report-wrap"><table class="report"><thead><tr><th>Title</th><th>${esc(c.maker||"Maker")}</th><th>Year</th><th>Identifiers</th><th>Condition</th><th>Acquired</th><th class="n">Paid</th><th class="n">Value</th><th>Docs</th></tr></thead><tbody>
@@ -4486,28 +4682,33 @@ function viewGallery(id){
   const g = JSON.parse(JSON.stringify(orig));
   const n = cat.items.filter(i => i.collectionId === id).length;
   const used = k => cat.items.filter(i => i.collectionId === id && i.fields && i.fields[k]).length;
-  document.title = "Edit " + g.name + " · " + (cat.title||"The Collection");
+  document.title = "Edit " + g.name + " · " + (cat.title||"The Museum");
   const inp = 'style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0;width:100%"';
-  const fieldRow = f => `<div class="frow" data-k="${esc(f.k||"")}" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">
-    <input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
+  const grip = `<button type="button" class="grip" data-drag title="Drag to reorder (or use the ↑ ↓ keys)" aria-label="Drag to reorder">⠿</button>`;
+  const fieldRow = f => `<div class="frow" data-k="${esc(f.k||"")}" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">
+    ${grip}<input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
     <label class="check" title="Private: hidden when values are hidden"><input type="checkbox" data-fp ${f.priv?"checked":""}> 🔒</label>
     <button type="button" class="iconbtn" data-frm title="Remove field" style="height:auto">✕</button>
-    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:1/-1')}></div>`;
-  app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › <a href="#/c/${id}">${esc(g.name)}</a> › Edit gallery</div>
-  <form class="edit" id="gf"><h1 style="font-size:1.8rem;margin-bottom:16px">Edit gallery</h1>
+    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}></div>`;
+  // Year is built in (not a field), but it can be dragged into place among the fields too.
+  const yearRow = `<div class="frow" data-core="year" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">${grip}<div style="padding:9px 10px;color:var(--muted)">Year <small>(built in, always there)</small></div></div>`;
+  const yAt = g.yearAfter ? g.fields.findIndex(f => f.k === g.yearAfter) : -1;
+  const rowsHTML = (yAt < 0 ? [yearRow] : []).concat(g.fields.flatMap((f, n) => n === yAt ? [fieldRow(f), yearRow] : [fieldRow(f)])).join("");
+  app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › <a href="#/c/${id}">${esc(g.name)}</a> › Edit collection</div>
+  <form class="edit" id="gf"><h1 style="font-size:1.8rem;margin-bottom:16px">Edit collection</h1>
     <fieldset><legend>Name</legend><div class="fgrid">
-      <div class="f"><label for="gname">Gallery name</label><input id="gname" required value="${esc(g.name)}"></div>
+      <div class="f"><label for="gname">Collection name</label><input id="gname" required value="${esc(g.name)}"></div>
       <div class="f"><label for="gicon">Emoji</label><input id="gicon" value="${esc(g.icon)}" maxlength="8"></div>
       <div class="f"><label for="gmaker">What to call the maker</label><input id="gmaker" value="${esc(g.maker||"")}" placeholder="Artist, Author, Brand…"></div>
       <div class="f"><label for="glook">Look up info from</label><select id="glook">${Object.entries(LOOKUPS).map(([k,l]) => `<option value="${k}" ${k===lookupKind(g)?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
     </div></fieldset>
     <fieldset><legend>Fields</legend>
-      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost.</p>
-      <div id="frows" style="display:grid;gap:8px">${g.fields.map(fieldRow).join("")}</div>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece.</p>
+      <div id="frows" style="display:grid;gap:8px">${rowsHTML}</div>
       <div class="actions" style="margin-top:10px"><button type="button" class="iconbtn" id="addF">＋ Add a field</button></div>
     </fieldset>
     ${n ? `<fieldset><legend>Tidy up values</legend>
-      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Merge spellings so sorting and filtering stay clean, e.g. change every “12 inch” to “LP”. Applies to all ${n} pieces in this gallery right away.</p>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Merge spellings so sorting and filtering stay clean, e.g. change every “12 inch” to “LP”. Applies to all ${n} pieces in this collection right away.</p>
       <div class="fgrid">
         <div class="f"><label for="tfield">Field</label><select id="tfield"><option value="condition">Condition</option><option value="maker">${esc(g.maker||"Maker")}</option>${g.fields.map(f=>`<option value="${esc(f.k)}">${esc(f.l)}</option>`).join("")}</select></div>
         <div class="f"><label for="tfrom">Change every</label><select id="tfrom"></select></div>
@@ -4516,13 +4717,27 @@ function viewGallery(id){
       <div class="actions"><button type="button" class="iconbtn" id="tgo">Replace</button></div>
     </fieldset>` : ""}
     <div class="actions" style="justify-content:flex-end"><a class="iconbtn" href="#/c/${id}" style="height:44px">Cancel</a><button class="iconbtn primary" type="submit" style="height:44px;padding:0 22px">Save</button>
-      <span style="flex:1"></span>${n ? `<span style="color:var(--muted);font-size:.85rem;align-self:center">Move or delete its ${n} piece${n===1?"":"s"} to delete this gallery</span>` : `<button type="button" class="iconbtn" id="delG" style="height:44px;color:var(--danger)">Delete gallery</button>`}</div>
+      <span style="flex:1"></span>${n ? `<span style="color:var(--muted);font-size:.85rem;align-self:center">Move or delete its ${n} piece${n===1?"":"s"} to delete this collection</span>` : `<button type="button" class="iconbtn" id="delG" style="height:44px;color:var(--danger)">Delete collection</button>`}</div>
+    ${n ? `<p style="color:var(--muted);font-size:.8rem;text-align:right;margin:6px 0 0">A collection can only be deleted once it's empty, so its pieces are never lost with it.</p>` : ""}
   </form>`;
   const wire = () => app.querySelectorAll("[data-frm]").forEach(b => b.onclick = () => {
     const row = b.closest(".frow"), k = row.dataset.k, u = k ? used(k) : 0;
     if(u && !confirm(`${u} piece${u===1?" has":"s have"} this field filled in. Remove it? Those entries will move to “More details”.`)) return;
     row.remove(); });
   wire();
+  { // Drag ⠿ to reorder fields (mouse or finger); ↑ ↓ on a focused handle moves it one place.
+    const box = document.getElementById("frows");
+    box.addEventListener("pointerdown", e => { const h = e.target.closest("[data-drag]"); if(!h || e.button > 0) return; e.preventDefault();
+      const row = h.closest(".frow"); row.classList.add("dragging");   // listen on the page: moving the row in the page would drop a capture on the handle
+      const move = ev => { const after = [...box.querySelectorAll(".frow:not(.dragging)")].find(r => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+        if(after !== row.nextElementSibling) box.insertBefore(row, after || null);
+        if(ev.clientY < 70) scrollBy(0, -14); else if(ev.clientY > innerHeight - 70) scrollBy(0, 14); };
+      const up = () => { row.classList.remove("dragging"); ["pointermove","pointerup","pointercancel"].forEach((t, k) => document.removeEventListener(t, k ? up : move)); };
+      document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up); });
+    box.addEventListener("keydown", e => { const h = e.target.closest("[data-drag]"); if(!h || !/^Arrow(Up|Down)$/.test(e.key)) return; e.preventDefault();
+      const row = h.closest(".frow"); if(e.key === "ArrowUp" && row.previousElementSibling) box.insertBefore(row, row.previousElementSibling);
+      else if(e.key === "ArrowDown" && row.nextElementSibling) box.insertBefore(row.nextElementSibling, row); h.focus(); });
+  }
   if(document.getElementById("tfield")){
     const getV = (i, k) => k === "condition" || k === "maker" ? (i[k]||"") : ((i.fields||{})[k]||"");
     const setV = (i, k, v) => { if(k === "condition" || k === "maker") i[k] = v; else { i.fields = i.fields || {}; if(v) i.fields[k] = v; else delete i.fields[k]; } };
@@ -4547,23 +4762,30 @@ function viewGallery(id){
   }
   document.getElementById("addF").onclick = () => { document.getElementById("frows").insertAdjacentHTML("beforeend", fieldRow({l:""})); wire(); document.querySelector("#frows .frow:last-child [data-fl]").focus(); };
   if(document.getElementById("delG")) document.getElementById("delG").onclick = async () => {
-    if(!confirm(`Delete the empty “${g.name}” gallery?`)) return;
+    const typed = prompt(`Delete the “${g.name}” collection for good? Its fields and settings go with it.\n\nType the collection's name to confirm:`);
+    if(typed == null) return;
+    if(typed.trim().toLowerCase() !== g.name.trim().toLowerCase()) return alert("The name didn't match, so nothing was deleted.");
+    if(cat.items.some(i => i.collectionId === id)) return alert("This collection has pieces in it now. Move or delete them first.");
     cat.collections = cat.collections.filter(c => c.id !== id);
     try{ await persist(); location.hash = "#/settings"; }catch(e){ cat.collections.push(orig); alert(e.message); }
   };
   document.getElementById("gf").onsubmit = async e => {
     e.preventDefault();
-    const fields = [...app.querySelectorAll("#frows .frow")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked,
+    const fields = [...app.querySelectorAll("#frows .frow:not([data-core])")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked,
         opts:[...new Set(r.querySelector("[data-fo]").value.split(",").map(x=>x.trim()).filter(Boolean))]}))
       .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined}; if(!out.opts.length) delete out.opts; return out; });
+    // Year goes after whichever field is just above its row (none: before the fields, as usual)
+    const yr = app.querySelector('#frows [data-core="year"]'), rowsAll = [...app.querySelectorAll("#frows .frow")], above = rowsAll.slice(0, rowsAll.indexOf(yr)).filter(r => !r.dataset.core && r.querySelector("[data-fl]").value.trim());
+    const yearAfter = above.length ? fields[[...app.querySelectorAll("#frows .frow:not([data-core])")].filter(r => r.querySelector("[data-fl]").value.trim()).indexOf(above[above.length - 1])].k : "";
     const removed = orig.fields.filter(f => !fields.some(x => x.k === f.k));
     const backup = JSON.stringify({c:orig, items:cat.items.filter(i=>i.collectionId===id)});
     removed.forEach(f => cat.items.forEach(i => { if(i.collectionId === id && i.fields && i.fields[f.k]){ i.extra = i.extra || []; i.extra.push({l:f.l, v:i.fields[f.k]}); delete i.fields[f.k]; } }));
     Object.assign(orig, {name:document.getElementById("gname").value.trim() || g.name, icon:document.getElementById("gicon").value.trim() || "📦", maker:document.getElementById("gmaker").value.trim() || "Maker", lookup:document.getElementById("glook").value, fields});
+    if(yearAfter) orig.yearAfter = yearAfter; else delete orig.yearAfter;
     if(orig.lookup === "comic" && !orig.comicSetup){ orig.comicSetup = 1; const norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
       const add = COMIC_FIELDS.filter(f => !orig.fields.some(x => norm(x.l) === norm(f.l) || x.k === f.k)).map(f => JSON.parse(JSON.stringify(f)));
       const iss = add.find(f => f.k === "issue"); orig.fields = (iss ? [iss] : []).concat(orig.fields, add.filter(f => f.k !== "issue")); }
-    try{ await persist(); toast("Gallery saved"); location.hash = "#/c/" + id;
+    try{ await persist(); toast("Collection saved"); location.hash = "#/c/" + id;
       if(JSON.parse(backup).c.name !== orig.name) tidyGallery(cat.items.filter(i => i.collectionId === id)); }
     catch(er){ const b = JSON.parse(backup); Object.assign(orig, b.c); b.items.forEach(bi => { const ix = cat.items.findIndex(i=>i.id===bi.id); if(ix>=0) cat.items[ix] = bi; }); alert(er.message); }
   };
@@ -4576,9 +4798,9 @@ function fillGalNav(cur){
   if(!box || !cat) return;
   const cs = [...cat.collections].sort((a, b) => a.name.localeCompare(b.name, undefined, {sensitivity:"base"}));
   const c = cs.find(x => x.id === cur);
-  btn.innerHTML = `<span class="gl">${c ? c.icon + " " + esc(c.name) : "Galleries"}</span><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  btn.innerHTML = `<span class="gl">${c ? c.icon + " " + esc(c.name) : "Collections"}</span><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const count = id => cat.items.filter(i => i.collectionId === id).length;
-  menu.innerHTML = `<a href="#/" class="${cur ? "" : "on"}">🏛 All galleries</a><a href="#/stats">📊 Collection stats</a><a href="#/ask">💬 Ask your collection</a><hr>` + cs.map(x => `<a href="#/c/${esc(x.id)}" class="${x.id === cur ? "on" : ""}">${x.icon} ${esc(x.name)}<span class="n">${count(x.id)}</span></a>`).join("");
+  menu.innerHTML = `<a href="#/" class="${cur ? "" : "on"}">🏛 All collections</a><a href="#/stats">📊 Collection stats</a><a href="#/ask">💬 Ask your collection</a><hr>` + cs.map(x => `<a href="#/c/${esc(x.id)}" class="${x.id === cur ? "on" : ""}">${x.icon} ${esc(x.name)}<span class="n">${count(x.id)}</span></a>`).join("");
   box.classList.add("ready");
   const shut = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
   btn.onclick = e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute("aria-expanded", String(open));
@@ -4589,7 +4811,7 @@ function fillGalNav(cur){
     document.addEventListener("keydown", e => { if(e.key === "Escape") shut(); }); }
   shut();
 }
-function setBrand(){ document.getElementById("brand").firstChild.textContent = cat.title || "The Collection"; }
+function setBrand(){ document.getElementById("brand").firstChild.textContent = cat.title || "The Museum"; }
 
 /* ---------- Samples ---------- */
 async function loadSamples(){
@@ -4719,8 +4941,41 @@ async function boot(){
       const nl = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,""), key = nl(f.l.split(/ [(\/]/)[0]);
       cat.items.forEach(i => { if(i.collectionId !== c.id || !(i.extra||[]).length || (i.fields||{})[f.k]) return;
         const x = i.extra.find(e => nl(e.l) === key || nl(e.l) === nl(f.l)); if(x && x.v){ i.fields = i.fields || {}; i.fields[f.k] = x.v; i.extra = i.extra.filter(e => e !== x); } }); } } }); });
+  // The museum's old default name becomes the new one (a name typed in Settings stays).
+  if(!cat.title || cat.title === "The Collection") cat.title = "The Museum";
+  // One-time (2026-11-12): Animation Cels get Eric's layout. Type, Production, Season #, Episode #, Year, Characters lead; Edition # and
+  // Matted / framed go (anything typed there moves to "More details"); Condition and quantity are hidden; screen grabs and scene clips are on.
+  { const c = cat.collections.find(x => x.id === "cels"), pc = PRESETS.find(x => x.id === "cels");
+    if(c && !c.celSetup){ c.celSetup = 1;
+      ["edition","framing"].forEach(k => { const f = c.fields.find(x => x.k === k); if(!f) return;
+        cat.items.forEach(i => { if(i.collectionId !== "cels" || !String((i.fields||{})[k]||"").trim()) return; i.extra = (i.extra||[]).concat({l:f.l, v:i.fields[k]}); delete i.fields[k]; });
+        c.fields = c.fields.filter(x => x !== f); });
+      const prod = c.fields.find(x => x.k === "production"); if(prod && prod.l === "Production / film / show") prod.l = "Production (film, show, commercial)";
+      ["season","episode"].forEach(k => { if(!c.fields.some(x => x.k === k)) c.fields.push(JSON.parse(JSON.stringify(pc.fields.find(x => x.k === k)))); });
+      const lead = ["celType","production","season","episode","characters"];
+      c.fields = lead.map(k => c.fields.find(x => x.k === k)).filter(Boolean).concat(c.fields.filter(x => !lead.includes(x.k)));
+      c.seen = [...new Set([...(c.seen||[]), ...pc.fields.map(f => f.k)])];
+      Object.assign(c, {yearAfter:"episode", hide:["condition","qty"], frames:true, clips:true}); } }
   // The upgrades above are the same on every device, so count them as the starting point when merging with another device's changes.
   if(store.kind === "dropbox" && store.base) store.base = JSON.stringify(cat, null, 1);
+  // One-time: laserdiscs filed under Records (a format, tag or title that says Laserdisc) move to their own Laserdiscs collection,
+  // and a collection named like "Records & Laserdiscs" goes back to "Records". Fields Laserdiscs doesn't have move to "More details", so nothing is lost.
+  // Done after the line above on purpose: it's saved as a real change so other devices pick it up instead of undoing it.
+  if(!cat.migLD){ cat.migLD = 1;
+    const isLD = v => /\blaser ?discs?\b|^ld$|^(clv|cav)\b/i.test(String(v||"").trim());
+    const looksLD = i => isLD((i.fields||{}).format) || (i.tags||[]).some(isLD) || /\blaser ?disc/i.test(i.title||"")
+      || (i.extra||[]).some(e => /format|media/i.test(e.l||"") && isLD(e.v));
+    const from = cat.collections.filter(c => c.id !== "laserdiscs" && (c.id === "records" || (/laser/i.test(c.name) && /record|vinyl|album|music|lp/i.test(c.name))));
+    const moving = cat.items.filter(i => from.some(c => c.id === i.collectionId) && looksLD(i));
+    let ld = cat.collections.find(c => c.id === "laserdiscs");
+    if(moving.length && !ld){ ld = JSON.parse(JSON.stringify(PRESETS.find(p => p.id === "laserdiscs"))); ld.seen = ld.fields.map(f => f.k); cat.collections.push(ld); }
+    moving.forEach(i => { const src = coll(i.collectionId); i.collectionId = "laserdiscs";
+      Object.keys(i.fields||{}).forEach(k => { if(ld.fields.some(f => f.k === k) || !String(i.fields[k]||"").trim()) return;
+        const f = src.fields.find(f => f.k === k); i.extra = (i.extra||[]).concat({l:f ? f.l.split(/ [(\/]/)[0] : k, v:i.fields[k]}); delete i.fields[k]; }); });
+    from.forEach(c => { Object.defineProperty(c, "_was", {value:c.name, enumerable:false}); if(/laser/i.test(c.name)){ const nm = c.name.replace(/\s*(&|and|\+|,|\/)?\s*laser ?discs?\s*/ig, " ").replace(/^\s*(&|and|\+|,|\/)\s*|\s*(&|and|\+|,|\/)\s*$/g, "").replace(/\s+/g, " ").trim(); if(nm) c.name = nm; } });
+    if(moving.length || from.some(c => c.name !== c._was)) persist().then(() => moving.length && tidyLater(moving)).catch(() => {});
+    if(moving.length) LS.set("cm.flash", `Moved ${moving.length} laserdisc${moving.length === 1 ? "" : "s"} from Records into the Laserdiscs collection`);
+  }
   setBrand();
   window.addEventListener("hashchange", route);
   route();

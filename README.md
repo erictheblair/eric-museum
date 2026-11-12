@@ -1,4 +1,4 @@
-# The Collection: a private museum for your collections
+# The Museum: private collections
 
 A small web app (no server, no database). The app files hold none of your data.
 Your catalog (`catalog.json`) and every photo and COA scan live in your own Dropbox,
@@ -37,10 +37,10 @@ Use **More details** on any piece for your own label/value pairs (edition number
 Barcode scanning uses ZXing (Apache-2.0), bundled in `vendor/`.
 
 ## Gallery mode
-Open any gallery and choose gallery mode to walk a hall of framed pieces. Pick a room
+Open any collection and choose Gallery mode to walk a hall of framed pieces. Pick a room
 (50s diner, aquarium, cabin, castle, Christmas, greenhouse, haunted mansion, library, modern,
 museum, neon arcade, starship), press ▶ Tour to let it play, or ⛶ (or F) for full screen on a computer.
 Room artwork lives in `rooms/`.
 
 ## Quick edit
-On a computer, hover over a piece in a gallery and click ✎ to edit its details without leaving the page.
+On a computer, hover over a piece in a collection and click ✎ to edit its details without leaving the page.
