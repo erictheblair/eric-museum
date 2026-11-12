@@ -207,7 +207,7 @@ legend{font-family:var(--serif);font-weight:600;padding:0 6px}
 .lightbox .x{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:2}
 .scanner{position:fixed;inset:0;z-index:52;background:#000;display:flex;flex-direction:column;color:#fff}
 .scanner video{flex:1;min-height:0;width:100%;object-fit:cover;background:#000}
-.scanner .aim{position:absolute;left:10%;right:10%;top:38%;height:22%;border:3px solid rgba(255,255,255,.85);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);pointer-events:none}
+.scanner .aim{position:absolute;left:8%;right:8%;top:calc(env(safe-area-inset-top) + 9%);height:20%;border:3px solid rgba(255,255,255,.85);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);pointer-events:none}
 .scanner .bar{padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:#111;display:flex;flex-direction:column;gap:10px}
 .scanner .bar form{display:flex;gap:8px}
 .scanner .bar input{flex:1;min-width:0;height:42px;border-radius:10px;border:1px solid #444;background:#222;color:#fff;padding:0 12px}
@@ -824,7 +824,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.1";
+const APP_VERSION = "2026.11.12.2";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1629,7 +1629,7 @@ function viewHome(params){
     <p>A private museum of things worth keeping.</p>
     <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>
     <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${Object.keys(counts).length}</b>collections</span>
-      ${priv ? "" : `<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}${cat.items.length ? `<a class="wallbtn" href="#/stats" style="margin-left:auto">📊 Stats</a>` : ""}</div>
+      ${priv ? "" : `<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}${cat.items.length ? `<a class="wallbtn" href="#/ask" style="margin-left:auto">💬 Ask</a><a class="wallbtn" href="#/stats">📊 Stats</a>` : ""}</div>
   </section>
   ${results ? `<div class="section-title"><h2>Results</h2><span>${results.length} found</span></div>
       ${results.length ? `<div class="grid">${results.map(plate).join("")}</div>` : `<div class="empty">Nothing matches “${esc(q)}”.</div>`}` : `
@@ -3906,6 +3906,7 @@ function viewStats(){
   const tile = (v, l) => `<div class="st-tile"><b>${v}</b><span>${l}</span></div>`;
   app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › Stats</div>
   <section class="hero" style="padding-bottom:10px"><h1>Collection stats</h1><p>What's in the museum, and what's new.</p></section>
+  <form class="search noprint" style="margin:0 0 14px" onsubmit="event.preventDefault();const v=this.q.value.trim();if(v)location.hash='#/ask?q='+encodeURIComponent(v)"><input name="q" placeholder="💬 Ask a question, e.g. Which artist do I have the most of?" aria-label="Ask your collection" enterkeyhint="go" autocomplete="off"><button class="iconbtn primary" type="submit" style="height:42px">Ask</button></form>
   ${n ? `<div class="st-tiles">
     ${tile(n, n === 1 ? "piece" : "pieces")}${copies !== n ? tile(copies, "counting every copy") : ""}
     ${tile(Object.keys(counts).length, "galleries in use")}${tile(since(30), "added in the last 30 days")}
@@ -3925,6 +3926,125 @@ function viewStats(){
   : `<div class="empty">No pieces yet. <a href="#/new">Add your first piece</a> and the stats will fill in.</div>`}`;
   const rb = document.getElementById("randAll");
   if(rb) rb.onclick = () => spinPick(items, {id:"all", icon:"🏛", name:"Pieces", fields:[]});
+  hydrate(app);
+}
+/* ---------- Ask your collection: plain-English questions answered by simple rules (no AI, nothing leaves the device) ---------- */
+const ASK_SUGGEST = ["Which artist do I have the most of?", "How many records do I have?", "What's my oldest piece?", "Most common genre in records",
+  "What did I add most recently?", "Which pieces are worth the most?", "How many songs are on my records?", "Which pieces have more than one copy?"];
+const ASK_STOP = new Set("a an the i my me do does did have has had is are was were of in on at to for from by with and or what which who whom how many much most least many top show list tell give find any all every some piece pieces item items thing things collection museum got own owned i'm im i've ive in there their is it its that this these those than more less number count total".split(" "));
+function askAnswer(raw){
+  const q = " " + String(raw||"").toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9#'&\- ]+/g, " ").replace(/\s+/g, " ").trim() + " ";
+  const nk = x => String(x||"").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const has = w => new RegExp("(^|[^a-z0-9])" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^a-z0-9])").test(q);
+  const any = (...ws) => ws.some(has);
+  let items = cat.items.slice(); const scope = [];
+  // Which gallery? ("records", "record", "laserdiscs"…)
+  const gal = cat.collections.filter(c => { const n = nk(c.name); return n && (has(n) || has(n.replace(/s$/, "")) || has(nk(c.id)) || has(nk(c.id).replace(/s$/, ""))); });
+  if(gal.length){ items = items.filter(i => gal.some(c => c.id === i.collectionId)); scope.push(gal.map(c => c.name).join(" & ")); }
+  const galsInScope = gal.length ? gal : cat.collections;
+  const makerWord = [...new Set(["artist","artists","band","bands","maker","makers","author","authors","director","directors","brand","brands","signer","signers","studio","studios","creator","creators","singer","designer","designers", ...galsInScope.map(c => nk(c.maker).split(" ")[0]).filter(Boolean).flatMap(w => [w, w + "s"])])];
+  // A specific maker named in the question ("by Pink Floyd", "how many Beatles records")
+  const makers = [...new Map(items.filter(i => i.maker).map(i => [nk(i.maker), i.maker])).entries()].filter(([k]) => k.length >= 3 && !ASK_STOP.has(k) && has(k)).sort((a, b) => b[0].length - a[0].length);
+  let mk = null; if(makers.length && !any(...makerWord.map(w => "which " + w), "what " + "artist")){ mk = makers[0][1]; items = items.filter(i => nk(i.maker) === makers[0][0]); scope.push("by " + mk); }
+  // Field values named in the question ("jazz", "7\"", "red", "Criterion")
+  const fieldsInScope = galsInScope.flatMap(c => c.fields.filter(f => !(priv && f.priv)).map(f => ({c, f})));
+  const valHits = []; const seenVal = new Set();
+  items.forEach(i => fieldsInScope.forEach(({c, f}) => { if(c.id !== i.collectionId) return; const v = (i.fields||{})[f.k]; const k = nk(v);
+    if(k && k.length >= 3 && !ASK_STOP.has(k) && !seenVal.has(f.k + "|" + k) && has(k) && !(mk && nk(mk).includes(k))){ seenVal.add(f.k + "|" + k); valHits.push({f, k, v}); } }));
+  if(valHits.length && !/\b(which|what) (genre|label|format|colou?r|style|speed)\b/.test(q)){
+    const byF = {}; valHits.forEach(h => (byF[h.f.k] = byF[h.f.k] || []).push(h.k));
+    items = items.filter(i => Object.entries(byF).every(([fk, ks]) => ks.includes(nk((i.fields||{})[fk]))));
+    scope.push(valHits.map(h => h.v).join(", "));
+  }
+  if(any("starred","favorite","favourite","favorites","highlights")){ items = items.filter(i => i.favorite); scope.push("starred"); }
+  if(any("bootleg","bootlegs")){ items = items.filter(i => i.bootleg); scope.push("bootlegs"); }
+  const where = scope.length ? " (" + scope.join(" · ") + ")" : "";
+  const n = items.length, copies = items.reduce((s, i) => s + (+i.qty > 1 ? +i.qty : 1), 0);
+  const groupBy = (fn, label) => { const g = {}; items.forEach(i => { const vs = [].concat(fn(i) || []).map(v => String(v).trim()).filter(Boolean); vs.forEach(v => { const k = v.toLowerCase(); (g[k] = g[k] || {name:v, v:0}).v++; }); });
+    const rows = Object.values(g).sort((a, b) => b.v - a.v || a.name.localeCompare(b.name));
+    return rows.length ? {text:`Most common ${label}${where}: <b>${esc(rows[0].name)}</b> with ${rows[0].v} piece${rows[0].v===1?"":"s"}` + (rows[1] && rows[1].v === rows[0].v ? ` (tied with ${esc(rows.filter(r => r.v === rows[0].v).slice(1, 4).map(r => r.name).join(", "))})` : "") + ".",
+      bars:rows.slice(0, 12)} : {text:`None of these pieces${where} have a ${label} filled in yet.`}; };
+  const fieldGroup = w => { const hit = fieldsInScope.find(({f}) => { const l = nk(f.l); const first = l.split(" ")[0]; return has(nk(f.k)) || has(first) || has(first + "s") || has(l) || (first === "vinyl" && (has("color") || has("colour"))); });
+    return hit ? groupBy(i => (i.fields||{})[hit.f.k], hit.f.l.split(/ [(\/]/)[0].toLowerCase()) : null; };
+  const list = (l, text) => ({text, items:l});
+  if(!cat.items.length) return {text:"The museum is empty so far. Add a few pieces and ask again."};
+  if(!n) return {text:`Nothing in the collection matches${where}.`};
+  // Value and spending
+  if(any("worth","valuable","value","expensive","priciest","spent","paid","cost")){
+    if(priv) return {text:"Values are hidden right now. Turn on <b>Show values</b> (the eye at the top) and ask again."};
+    const paidQ = any("spent","paid","cost") && !any("worth","valuable","value");
+    const key = paidQ ? "price" : "value", tot = items.reduce((s, i) => s + (+i[key] || 0) * (+i.qty > 1 ? +i.qty : 1), 0), withV = items.filter(i => +i[key]);
+    if(!withV.length) return {text:`None of these pieces${where} have ${paidQ ? "a price paid" : "an estimated value"} yet.`};
+    const top = withV.sort((a, b) => b[key] - a[key]).slice(0, 10);
+    return list(top, `${paidQ ? "You've spent" : "Estimated value"}${where}: <b>${esc(money(tot))}</b> across ${withV.length} piece${withV.length===1?"":"s"} that have one. ${paidQ ? "Most expensive" : "Most valuable"}: <b>${esc(top[0].title)}</b> (${esc(money(top[0][key]))}).`);
+  }
+  // Tracks
+  if(any("song","songs","track","tracks","longest","shortest") && items.some(i => (i.tracks||[]).length)){
+    const wt = items.filter(i => (i.tracks||[]).length), secs = i => i.tracks.reduce((s, t) => s + durSecs(t.d), 0);
+    if(any("longest","shortest")){ const s = wt.filter(i => secs(i)).sort((a, b) => any("shortest") ? secs(a) - secs(b) : secs(b) - secs(a)); const t = s[0];
+      return t ? list(s.slice(0, 5), `The ${any("shortest") ? "shortest" : "longest"} by running time${where} is <b>${esc(t.title)}</b> at ${Math.floor(secs(t)/60)}:${String(secs(t)%60).padStart(2,"0")}.`) : {text:"None of the track listings have times yet."}; }
+    const tc = wt.reduce((s, i) => s + i.tracks.filter(t => !t.h).length, 0), tsec = wt.reduce((s, i) => s + secs(i), 0);
+    return {text:`<b>${tc}</b> songs across ${wt.length} piece${wt.length===1?"":"s"} with a track listing${where}` + (tsec ? `, about <b>${tsec >= 5400 ? Math.round(tsec / 3600) + " hours" : Math.round(tsec / 60) + " minutes"}</b> of music` : "") + "." + (wt.length < n ? ` ${n - wt.length} more don't have a track listing yet.` : "")};
+  }
+  // Most / top / favourite X
+  if(any("most","top","common","popular","biggest","main","which","what") && !any("recent","recently","newest","latest","last","oldest","earliest","first")){
+    if(any(...makerWord)) return groupBy(i => /^various/i.test(i.maker||"") ? "" : i.maker, (galsInScope.length === 1 ? galsInScope[0].maker : "artist / maker").toLowerCase());
+    if(any("decade","decades","era")) return groupBy(i => { const y = parseInt(i.year); return y > 1000 ? Math.floor(y / 10) * 10 + "s" : ""; }, "decade");
+    if(any("year","years")) return groupBy(i => (String(i.year||"").match(/\d{4}/)||[""])[0], "year");
+    if(any("condition","grade")) return groupBy(i => i.condition, "condition");
+    if(any("tag","tags")) return groupBy(i => i.tags, "tag");
+    if(any("where","location","shelf","box","room")) return groupBy(i => i.location, "location");
+    if(any("gallery","galleries","category","categories","type","kind")) return groupBy(i => coll(i.collectionId).name, "gallery");
+    if(any("store","shop","source","bought")) return groupBy(i => i.source, "source");
+    const fg = fieldGroup(); if(fg) return fg;
+  }
+  // Oldest / newest by year; recently added
+  if(any("recent","recently","added","last added","latest addition","newest addition","new")){
+    const l = sortItems(items.filter(i => i.created), "recent").slice(0, 12);
+    if(l.length) return list(l, `Most recently added${where}: <b>${esc(l[0].title)}</b>, on ${esc(new Date(l[0].created).toLocaleDateString())}.`);
+  }
+  if(any("oldest","earliest","newest","latest","youngest","first")){
+    const old = any("oldest","earliest","first"), y = i => parseInt((String(i.year||"").match(/\d{4}/)||[""])[0]);
+    const l = items.filter(i => y(i)).sort((a, b) => old ? y(a) - y(b) : y(b) - y(a)).slice(0, 10);
+    return l.length ? list(l, `${old ? "Oldest" : "Newest"}${where}: <b>${esc(l[0].title)}</b>${l[0].maker ? " by " + esc(l[0].maker) : ""} (${esc(l[0].year)}).`) : {text:`None of these pieces${where} have a year filled in.`};
+  }
+  // Copies, photos, matches
+  if(any("copies","copy","duplicate","duplicates","doubles","multiple")){ const l = items.filter(i => +i.qty > 1).sort((a, b) => b.qty - a.qty);
+    return l.length ? list(l, `${l.length} piece${l.length===1?"":"s"}${where} with more than one copy. Most: <b>${esc(l[0].title)}</b> (${l[0].qty}).`) : {text:`You have one copy of everything${where}.`}; }
+  if(any("photo","photos","picture","pictures","cover","covers")){ const l = items.filter(i => !cover(i));
+    return l.length ? list(l.slice(0, 30), `${l.length} piece${l.length===1?"":"s"}${where} without a photo yet.`) : {text:`Every piece${where} has a photo.`}; }
+  if(any("random","surprise","pick")){ const r = items[Math.floor(Math.random() * n)]; return list([r], `How about <b>${esc(r.title)}</b>${r.maker ? " by " + esc(r.maker) : ""}?`); }
+  // How many
+  if(any("how many","count","number","total","size")){
+    const g = {}; items.forEach(i => g[i.collectionId] = (g[i.collectionId]||0) + 1);
+    const bars = gal.length === 1 ? null : Object.entries(g).map(([id, v]) => ({name:coll(id).icon + " " + coll(id).name, v, href:"#/c/" + id})).sort((a, b) => b.v - a.v);
+    const one = gal.length === 1 && scope.length === 1, noun = one ? (n === 1 ? nk(gal[0].name).replace(/s$/, "") : nk(gal[0].name)) : (n === 1 ? "piece" : "pieces");
+    return {text:`You have <b>${n}</b> ${esc(noun)}${one ? "" : where}` + (copies !== n ? ` (${copies} counting every copy)` : "") + ".", bars, items:mk || valHits.length ? items.slice(0, 30) : null};
+  }
+  // "Do I have…", "show me…", or anything else: search for the leftover words.
+  const words = q.trim().split(" ").filter(w => w && !ASK_STOP.has(w) && !makerWord.includes(w) && !gal.some(c => nk(c.name).includes(w.replace(/s$/, ""))));
+  const used = new Set([...valHits.flatMap(h => h.k.split(" ")), ...(mk ? nk(mk).split(" ") : []), "vinyl", "show", "me"]);
+  const left = words.filter(w => !used.has(w));
+  let pool = left.length ? items.filter(i => matches(i, left.join(" "))) : (scope.length ? items : []);
+  if(!pool.length && scope.length && left.every(w => w.length < 4)) pool = items;
+  if(pool.length) return list(sortItems(pool, "title").slice(0, 40), `${any("do i have","have i got","is there","did i") ? "Yes. " : ""}Found <b>${pool.length}</b> piece${pool.length===1?"":"s"}${left.length && pool !== items ? " matching “" + esc(left.join(" ")) + "”" : ""}${where}.`);
+  return {text:`I couldn't work that one out${words.length ? ", and nothing matches “" + esc(words.join(" ")) + "”" : ""}. Try one of the questions below.`};
+}
+function viewAsk(params){
+  const app = document.getElementById("app"), q = params.get("q") || "";
+  document.title = "Ask · " + (cat.title || "The Collection");
+  const bar = r => `<${r.href ? `a href="${esc(r.href)}"` : "div"} class="st-bar"><span class="nm">${esc(r.name)}</span><span class="tr"><i style="width:${Math.max(1, r.v / ans.bars[0].v * 100)}%"></i></span><span class="ct">${r.v}</span></${r.href ? "a" : "div"}>`;
+  const ans = q ? askAnswer(q) : null;
+  app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › Ask</div>
+  <section class="hero" style="padding-bottom:10px"><h1>Ask your collection</h1><p>Simple questions, answered from your catalog on this device. No AI, nothing sent anywhere.</p></section>
+  <form id="askF" class="search" style="margin:0 0 12px"><input name="q" value="${esc(q)}" placeholder="e.g. Which artist do I have the most of?" aria-label="Your question" enterkeyhint="go" autocomplete="off"><button class="iconbtn primary" type="submit" style="height:42px">Ask</button></form>
+  ${ans ? `<div class="panel ask-ans"><p style="margin:0;font-size:1.05rem">${ans.text}</p>
+    ${(ans.bars||[]).length ? `<div class="st-bars" style="margin-top:12px">${ans.bars.map(r => bar({...r, href:r.href || (/(artist|maker|author|director|brand|signer|studio)/.test(ans.text) ? "#/ask?q=" + encodeURIComponent("show " + r.name) : "")})).join("")}</div>` : ""}</div>
+    ${(ans.items||[]).length ? `<div class="grid">${ans.items.map(plate).join("")}</div>` : ""}` : ""}
+  <div class="section-title"><h2>Try asking</h2></div>
+  <div class="chips">${ASK_SUGGEST.map(s => `<a class="chip" href="#/ask?q=${encodeURIComponent(s)}">${esc(s)}</a>`).join("")}</div>`;
+  document.getElementById("askF").onsubmit = e => { e.preventDefault(); const v = new FormData(e.target).get("q").trim(); if(v) location.hash = "#/ask?q=" + encodeURIComponent(v); };
+  if(!q) document.querySelector("#askF input").focus();
   hydrate(app);
 }
 function viewReport(){
@@ -4041,7 +4161,7 @@ function fillGalNav(cur){
   const c = cs.find(x => x.id === cur);
   btn.innerHTML = `<span class="gl">${c ? c.icon + " " + esc(c.name) : "Galleries"}</span><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const count = id => cat.items.filter(i => i.collectionId === id).length;
-  menu.innerHTML = `<a href="#/" class="${cur ? "" : "on"}">🏛 All galleries</a><a href="#/stats">📊 Collection stats</a><hr>` + cs.map(x => `<a href="#/c/${esc(x.id)}" class="${x.id === cur ? "on" : ""}">${x.icon} ${esc(x.name)}<span class="n">${count(x.id)}</span></a>`).join("");
+  menu.innerHTML = `<a href="#/" class="${cur ? "" : "on"}">🏛 All galleries</a><a href="#/stats">📊 Collection stats</a><a href="#/ask">💬 Ask your collection</a><hr>` + cs.map(x => `<a href="#/c/${esc(x.id)}" class="${x.id === cur ? "on" : ""}">${x.icon} ${esc(x.name)}<span class="n">${count(x.id)}</span></a>`).join("");
   box.classList.add("ready");
   const shut = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
   btn.onclick = e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute("aria-expanded", String(open));
@@ -4098,6 +4218,7 @@ function route(){
   if(parts[0]==="settings") return viewSettings();
   if(parts[0]==="report") return viewReport();
   if(parts[0]==="stats") return viewStats();
+  if(parts[0]==="ask") return viewAsk(params);
   if(parts[0]==="gallery") return viewGallery(parts[1]);
   if(parts[0]==="wall") return viewWall(parts[1], params);
   notFound();
