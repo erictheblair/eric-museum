@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>The Collection</title>
+<title>The Museum</title>
 <meta name="description" content="A private museum for personal collections.">
 <meta name="theme-color" content="#1d1a16">
 <link rel="manifest" href="manifest.webmanifest">
@@ -658,6 +658,13 @@ ol.tracks li.tgap{display:block;padding:0;height:10px;border-bottom:0}
 #fsc .bub{position:absolute;right:58px;top:50%;transform:translateY(-50%);background:var(--ink,#222);color:var(--bg);padding:8px 16px;min-width:52px;text-align:center;border-radius:999px;font:600 1.35rem/1.2 var(--serif,serif);white-space:nowrap;max-width:60vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 12px rgba(0,0,0,.25);display:none}
 #fsc.drag .bub:not(:empty){display:block}
 body.wallmode #fsc{display:none}
+/* Edit collection: drag handle for reordering fields */
+.grip{border:0;background:none;color:var(--muted);font-size:1.25rem;line-height:1;padding:6px 4px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.frow.dragging{opacity:.6;background:var(--surface);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* Cels: caption for a screen grab, a mark on its thumbnail, and the scene clip player */
+.pcap{margin:8px 0 0;font-size:.85rem;color:var(--muted);text-align:center}
+.thumbs button.fr{position:relative}.thumbs button.fr::after{content:"🎬";position:absolute;right:2px;bottom:2px;font-size:.7rem;line-height:1;background:rgba(0,0,0,.55);border-radius:4px;padding:2px}
+.clip{margin-top:8px}.clip .cl{font-size:.85rem;color:var(--muted);margin-bottom:4px}.clip video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block}
 /* Back to the gallery from a piece */
 .backbtn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px 0 12px;margin:0 0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink,inherit);text-decoration:none;font-weight:600;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .backbtn:active{transform:scale(.97)}
@@ -841,7 +848,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <a class="brand" href="#/" id="brand">The Collection<small>Private museum</small></a>
+  <a class="brand" href="#/" id="brand">The Museum<small>Private collections</small></a>
   <div id="galnav" class="gnav"><button type="button" id="gnavBtn" aria-haspopup="true" aria-expanded="false" title="Go to a collection"></button><div class="gmenu" id="gnavMenu" hidden></div></div>
   <a class="iconbtn setbtn" href="#/settings" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl">Settings</span></a>
 </div></header>
@@ -851,7 +858,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.11";
+const APP_VERSION = "2026.11.12.12";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -879,10 +886,11 @@ const PRESETS = [
   {id:"autographs", name:"Autographs", icon:"✍️", maker:"Signer", fields:[
     {k:"signedItem",l:"Signed item"},{k:"inscription",l:"Inscription"},{k:"dateSigned",l:"Date / place signed"},{k:"authenticator",l:"Authenticator (PSA, JSA, BAS…)"},{k:"cert",l:"Cert #",priv:true},
     {k:"obtained",l:"How obtained (in person, by mail, show…)"},{k:"pen",l:"Ink / pen"}]},
-  {id:"cels", name:"Animation Cels", icon:"🎞️", maker:"Studio", fields:[
-    {k:"production",l:"Production / film / show"},{k:"characters",l:"Character(s)"},{k:"celType",l:"Type",opts:["Production cel","Production cel + drawing","Sericel","Limited edition","Key setup","Drawing"]},
-    {k:"edition",l:"Edition #"},{k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"},
-    {k:"scene",l:"Scene / sequence"},{k:"size",l:"Size"},{k:"framing",l:"Matted / framed"}]},
+  // One of a kind: no condition or quantity. Year sits after Episode #. Pieces can have screen grabs of the frame and a scene clip.
+  {id:"cels", name:"Animation Cels", icon:"🎞️", maker:"Studio", yearAfter:"episode", hide:["condition","qty"], frames:true, clips:true, fields:[
+    {k:"celType",l:"Type",opts:["Production cel","Production cel + drawing","Sericel","Limited edition","Key setup","Drawing"]},
+    {k:"production",l:"Production (film, show, commercial)"},{k:"season",l:"Season #"},{k:"episode",l:"Episode #"},{k:"characters",l:"Character(s)"},
+    {k:"seal",l:"Seal / stamp / COA"},{k:"background",l:"Background"},{k:"scene",l:"Scene / sequence"},{k:"size",l:"Size"}]},
   {id:"pennies", name:"Pressed Pennies", icon:"🪙", maker:"Machine / set", fields:[
     {k:"place",l:"Location / attraction"},{k:"design",l:"Design"},{k:"coin",l:"Coin",opts:["Cent","Nickel","Dime","Quarter","Token","Foreign"]},{k:"coinYear",l:"Coin date"},{k:"orientation",l:"Orientation"},{k:"datePressed",l:"Date pressed"},
     {k:"series",l:"Set position (e.g. 2 of 4)"},{k:"retired",l:"Retired design",opts:["Yes","No"]}]},
@@ -897,7 +905,7 @@ const PRESETS = [
     {k:"restoration",l:"Restoration / repairs"},{k:"appraised",l:"Last appraised"}]},
 ];
 function newCatalog(){
-  return {version:1, title:"The Collection", collections:JSON.parse(JSON.stringify(PRESETS)), presetsSeen:PRESETS.map(p=>p.id), items:[], updated:new Date().toISOString()};
+  return {version:1, title:"The Museum", collections:JSON.parse(JSON.stringify(PRESETS)), presetsSeen:PRESETS.map(p=>p.id), items:[], updated:new Date().toISOString()};
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1072,7 +1080,16 @@ class DropboxStore {
     const daily = (await this.listSnapshots()).filter(e => /^catalog-\d{4}-\d\d-\d\d\.json$/.test(e.name));
     for(const e of daily.slice(30)) await this.rpc("files/delete_v2", {path:e.path_lower});
   }
-  async putFile(path, blob){ await this.upload("/" + path, blob, "overwrite"); }
+  async putFile(path, blob){
+    if(blob.size <= 140e6) return void await this.upload("/" + path, blob, "overwrite");
+    // Big files (scene clips) go up in 64 MB pieces through an upload session.
+    const send = async (ep, arg, body) => { const r = await fetch("https://content.dropboxapi.com/2/files/" + ep, {method:"POST", headers:{Authorization:"Bearer " + await this.token(), "Content-Type":"application/octet-stream", "Dropbox-API-Arg":DropboxStore.arg(arg)}, body});
+      if(!r.ok) throw new Error("Dropbox upload failed (" + r.status + ")"); return r.json().catch(() => ({})); };
+    const CH = 64 * 1024 * 1024, { session_id } = await send("upload_session/start", {close:false}, blob.slice(0, CH));
+    let off = Math.min(CH, blob.size);
+    while(blob.size - off > CH){ await send("upload_session/append_v2", {cursor:{session_id, offset:off}, close:false}, blob.slice(off, off + CH)); off += CH; }
+    await send("upload_session/finish", {cursor:{session_id, offset:off}, commit:{path:"/" + path, mode:"overwrite", autorename:false, mute:true}}, blob.slice(off));
+  }
   async deleteFile(path){ this.links.delete(path); try{ await this.rpc("files/delete_v2", {path:"/" + path}); }catch(e){ if(!(e.summary||"").includes("not_found")) throw e; } }
   forget(path){ this.links.delete(path); clearTimeout(this._lt); this._lt = setTimeout(()=>LS.set("cm.links", Object.fromEntries(this.links)), 500); }
   // Dropbox batch jobs answer "working on it": ask again until done.
@@ -1182,7 +1199,8 @@ function authLog(msg){ const l = LS.get("cm.authlog", []); l.unshift(new Date().
 let store, cat, priv = LS.get("cm.private", true);
 const coll = id => cat.collections.find(c => c.id === id) || {id, name:"Uncategorized", icon:"📦", maker:"Maker", fields:[]};
 const item = id => cat.items.find(i => i.id === id);
-const cover = it => (it.media||[]).find(m => m.kind === "photo");
+const cover = it => (it.media||[]).find(m => m.kind === "photo" && m.role !== "frame") || (it.media||[]).find(m => m.kind === "photo");
+const hides = (c, k) => (c.hide||[]).includes(k);
 
 function toast(msg, ms=2600){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
 function busy(msg){ const b=document.createElement("div"); b.className="busy"; b.innerHTML="<div>"+esc(msg||"Saving…")+"</div>"; document.body.appendChild(b); return ()=>b.remove(); }
@@ -1208,6 +1226,8 @@ function itemFolderName(it){
 function fileBase(m){
   const nm = String(m.name || "").replace(/\.[A-Za-z0-9]{1,5}$/, "");
   if(m.kind === "document") return cleanName(m.label || nm, 60) || "Document";
+  if(m.kind === "video") return cleanName(m.label, 60) || "Scene clip";
+  if(m.role === "frame") return "Screen grab";
   if(/^cover$/i.test(nm)) return "Cover";
   if(!nm || /^(img|dsc|dscn|pxl|image|photo|picture|screenshot|file|mvimg|boardgamegeek)\b|^(img|dsc|pxl|mvimg)_|^\d|^[\w-]{20,}$/i.test(nm)) return "Photo";
   return cleanName(nm, 60) || "Photo";
@@ -1657,7 +1677,7 @@ function liveSearch(hashFor){
 
 function viewHome(params){
   const q = params.get("q") || "";
-  document.title = cat.title || "The Collection";
+  document.title = cat.title || "The Museum";
   const counts = {}; cat.items.forEach(i => counts[i.collectionId] = (counts[i.collectionId]||0) + 1);
   const total = cat.items.reduce((s,i)=> s + (+i.value||0), 0);
   const halls = cat.arranged ? cat.collections : cat.collections.filter(c => counts[c.id]).concat(cat.collections.filter(c => !counts[c.id]));
@@ -1665,7 +1685,7 @@ function viewHome(params){
   const favs = cat.items.filter(i => i.favorite).slice(0, 12);
   const recent = sortItems(cat.items, "recent").slice(0, 12);
   paint(`${modeBanner()}
-  <section class="hero"><h1>${esc(cat.title || "The Collection")}</h1>
+  <section class="hero"><h1>${esc(cat.title || "The Museum")}</h1>
     <p>A private museum of things worth keeping.</p>
     <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>
     <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${Object.keys(counts).length}</b>collections</span>
@@ -1690,7 +1710,7 @@ function viewHall(id, params){
   const q = params.get("q") || "", sort = params.get("sort") || (c && c.sort) || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
   const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1";
   const fsel = {}; c.fields.forEach(f => { const v = params.get("f." + f.k); if(v && !(priv && f.priv)) fsel[f.k] = v; });
-  document.title = c.name + " · " + (cat.title||"The Collection");
+  document.title = c.name + " · " + (cat.title||"The Museum");
   const all = cat.items.filter(i => i.collectionId === id);
   const tags = [...new Set(all.flatMap(i => i.tags||[]))].sort();
   const list = sortItems(all.filter(i => matches(i,q) && (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
@@ -2010,14 +2030,18 @@ function viewItem(id, host){
   const app = host || document.getElementById("app");
   const it = item(id); if(!it) return notFound();
   const c = coll(it.collectionId);
-  document.title = it.title + " · " + (cat.title||"The Collection");
-  const photos = (it.media||[]).filter(m => m.kind === "photo"), docs = (it.media||[]).filter(m => m.kind !== "photo");
+  document.title = it.title + " · " + (cat.title||"The Museum");
+  // The piece's own photos first (the cover leads), then screen grabs of the frame from the production.
+  const allPh = (it.media||[]).filter(m => m.kind === "photo"), photos = allPh.filter(m => m.role !== "frame").concat(allPh.filter(m => m.role === "frame"));
+  if(photos.length && cover(it) !== photos[0]){ photos.splice(photos.indexOf(cover(it)), 1); photos.unshift(cover(it)); }
+  const docs = (it.media||[]).filter(m => m.kind !== "photo" && m.kind !== "video"), clips = (it.media||[]).filter(m => m.kind === "video");
   const hidden = `<span class="hidden-val" title="Hidden in private mode">••••</span>`;
   const facts = [];
   const add = (l, v, isPriv) => { if(v !== "" && v != null) facts.push([l, isPriv && priv ? hidden : esc(v)]); };
-  add(c.maker || "Maker", it.maker); add("Year", it.year);
-  c.fields.forEach(f => add(f.l, (it.fields||{})[f.k], f.priv));
-  add("Release", it.bootleg ? "Bootleg (unofficial)" : ""); add("Condition", it.condition); add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
+  const yearLate = c.yearAfter && c.fields.some(f => f.k === c.yearAfter);
+  add(c.maker || "Maker", it.maker); if(!yearLate) add("Year", it.year);
+  c.fields.forEach(f => { add(f.l, (it.fields||{})[f.k], f.priv); if(yearLate && f.k === c.yearAfter) add("Year", it.year); });
+  add("Release", it.bootleg ? "Bootleg (unofficial)" : ""); if(!hides(c, "condition")) add("Condition", it.condition); if(!hides(c, "qty")) add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
   add("Acquired", [it.acquiredDate, it.source].filter(Boolean).join(" · "));
   if(it.price) facts.push(["Price paid", priv ? hidden : esc(money(it.price))]);
   if(it.value) facts.push(["Estimated value", priv ? hidden : esc(money(it.value))]);
@@ -2026,7 +2050,8 @@ function viewItem(id, host){
   app.innerHTML = `<a class="backbtn" data-back href="${esc(backTo)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>${c.icon} ${esc(c.name)}</a>
   <article class="item">
     <div class="viewer">${photos.length ? `<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div>${photos.length > 1 ? `<button type="button" class="pnav prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="pnav next" aria-label="Next photo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><span class="pcount" id="pcount">1 / ${photos.length}</span>` : ""}</div>
-      ${photos.length > 1 ? `<div class="thumbs">${photos.map((p,n)=>`<button data-n="${n}" class="${n?"":"on"}" aria-label="Photo ${n+1}"><img alt="" data-path="${esc(p.thumb||p.path)}"></button>`).join("")}</div>` : ""}`
+      <div class="pcap" id="pcap"${photos[0] && photos[0].role === "frame" ? "" : " hidden"}>🎬 Screen grab from the production</div>
+      ${photos.length > 1 ? `<div class="thumbs">${photos.map((p,n)=>`<button data-n="${n}" class="${n?"":"on"}${p.role === "frame" ? " fr" : ""}" aria-label="${p.role === "frame" ? "Screen grab" : "Photo"} ${n+1}"><img alt="" data-path="${esc(p.thumb||p.path)}"></button>`).join("")}</div>` : ""}`
       : `<div class="frame"><div class="matte" style="aspect-ratio:4/3;min-height:0"><div class="placeholder"><div class="em" style="font-size:4rem">${c.icon}</div><div>No photos yet</div></div></div></div>`}
     </div>
     <div>
@@ -2040,6 +2065,7 @@ function viewItem(id, host){
       ${it.qty > 1 && (it.copies||[]).some(x => x.condition || x.location || x.note) ? `<h3 style="margin-top:20px;font-size:1.05rem">Your ${it.qty} copies</h3><ul class="copylist">${Array.from({length:it.qty}, (_, i) => { const x = it.copies[i] || {};
         return `<li><b>Copy ${i+1}</b>${x.condition ? " · " + esc(x.condition) : ""}${x.location ? " · 📍 " + esc(x.location) : ""}${x.note ? `<div class="cm">${esc(x.note)}</div>` : ""}</li>`; }).join("")}</ul>` : ""}
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
+      ${clips.length ? `<h3 style="margin-top:20px;font-size:1.05rem">${clips.length > 1 ? "Scene clips" : esc(clips[0].label || "Scene clip")}</h3>${clips.map(v => `<div class="clip">${clips.length > 1 && v.label ? `<div class="cl">${esc(v.label)}</div>` : ""}<video controls playsinline preload="metadata" data-vpath="${esc(v.path)}"></video></div>`).join("")}` : ""}
       ${docs.length ? `<h3 style="margin-top:20px;font-size:1.05rem">Documents</h3><div class="docs">${docs.map(d=>`<button class="doc" data-path="${esc(d.path)}" data-name="${esc(d.name||"")}"><span class="ic">${/pdf$/i.test(d.name||"")?"📄":"📜"}</span><span class="grow"><b>${esc(d.label||"Document")}</b><br><small style="color:var(--muted)">${esc(d.name||"")}</small></span><span>↗</span></button>`).join("")}</div>` : ""}
       <div class="fabs"><a class="fab ghost" href="#/new?scan=1&c=${c.id}">▦ Scan</a><a class="fab" href="#/new?c=${c.id}">＋ Add</a></div>
       <div class="actions noprint"><a class="iconbtn primary" href="#/edit/${it.id}">✎ Edit</a>${lookupKind(c) !== "none" ? `<button class="iconbtn" id="matchBtn">🔎 ${isMatched(it) ? "Re-match" : "Match to"} ${esc(lookupName(lookupKind(c)))}</button>` : ""}${lookupKind(c) !== "none" ? `<button class="iconbtn" id="coverBtn">🖼 Change cover</button>` : ""}<button class="iconbtn" id="dupBtn">Duplicate</button><button class="iconbtn" id="delBtn" style="color:var(--danger)">Delete</button></div>
@@ -2055,6 +2081,7 @@ function viewItem(id, host){
       if(on && x.parentNode.scrollWidth > x.parentNode.clientWidth) x.parentNode.scrollTo({left:x.offsetLeft - (x.parentNode.clientWidth - x.offsetWidth) / 2, behavior:"smooth"}); });
     const cnt = document.getElementById("pcount"); if(cnt) cnt.textContent = (n + 1) + " / " + photos.length;
     const p = photos[n], img = document.getElementById("heroImg"); img.dataset.path = p.path;
+    const cap = document.getElementById("pcap"); if(cap) cap.hidden = p.role !== "frame";
     const u = await mediaUrl(p.path).catch(() => null); if(cur !== n || !u || !img.isConnected) return;
     img.classList.remove("slidel", "slider"); void img.offsetWidth; img.src = u; if(dir) img.classList.add(dir > 0 ? "slidel" : "slider");
     [n + 1, n - 1].forEach(k => mediaUrl(photos[(k + photos.length) % photos.length].path).catch(()=>{}));   // warm up the neighbours
@@ -2079,6 +2106,7 @@ function viewItem(id, host){
     });
   }
   app.querySelectorAll(".doc").forEach(b => b.onclick = () => openDoc(b.dataset.path, b.dataset.name));
+  app.querySelectorAll("video[data-vpath]").forEach(v => mediaUrl(v.dataset.vpath).then(u => { if(v.isConnected) v.src = u; }).catch(() => { v.replaceWith(Object.assign(document.createElement("p"), {textContent:"Couldn't load this clip right now.", style:"color:var(--muted)"})); }));
   document.getElementById("delBtn").onclick = async () => {
     if(!confirm(`Delete “${it.title}” and its photos and documents? This can't be undone.`)) return;
     const done = busy("Deleting…");
@@ -3174,11 +3202,12 @@ function viewEdit(id, params, ov){
     : {id:uid(), collectionId:params.get("c") || cat.collections[0].id, title:"", fields:{}, tags:[], media:[]};
   const pending = []; // {m, blob, thumbBlob, previewUrl}
   const removed = [];
-  document.title = (existing ? "Edit " + existing.title : "Add a piece") + " · " + (cat.title||"The Collection");
+  document.title = (existing ? "Edit " + existing.title : "Add a piece") + " · " + (cat.title||"The Museum");
 
   function render(){
     const c = coll(it.collectionId);
     const fv = k => esc((it.fields||{})[k] ?? "");
+    const yearBox = `<div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>`;
     app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › ${existing ? `<a href="#/i/${it.id}">${esc(existing.title)}</a> › Edit` : "Add a piece"}</div>
     <form class="edit" id="ef" autocomplete="off">
       <h1 style="font-size:1.8rem;margin-bottom:16px">${existing ? "Edit piece" : "Add a piece"}</h1>
@@ -3187,10 +3216,13 @@ function viewEdit(id, params, ov){
       <fieldset><legend>Photos &amp; documents</legend>
         <div class="actions" style="margin-top:0">
           <label class="iconbtn primary filebtn">📷 Add photos<input type="file" accept="image/*" multiple id="addPhotos"></label>
+          ${c.frames ? `<label class="iconbtn filebtn">🎬 Add screen grab<input type="file" accept="image/*" multiple id="addFrames"></label>` : ""}
+          ${c.clips ? `<label class="iconbtn filebtn">🎥 Add scene clip<input type="file" accept="video/*" id="addClip"></label>` : ""}
           <label class="iconbtn filebtn">📄 Add COA / document<input type="file" accept="image/*,application/pdf" multiple id="addDocs"></label>
           ${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="findCover">🖼 Find a cover</button>` : ""}
         </div>
-        <p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">The first photo is the cover. Photos are resized for quick loading. Documents (COAs, receipts, appraisals) keep their original quality.</p>
+        <p style="color:var(--muted);font-size:.82rem;margin:.6rem 0 0">${c.frames || c.clips ? "Photos are of the piece itself, and the first is the cover." + (c.frames ? " A screen grab is the frame from the production, so you can see the cel in context." : "") + (c.clips ? " A scene clip is a short video of where it appears." : "") + " Photos are resized for quick loading; clips and documents keep their original quality."
+          : "The first photo is the cover. Photos are resized for quick loading. Documents (COAs, receipts, appraisals) keep their original quality."}</p>
         <div class="media-edit" id="media"></div>
       </fieldset>
       <fieldset><legend>The piece</legend><div class="fgrid">
@@ -3198,14 +3230,14 @@ function viewEdit(id, params, ov){
         <div class="f"><label for="title">Title *</label><div class="inrow"><input id="title" name="title" required autocapitalize="words" data-tc value="${esc(it.title)}">${lookupKind(c) !== "none" ? `<button type="button" class="iconbtn" id="titleLook" title="Look up details by title">🔎 <span>Look up</span></button>` : ""}</div></div>
         <div class="f"><label for="maker">${esc(c.maker||"Maker")}</label><input id="maker" name="maker" autocapitalize="words" data-tc value="${esc(it.maker||"")}" list="makers"></div>
         <div class="f"><label for="makerSort">Sort ${esc((c.maker||"maker").toLowerCase())} as <span style="font-weight:400;color:var(--muted)">(optional)</span></label><div class="inrow"><input id="makerSort" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker) || msGet(cat.makerSort, it.maker) || it.maker || "")}" placeholder="e.g. Bowie, David" autocapitalize="words"><button type="button" class="iconbtn" id="msFlip" title="Last name first (or back again)">⇄ <span>Flip</span></button></div></div>
-        <div class="f"><label for="year">Year</label><input id="year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
+        ${c.yearAfter && c.fields.some(f => f.k === c.yearAfter) ? "" : yearBox}
         <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div class="inrow"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" aria-label="Scan with camera">▦ <span>Scan</span></button></div></div>
         ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts && f.opts.length
           ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts)
-          : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}>`}</div>`).join("")}
-        <div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>
+          : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year|season|episode/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}${/season|episode/i.test(f.k) ? ` inputmode="numeric"` : ""}>`}</div>${f.k === c.yearAfter ? yearBox : ""}`).join("")}
+        ${hides(c, "condition") ? "" : `<div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>`}
         <div class="f full"><label class="boottog"><input type="checkbox" name="bootleg" ${it.bootleg ? "checked" : ""}><span><b>Bootleg</b> <span style="color:var(--muted)">· unofficial release; adds a banner to the artwork</span></span></label></div>
-        <div class="f"><label for="qty">How many you have</label><input id="qty" name="qty" type="number" min="1" step="1" value="${esc(it.qty||1)}" inputmode="numeric"></div>
+        ${hides(c, "qty") ? "" : `<div class="f"><label for="qty">How many you have</label><input id="qty" name="qty" type="number" min="1" step="1" value="${esc(it.qty||1)}" inputmode="numeric"></div>`}
         <div class="f"><label for="location">Where it lives (shelf, box, wall)</label><input id="location" name="location" value="${esc(it.location||"")}"></div>
         <div class="f full"><label for="tags">Tags (comma separated)</label><input id="tags" name="tags" value="${esc((it.tags||[]).join(", "))}" placeholder="e.g. Disney, signed, wishlist upgrade"></div>
         <label class="check full"><input type="checkbox" name="favorite" ${it.favorite?"checked":""}> ★ Highlight this piece on the front page</label>
@@ -3249,6 +3281,8 @@ function viewEdit(id, params, ov){
     f.collectionId.onchange = () => { collect(); it.collectionId = f.collectionId.value; render(); };
     document.getElementById("addPhotos").onchange = e => addFiles(e.target.files, "photo");
     document.getElementById("addDocs").onchange = e => addFiles(e.target.files, "document");
+    if(document.getElementById("addFrames")) document.getElementById("addFrames").onchange = e => addFiles(e.target.files, "photo", false, "frame");
+    if(document.getElementById("addClip")) document.getElementById("addClip").onchange = e => addFiles(e.target.files, "video");
     wireChoices(f, (name, v) => {
       if(name === "condition"){ cat.settings = {...(cat.settings||{}), conditions:[...((cat.settings||{}).conditions||[]), v]}; return; }
       const fld = coll(it.collectionId).fields.find(x => "x_" + x.k === name); if(fld){ fld.opts = [...(fld.opts||[]), v]; }
@@ -3268,7 +3302,7 @@ function viewEdit(id, params, ov){
     if(document.getElementById("scanTop")) document.getElementById("scanTop").onclick = startScan;
     document.getElementById("barcode").onchange = e => { const v = e.target.value.trim(); if(v && !existing) { collect(); lookupInto(v); } };
     if(document.getElementById("titleLook")) document.getElementById("titleLook").onclick = lookupTitle;
-    renderCopies(); document.getElementById("qty").oninput = renderCopies;
+    renderCopies(); if(document.getElementById("qty")) document.getElementById("qty").oninput = renderCopies;
     document.getElementById("addExtra").onclick = () => { document.getElementById("extras").insertAdjacentHTML("beforeend", extraRow({l:"",v:""})); wireExtras(); document.querySelector("#extras .xrow:last-child [data-xl]").focus(); };
     wireExtras();
     if(document.getElementById("tracksFill")) document.getElementById("tracksFill").onclick = async () => {
@@ -3334,7 +3368,7 @@ function viewEdit(id, params, ov){
 
   function readCopies(){ return [...document.querySelectorAll("#copies .copyrow")].map(r => ({condition:r.querySelector(".cc").value.trim(), location:r.querySelector(".cl").value.trim(), note:r.querySelector(".cn").value.trim()})); }
   function renderCopies(){
-    const box = document.getElementById("copies"); if(!box) return;
+    const box = document.getElementById("copies"); if(!box || !document.getElementById("qty")) return;
     const n = Math.max(1, Math.min(200, parseInt(document.getElementById("qty").value, 10) || 1));
     const cur = box.children.length ? readCopies() : (it.copies || []);
     document.getElementById("copiesBox").style.display = n > 1 ? "block" : "none";
@@ -3346,14 +3380,14 @@ function viewEdit(id, params, ov){
   }
   function collect(){
     const f = document.getElementById("ef"), d = new FormData(f), c = coll(it.collectionId);
-    ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => it[k] = (d.get(k)||"").trim().replace(/^__other$/,""));
+    ["title","maker","year","barcode","condition","location","acquiredDate","source","notes"].forEach(k => { if(d.get(k) === null) return; it[k] = (d.get(k)||"").trim().replace(/^__other$/,""); });   // a box the collection hides keeps what was there
     { const ms = (d.get("makerSort")||"").trim(), mk = (it.maker||"").trim().toLowerCase();   // one sort name per artist, used by all their pieces
       if(mk){ cat.makerSortManual = cat.makerSortManual || {}; const auto = msGet(cat.makerSort, it.maker) || it.maker;   // keep any choice that differs from the automatic one, including "as written" over MusicBrainz
         if(ms && ms !== auto) cat.makerSortManual[mk] = ms; else delete cat.makerSortManual[mk]; } }
     ["price","value"].forEach(k => { const v = (d.get(k)||"").replace(/[$,\s]/g,""); it[k] = v === "" ? "" : (isNaN(+v) ? v : +v); });
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
-    const q = parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
+    const q = d.get("qty") === null ? (+it.qty || 1) : parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
     if(d.get("bootleg")) it.bootleg = true; else delete it.bootleg;
     const cps = readCopies();
     if(q > 1 && cps.some(x => x.condition || x.location || x.note)) it.copies = cps.slice(0, q); else delete it.copies;
@@ -3372,11 +3406,11 @@ function viewEdit(id, params, ov){
     const el = document.getElementById("media");
     el.innerHTML = it.media.map((m,n) => {
       const p = pending.find(p => p.m === m);
-      const im = m.kind === "photo" ? (p ? `<img src="${p.previewUrl}" alt="">` : `<img alt="" data-path="${esc(m.thumb||m.path)}">`) : (/pdf$/i.test(m.name||"") ? "📄" : "📜");
-      const isCover = m.kind === "photo" && n === it.media.findIndex(x=>x.kind==="photo");
-      return `<div class="mtile"><div class="im">${im}${isCover ? `<span class="tag">Cover</span>` : ""}</div><div class="row">
-        ${m.kind === "photo" ? `${isCover ? "" : `<button type="button" data-cover="${m.id}" title="Make cover" aria-label="Make cover">⤒</button>`}<button type="button" data-edit="${m.id}" title="Crop &amp; rotate" aria-label="Crop and rotate">✎</button>`
-          : `<input data-label="${m.id}" value="${esc(m.label||"")}" placeholder="COA, receipt…">`}
+      const im = m.kind === "photo" ? (p ? `<img src="${p.previewUrl}" alt="">` : `<img alt="" data-path="${esc(m.thumb||m.path)}">`) : m.kind === "video" ? "🎥" : (/pdf$/i.test(m.name||"") ? "📄" : "📜");
+      const isCover = m === cover(it), frame = m.role === "frame";
+      return `<div class="mtile"><div class="im">${im}${isCover ? `<span class="tag">Cover</span>` : frame ? `<span class="tag">🎬 Screen grab</span>` : ""}</div><div class="row">
+        ${m.kind === "photo" ? `${isCover || frame ? "" : `<button type="button" data-cover="${m.id}" title="Make cover" aria-label="Make cover">⤒</button>`}<button type="button" data-edit="${m.id}" title="Crop &amp; rotate" aria-label="Crop and rotate">✎</button>`
+          : `<input data-label="${m.id}" value="${esc(m.label||"")}" placeholder="${m.kind === "video" ? "Scene clip" : "COA, receipt…"}">`}
         <button type="button" data-rm="${m.id}" title="Remove" aria-label="Remove">✕</button></div></div>`;
     }).join("");
     el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { collect(); const i = it.media.findIndex(m=>m.id===b.dataset.rm); const [m] = it.media.splice(i,1);
@@ -3420,7 +3454,7 @@ function viewEdit(id, params, ov){
     catch(e){ it.media.push({id:uid(), kind:"photo", remote:true, name:"cover", path:url, thumb:thumb || url}); }
     const added = it.media.splice(n); it.media.unshift(...added); renderMedia(); toast("Cover set");
   }
-  async function addFiles(files, kind, noCollect){
+  async function addFiles(files, kind, noCollect, role){
     if(!noCollect) collect();
     const done = busy("Preparing " + files.length + " file" + (files.length>1?"s":"") + "…");
     try{
@@ -3430,8 +3464,13 @@ function viewEdit(id, params, ov){
         if(kind === "photo"){
           if(!isImg) continue;
           const full = await shrink(file, 2400, .88), th = await shrink(file, 520, .8);
-          const m = {id:mid, kind:"photo", name:safeName(file.name), path:base + ".jpg", thumb:base + "_t.jpg"};
+          const m = {id:mid, kind:"photo", name:safeName(file.name), path:base + ".jpg", thumb:base + "_t.jpg"}; if(role) m.role = role;
           it.media.push(m); pending.push({m, blob:full, thumbBlob:th, previewUrl:URL.createObjectURL(th)});
+        }else if(kind === "video"){
+          if(!/^video\//.test(file.type) && !/\.(mp4|m4v|mov|webm)$/i.test(file.name)) continue;
+          const ext = (file.name.match(/\.\w+$/)||[".mp4"])[0].toLowerCase();
+          const m = {id:mid, kind:"video", name:safeName(file.name), path:base + ext, label:"Scene clip"};
+          it.media.push(m); pending.push({m, blob:file, previewUrl:URL.createObjectURL(file)});
         }else{
           const ext = (file.name.match(/\.\w+$/)||[isImg?".jpg":".pdf"])[0].toLowerCase();
           const m = {id:mid, kind:"document", name:safeName(file.name), path:base + ext, label:/coa|cert|authent/i.test(file.name) ? "Certificate of authenticity" : ""};
@@ -3570,7 +3609,7 @@ document.addEventListener("click", e => {
 
 /* ---------- Settings ---------- */
 function viewSettings(){
-  document.title = "Settings · " + (cat.title||"The Collection");
+  document.title = "Settings · " + (cat.title||"The Museum");
   const dbx = LS.get("cm.dropbox", null), key = appKey();
   app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › Settings</div>
   <h1 style="font-size:1.8rem;margin:4px 0 16px">Settings</h1>
@@ -3679,7 +3718,7 @@ function viewSettings(){
   };
   if($("disc")) $("disc").onclick = () => { if(!confirm("Disconnect Dropbox on this device? Your catalog stays safe in Dropbox.")) return; LS.del("cm.dropbox"); LS.del("cm.links"); LS.set("cm.mode","local"); location.reload(); };
   $("forceUpd").onclick = e => { e.preventDefault(); checkUpdate(true); };
-  $("mnameSave").onclick = async () => { cat.title = $("mname").value.trim() || "The Collection"; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); setBrand(); };
+  $("mnameSave").onclick = async () => { cat.title = $("mname").value.trim() || "The Museum"; await persist().then(()=>toast("Saved")).catch(e=>alert(e.message)); setBrand(); };
   $("addc").onclick = async () => {
     const name = $("nc").value.trim(); if(!name) return toast("Name the collection first.");
     const fields = $("nf").value.split(",").map(s=>s.trim()).filter(Boolean).map(s => ({k:"f_"+uid().slice(-5), l:s.replace(/\*$/,"").trim(), priv:/\*$/.test(s)}));
@@ -4056,7 +4095,7 @@ async function showVersions(){
 }
 
 function viewStats(){
-  document.title = "Stats · " + (cat.title || "The Collection");
+  document.title = "Stats · " + (cat.title || "The Museum");
   const items = cat.items, n = items.length;
   const counts = {}; items.forEach(i => counts[i.collectionId] = (counts[i.collectionId]||0) + 1);
   const copies = items.reduce((s, i) => s + (+i.qty > 1 ? +i.qty : 1), 0);
@@ -4561,7 +4600,7 @@ function askAnswer(raw){
 }
 function viewAsk(params){
   const app = document.getElementById("app"), q = params.get("q") || "";
-  document.title = "Ask · " + (cat.title || "The Collection");
+  document.title = "Ask · " + (cat.title || "The Museum");
   const bar = r => `<${r.href ? `a href="${esc(r.href)}"` : "div"} class="st-bar"><span class="nm">${esc(r.name)}</span><span class="tr"><i style="width:${Math.max(1, r.v / bmax * 100)}%"></i></span><span class="ct">${esc(r.label ?? r.v)}</span></${r.href ? "a" : "div"}>`;
   const ans = q ? askAnswer(q) : null, bmax = ans && ans.bars && ans.bars.length ? Math.max(...ans.bars.map(r => +r.v || 0)) || 1 : 1;
   app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › Ask</div>
@@ -4577,12 +4616,12 @@ function viewAsk(params){
   hydrate(app);
 }
 function viewReport(){
-  document.title = "Insurance report · " + (cat.title||"The Collection");
+  document.title = "Insurance report · " + (cat.title||"The Museum");
   const groups = cat.collections.map(c => ({c, items:sortItems(cat.items.filter(i=>i.collectionId===c.id),"title")})).filter(g=>g.items.length);
   const sum = l => l.reduce((s,i)=>s+(+i.value||0),0), paid = l => l.reduce((s,i)=>s+(+i.price||0),0);
   app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › <a href="#/settings">Settings</a> › Insurance report</div>
   <div class="actions noprint" style="margin:0 0 14px"><button class="iconbtn primary" onclick="print()">🖨 Print / save as PDF</button></div>
-  <h1 style="font-size:1.7rem">${esc(cat.title||"The Collection")}: inventory</h1>
+  <h1 style="font-size:1.7rem">${esc(cat.title||"The Museum")}: inventory</h1>
   <p style="color:var(--muted);margin:.3rem 0 1rem">Prepared ${new Date().toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"})} · ${cat.items.length} pieces · estimated value <b>${esc(money(sum(cat.items))||"$0")}</b> · paid ${esc(money(paid(cat.items))||"$0")}</p>
   ${groups.map(({c,items}) => `<h2 style="font-size:1.2rem;margin:18px 0 6px">${c.icon} ${esc(c.name)} <span style="color:var(--muted);font-size:.9rem;font-family:var(--sans)">· ${items.length} · ${esc(money(sum(items))||"$0")}</span></h2>
     <div class="report-wrap"><table class="report"><thead><tr><th>Title</th><th>${esc(c.maker||"Maker")}</th><th>Year</th><th>Identifiers</th><th>Condition</th><th>Acquired</th><th class="n">Paid</th><th class="n">Value</th><th>Docs</th></tr></thead><tbody>
@@ -4598,13 +4637,18 @@ function viewGallery(id){
   const g = JSON.parse(JSON.stringify(orig));
   const n = cat.items.filter(i => i.collectionId === id).length;
   const used = k => cat.items.filter(i => i.collectionId === id && i.fields && i.fields[k]).length;
-  document.title = "Edit " + g.name + " · " + (cat.title||"The Collection");
+  document.title = "Edit " + g.name + " · " + (cat.title||"The Museum");
   const inp = 'style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0;width:100%"';
-  const fieldRow = f => `<div class="frow" data-k="${esc(f.k||"")}" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">
-    <input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
+  const grip = `<button type="button" class="grip" data-drag title="Drag to reorder (or use the ↑ ↓ keys)" aria-label="Drag to reorder">⠿</button>`;
+  const fieldRow = f => `<div class="frow" data-k="${esc(f.k||"")}" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">
+    ${grip}<input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
     <label class="check" title="Private: hidden when values are hidden"><input type="checkbox" data-fp ${f.priv?"checked":""}> 🔒</label>
     <button type="button" class="iconbtn" data-frm title="Remove field" style="height:auto">✕</button>
-    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:1/-1')}></div>`;
+    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}></div>`;
+  // Year is built in (not a field), but it can be dragged into place among the fields too.
+  const yearRow = `<div class="frow" data-core="year" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">${grip}<div style="padding:9px 10px;color:var(--muted)">Year <small>(built in, always there)</small></div></div>`;
+  const yAt = g.yearAfter ? g.fields.findIndex(f => f.k === g.yearAfter) : -1;
+  const rowsHTML = (yAt < 0 ? [yearRow] : []).concat(g.fields.flatMap((f, n) => n === yAt ? [fieldRow(f), yearRow] : [fieldRow(f)])).join("");
   app.innerHTML = `<div class="crumbs"><a href="#/">Museum</a> › <a href="#/c/${id}">${esc(g.name)}</a> › Edit collection</div>
   <form class="edit" id="gf"><h1 style="font-size:1.8rem;margin-bottom:16px">Edit collection</h1>
     <fieldset><legend>Name</legend><div class="fgrid">
@@ -4614,8 +4658,8 @@ function viewGallery(id){
       <div class="f"><label for="glook">Look up info from</label><select id="glook">${Object.entries(LOOKUPS).map(([k,l]) => `<option value="${k}" ${k===lookupKind(g)?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
     </div></fieldset>
     <fieldset><legend>Fields</legend>
-      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost.</p>
-      <div id="frows" style="display:grid;gap:8px">${g.fields.map(fieldRow).join("")}</div>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece.</p>
+      <div id="frows" style="display:grid;gap:8px">${rowsHTML}</div>
       <div class="actions" style="margin-top:10px"><button type="button" class="iconbtn" id="addF">＋ Add a field</button></div>
     </fieldset>
     ${n ? `<fieldset><legend>Tidy up values</legend>
@@ -4629,12 +4673,26 @@ function viewGallery(id){
     </fieldset>` : ""}
     <div class="actions" style="justify-content:flex-end"><a class="iconbtn" href="#/c/${id}" style="height:44px">Cancel</a><button class="iconbtn primary" type="submit" style="height:44px;padding:0 22px">Save</button>
       <span style="flex:1"></span>${n ? `<span style="color:var(--muted);font-size:.85rem;align-self:center">Move or delete its ${n} piece${n===1?"":"s"} to delete this collection</span>` : `<button type="button" class="iconbtn" id="delG" style="height:44px;color:var(--danger)">Delete collection</button>`}</div>
+    ${n ? `<p style="color:var(--muted);font-size:.8rem;text-align:right;margin:6px 0 0">A collection can only be deleted once it's empty, so its pieces are never lost with it.</p>` : ""}
   </form>`;
   const wire = () => app.querySelectorAll("[data-frm]").forEach(b => b.onclick = () => {
     const row = b.closest(".frow"), k = row.dataset.k, u = k ? used(k) : 0;
     if(u && !confirm(`${u} piece${u===1?" has":"s have"} this field filled in. Remove it? Those entries will move to “More details”.`)) return;
     row.remove(); });
   wire();
+  { // Drag ⠿ to reorder fields (mouse or finger); ↑ ↓ on a focused handle moves it one place.
+    const box = document.getElementById("frows");
+    box.addEventListener("pointerdown", e => { const h = e.target.closest("[data-drag]"); if(!h || e.button > 0) return; e.preventDefault();
+      const row = h.closest(".frow"); row.classList.add("dragging");   // listen on the page: moving the row in the page would drop a capture on the handle
+      const move = ev => { const after = [...box.querySelectorAll(".frow:not(.dragging)")].find(r => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+        if(after !== row.nextElementSibling) box.insertBefore(row, after || null);
+        if(ev.clientY < 70) scrollBy(0, -14); else if(ev.clientY > innerHeight - 70) scrollBy(0, 14); };
+      const up = () => { row.classList.remove("dragging"); ["pointermove","pointerup","pointercancel"].forEach((t, k) => document.removeEventListener(t, k ? up : move)); };
+      document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up); });
+    box.addEventListener("keydown", e => { const h = e.target.closest("[data-drag]"); if(!h || !/^Arrow(Up|Down)$/.test(e.key)) return; e.preventDefault();
+      const row = h.closest(".frow"); if(e.key === "ArrowUp" && row.previousElementSibling) box.insertBefore(row, row.previousElementSibling);
+      else if(e.key === "ArrowDown" && row.nextElementSibling) box.insertBefore(row.nextElementSibling, row); h.focus(); });
+  }
   if(document.getElementById("tfield")){
     const getV = (i, k) => k === "condition" || k === "maker" ? (i[k]||"") : ((i.fields||{})[k]||"");
     const setV = (i, k, v) => { if(k === "condition" || k === "maker") i[k] = v; else { i.fields = i.fields || {}; if(v) i.fields[k] = v; else delete i.fields[k]; } };
@@ -4659,19 +4717,26 @@ function viewGallery(id){
   }
   document.getElementById("addF").onclick = () => { document.getElementById("frows").insertAdjacentHTML("beforeend", fieldRow({l:""})); wire(); document.querySelector("#frows .frow:last-child [data-fl]").focus(); };
   if(document.getElementById("delG")) document.getElementById("delG").onclick = async () => {
-    if(!confirm(`Delete the empty “${g.name}” collection?`)) return;
+    const typed = prompt(`Delete the “${g.name}” collection for good? Its fields and settings go with it.\n\nType the collection's name to confirm:`);
+    if(typed == null) return;
+    if(typed.trim().toLowerCase() !== g.name.trim().toLowerCase()) return alert("The name didn't match, so nothing was deleted.");
+    if(cat.items.some(i => i.collectionId === id)) return alert("This collection has pieces in it now. Move or delete them first.");
     cat.collections = cat.collections.filter(c => c.id !== id);
     try{ await persist(); location.hash = "#/settings"; }catch(e){ cat.collections.push(orig); alert(e.message); }
   };
   document.getElementById("gf").onsubmit = async e => {
     e.preventDefault();
-    const fields = [...app.querySelectorAll("#frows .frow")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked,
+    const fields = [...app.querySelectorAll("#frows .frow:not([data-core])")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked,
         opts:[...new Set(r.querySelector("[data-fo]").value.split(",").map(x=>x.trim()).filter(Boolean))]}))
       .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined}; if(!out.opts.length) delete out.opts; return out; });
+    // Year goes after whichever field is just above its row (none: before the fields, as usual)
+    const yr = app.querySelector('#frows [data-core="year"]'), rowsAll = [...app.querySelectorAll("#frows .frow")], above = rowsAll.slice(0, rowsAll.indexOf(yr)).filter(r => !r.dataset.core && r.querySelector("[data-fl]").value.trim());
+    const yearAfter = above.length ? fields[[...app.querySelectorAll("#frows .frow:not([data-core])")].filter(r => r.querySelector("[data-fl]").value.trim()).indexOf(above[above.length - 1])].k : "";
     const removed = orig.fields.filter(f => !fields.some(x => x.k === f.k));
     const backup = JSON.stringify({c:orig, items:cat.items.filter(i=>i.collectionId===id)});
     removed.forEach(f => cat.items.forEach(i => { if(i.collectionId === id && i.fields && i.fields[f.k]){ i.extra = i.extra || []; i.extra.push({l:f.l, v:i.fields[f.k]}); delete i.fields[f.k]; } }));
     Object.assign(orig, {name:document.getElementById("gname").value.trim() || g.name, icon:document.getElementById("gicon").value.trim() || "📦", maker:document.getElementById("gmaker").value.trim() || "Maker", lookup:document.getElementById("glook").value, fields});
+    if(yearAfter) orig.yearAfter = yearAfter; else delete orig.yearAfter;
     if(orig.lookup === "comic" && !orig.comicSetup){ orig.comicSetup = 1; const norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,"");
       const add = COMIC_FIELDS.filter(f => !orig.fields.some(x => norm(x.l) === norm(f.l) || x.k === f.k)).map(f => JSON.parse(JSON.stringify(f)));
       const iss = add.find(f => f.k === "issue"); orig.fields = (iss ? [iss] : []).concat(orig.fields, add.filter(f => f.k !== "issue")); }
@@ -4701,7 +4766,7 @@ function fillGalNav(cur){
     document.addEventListener("keydown", e => { if(e.key === "Escape") shut(); }); }
   shut();
 }
-function setBrand(){ document.getElementById("brand").firstChild.textContent = cat.title || "The Collection"; }
+function setBrand(){ document.getElementById("brand").firstChild.textContent = cat.title || "The Museum"; }
 
 /* ---------- Samples ---------- */
 async function loadSamples(){
@@ -4831,6 +4896,21 @@ async function boot(){
       const nl = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,""), key = nl(f.l.split(/ [(\/]/)[0]);
       cat.items.forEach(i => { if(i.collectionId !== c.id || !(i.extra||[]).length || (i.fields||{})[f.k]) return;
         const x = i.extra.find(e => nl(e.l) === key || nl(e.l) === nl(f.l)); if(x && x.v){ i.fields = i.fields || {}; i.fields[f.k] = x.v; i.extra = i.extra.filter(e => e !== x); } }); } } }); });
+  // The museum's old default name becomes the new one (a name typed in Settings stays).
+  if(!cat.title || cat.title === "The Collection") cat.title = "The Museum";
+  // One-time (2026-11-12): Animation Cels get Eric's layout. Type, Production, Season #, Episode #, Year, Characters lead; Edition # and
+  // Matted / framed go (anything typed there moves to "More details"); Condition and quantity are hidden; screen grabs and scene clips are on.
+  { const c = cat.collections.find(x => x.id === "cels"), pc = PRESETS.find(x => x.id === "cels");
+    if(c && !c.celSetup){ c.celSetup = 1;
+      ["edition","framing"].forEach(k => { const f = c.fields.find(x => x.k === k); if(!f) return;
+        cat.items.forEach(i => { if(i.collectionId !== "cels" || !String((i.fields||{})[k]||"").trim()) return; i.extra = (i.extra||[]).concat({l:f.l, v:i.fields[k]}); delete i.fields[k]; });
+        c.fields = c.fields.filter(x => x !== f); });
+      const prod = c.fields.find(x => x.k === "production"); if(prod && prod.l === "Production / film / show") prod.l = "Production (film, show, commercial)";
+      ["season","episode"].forEach(k => { if(!c.fields.some(x => x.k === k)) c.fields.push(JSON.parse(JSON.stringify(pc.fields.find(x => x.k === k)))); });
+      const lead = ["celType","production","season","episode","characters"];
+      c.fields = lead.map(k => c.fields.find(x => x.k === k)).filter(Boolean).concat(c.fields.filter(x => !lead.includes(x.k)));
+      c.seen = [...new Set([...(c.seen||[]), ...pc.fields.map(f => f.k)])];
+      Object.assign(c, {yearAfter:"episode", hide:["condition","qty"], frames:true, clips:true}); } }
   // The upgrades above are the same on every device, so count them as the starting point when merging with another device's changes.
   if(store.kind === "dropbox" && store.base) store.base = JSON.stringify(cat, null, 1);
   // One-time: laserdiscs filed under Records (a format, tag or title that says Laserdisc) move to their own Laserdiscs collection,

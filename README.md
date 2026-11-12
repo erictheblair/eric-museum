@@ -1,4 +1,4 @@
-# The Collection: a private museum for your collections
+# The Museum: private collections
 
 A small web app (no server, no database). The app files hold none of your data.
 Your catalog (`catalog.json`) and every photo and COA scan live in your own Dropbox,
