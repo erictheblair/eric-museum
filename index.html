@@ -870,7 +870,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.20";
+const APP_VERSION = "2026.11.12.21";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2136,6 +2136,7 @@ function viewItem(id, host){
       ${(it.tracks||[]).length ? `<h3 style="margin-top:20px;font-size:1.05rem">Track listing</h3>${trackListHTML(it.tracks, it.maker)}`
         : hasTrackList(c) && ((it.matched||{}).ref || it.barcode) ? `<div class="actions noprint" style="margin-top:14px"><button class="iconbtn" id="tracksBtn">🎶 Get the track listing</button></div>` : ""}
       ${(it.credits||[]).length ? `<details class="personnel"${it.credits.length <= 8 ? " open" : ""}><summary><h3 style="display:inline;font-size:1.05rem">Personnel</h3> <span style="color:var(--muted);font-size:.85rem">${it.credits.length}</span></summary><ul class="credits">${it.credits.map(x => `<li><a href="#/?q=${encodeURIComponent(x.n)}">${esc(x.n)}</a>${x.r ? ` <span>${esc(x.r)}</span>` : ""}</li>`).join("")}</ul></details>` : ""}
+      ${bandColl(c) && it.maker && (it.bandChk||0) < BANDV && !(it.credits||[]).some(x => /band member/i.test(x.r||"")) ? `<div class="actions noprint" style="margin-top:10px"><button class="iconbtn" id="bandBtn">👥 Look up band members${(it.credits||[]).length ? "" : " &amp; personnel"}</button></div>` : ""}
       ${(it.tags||[]).length ? `<div class="chips" style="margin-top:14px">${it.tags.map(t=>`<a class="chip" href="#/c/${c.id}?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join("")}</div>` : ""}
       ${it.qty > 1 && (it.copies||[]).some(x => x.condition || x.location || x.note) ? `<h3 style="margin-top:20px;font-size:1.05rem">Your ${it.qty} copies</h3><ul class="copylist">${Array.from({length:it.qty}, (_, i) => { const x = it.copies[i] || {};
         return `<li><b>Copy ${i+1}</b>${x.condition ? " · " + esc(x.condition) : ""}${x.location ? " · 📍 " + esc(x.location) : ""}${x.note ? `<div class="cm">${esc(x.note)}</div>` : ""}</li>`; }).join("")}</ul>` : ""}
@@ -2194,6 +2195,20 @@ function viewItem(id, host){
   };
   if(document.getElementById("matchBtn")) document.getElementById("matchBtn").onclick = () => matchSaved(it);
   if(document.getElementById("coverBtn")) document.getElementById("coverBtn").onclick = () => chooseCover(it);
+  if(document.getElementById("bandBtn")) document.getElementById("bandBtn").onclick = async () => {
+    const done = busy("Looking up band members…"), before = JSON.stringify(it);
+    try{
+      const ref = await trackRef(it), d = ref && await releaseDetails(ref, it.year);
+      const mem = d ? (d.bandFail ? null : d.members || []) : await bandMembers({name:it.maker, years:[it.year]});
+      const cur = item(it.id) || it;
+      if(d && !Array.isArray(cur.credits) || d && !(cur.credits||[]).length && (d.credits||[]).length){ const was = it.matched || cur.matched; mergeResult(cur, {named:d.named, tracks:(cur.tracks||[]).length ? undefined : d.tracks, credits:d.credits || []}, false); cur.matched = was; }
+      if(mem === null){ done(); return toast("The music sites are busy right now. Try again in a minute.", 5000); }
+      if(mem.length) cur.credits = addMembers(cur.credits, mem);
+      cur.bandChk = BANDV; cur.updated = new Date().toISOString(); await persist();
+      toast(mem.length ? "Added " + mem.length + " band member" + (mem.length === 1 ? "" : "s") : "MusicBrainz and Discogs don't list band members for " + it.maker + ". You can type them in ✎ Edit → Personnel.", 6000);
+    }catch(e){ Object.assign(it, JSON.parse(before)); alert(e.message); } finally{ done(); }
+    refreshView();
+  };
   if(document.getElementById("tracksBtn")) document.getElementById("tracksBtn").onclick = async () => {
     const done = busy("Getting the track listing…"), before = JSON.stringify(it);
     try{
@@ -2993,7 +3008,7 @@ function creditList(pairs){
    a = {name, mbid?, dgId?, years:[...], credited:[names on the release]}. Returns [{n, r:"Band member, Guitar…"}], [] for a solo artist
    or a band nobody lists, or null when the sites couldn't be reached (so it's tried again later). */
 const bandCache = {};
-const lowName = n => String(n||"").replace(/\s*\(\d+\)$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]+/g, " ").trim();
+const lowName = n => String(n||"").replace(/\s*\(\d+\)$/, "").replace(/\s*&\s*/g, " and ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]+/g, " ").trim();
 async function bandMembers(a){
   const name = String(a.name||"").replace(/\s*\(\d+\)$/, "").trim(); if(!name || /^various/i.test(name) || /^unknown artist/i.test(name)) return [];
   const y = Math.min(...(a.years||[]).map(v => parseInt(String(v||"").slice(0, 4))).filter(v => v > 1800), 9999), year = y === 9999 ? 0 : y;
@@ -3004,7 +3019,7 @@ async function bandMembers(a){
   try{
     let id = a.mbid;
     if(!id){ await wait();
-      const j = await getJSON("https://musicbrainz.org/ws/2/artist/?fmt=json&limit=5&query=" + encodeURIComponent('artist:"' + name.replace(/"/g, "") + '"'));
+      const j = await getJSON("https://musicbrainz.org/ws/2/artist/?fmt=json&limit=5&query=" + encodeURIComponent('artist:"' + name.replace(/"/g, "") + '" OR artist:"' + name.replace(/"/g, "").replace(/\s*&\s*/g, " and ") + '"'));
       const hit = (j.artists||[]).find(x => (x.score||0) >= 90 && [x.name, ...((x.aliases||[]).map(z => z.name))].some(n => lowName(n) === lowName(name)));
       if(hit){ if(hit.type === "Person") solo = true; else id = hit.id; } }
     if(id){ await wait();
@@ -3020,6 +3035,11 @@ async function bandMembers(a){
         if(m.size) out = [...m.values()].map(x => ({n:x.n, r:x.r.join(", ")})); }
     }
   }catch(e){ console.warn("band members:", e.message); if(!a.dgId) return null; }
+  if(!out && !solo && !a.dgId && (cat.settings||{}).discogsToken){
+    try{ const j = await getJSON("https://api.discogs.com/database/search?type=artist&per_page=10&q=" + encodeURIComponent(name) + "&token=" + encodeURIComponent(cat.settings.discogsToken));
+      const hit = (j.results||[]).find(x => lowName(x.title) === lowName(name)); if(hit) a = {...a, dgId:hit.id};
+    }catch(e){ console.warn("band members:", e.message); return null; }
+  }
   if(!out && !solo && a.dgId && (cat.settings||{}).discogsToken){
     try{ const j = await getJSON("https://api.discogs.com/artists/" + a.dgId + "?token=" + encodeURIComponent(cat.settings.discogsToken));
       const ms = j.members || [], on = new Set((a.credited||[]).map(lowName));
@@ -3141,7 +3161,8 @@ async function trackRef(it){
 let trackJob = null;
 const TRACKJOB_KEY = "cm.trackJob";
 const bandColl = c => !!c && c.id !== "laserdiscs" && (lookupKind(c) === "music" || c.id === "records");
-const needsBand = i => !i.bandChk && !!i.maker && bandColl(coll(i.collectionId));   // band members never looked up
+const BANDV = 2;   // bump to look again at pieces checked by an older, weaker lookup
+const needsBand = i => (i.bandChk||0) < BANDV && !!i.maker && bandColl(coll(i.collectionId));   // band members never looked up
 const needsDetails = i => (((i.matched||{}).ref) || i.barcode) && (!(i.tracks||[]).length || !Array.isArray(i.credits)) || needsBand(i);   // no track listing, or personnel never looked up
 function trackTodo(){ return cat.items.filter(i => hasTrackList(coll(i.collectionId)) && needsDetails(i)); }
 async function keepAwake(job){
@@ -3183,7 +3204,7 @@ async function fillAllTracks(resume){
           if(d && (d.tracks.length && !had || !Array.isArray(cur.credits))){ const was = cur.matched;
             mergeResult(cur, {named:d.named, tracks:d.tracks, credits:d.credits || []}, false); cur.matched = was; }
           if(mem && mem.length) cur.credits = addMembers(cur.credits, mem);
-          if(mem && bandColl(coll(cur.collectionId))) cur.bandChk = 1;   // looked for band members (null = the sites were busy: try again next time)
+          if(mem && bandColl(coll(cur.collectionId))) cur.bandChk = BANDV;   // looked for band members (null = the sites were busy: try again next time)
           const nowB = (cur.credits||[]).filter(c => /band member/i.test(c.r||"")).length;
           if((cur.tracks||[]).length > had || (cur.credits||[]).length > hadC || nowB > hadB){ filled++; if(nowB > hadB) bands++; }
           else if(ref && !(cur.tracks||[]).length) none++;
