@@ -78,6 +78,8 @@ main{padding:20px 0 calc(120px + env(safe-area-inset-bottom))}
 .letgo{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin:12px 0 4px;padding:12px 14px;border-radius:12px;border:1px solid #c9821a;background:rgba(201,130,26,.12);font-size:.92rem}
 .letgo .grow{flex:1;min-width:180px}
 .letgo input{width:100%;margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px}
+.card .sgb{position:absolute;z-index:3;bottom:10px;right:10px;padding:2px 8px;border-radius:999px;background:#1f3a5f;color:#fff;font:700 .68rem/1.5 var(--sans,system-ui);box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none;white-space:nowrap}
+.listview .card .sgb{position:static;order:8;box-shadow:none}
 .lgn{margin:6px 2px 0;font-size:.85rem;color:var(--muted);font-style:italic;overflow-wrap:anywhere}
 @media (hover:hover) and (pointer:fine){
   .card .qe{display:flex;position:absolute;z-index:4;top:10px;right:10px;width:36px;height:36px;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:1rem;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transform:scale(.9);transition:opacity .15s,transform .15s}
@@ -893,7 +895,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.14.5";
+const APP_VERSION = "2026.11.14.6";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -1518,6 +1520,7 @@ function quickEdit(id, keep){
       <div class="f full"><label for="q_tags">Tags (comma separated)</label><input id="q_tags" name="tags" value="${esc((it.tags||[]).join(", "))}"></div>
       <label class="check"><input type="checkbox" name="favorite" ${it.favorite ? "checked" : ""}> ★ Highlight</label>
       <label class="check"><input type="checkbox" name="bootleg" ${it.bootleg ? "checked" : ""}> Bootleg</label>
+      <label class="check"><input type="checkbox" name="signed" ${it.signed ? "checked" : ""}> ✍ Autographed</label>
       <label class="check"><input type="checkbox" name="letGo" ${it.letGo ? "checked" : ""}> 🤔 Considering letting go</label>
     </div>
     <div class="qbar"><a href="#/edit/${it.id}" id="qeFull">Full edit (photos, notes…)</a><button type="button" class="iconbtn" id="qeC">Cancel</button><button type="submit" class="iconbtn primary">Save</button></div></form></div></div>`;
@@ -1557,6 +1560,7 @@ function quickEdit(id, keep){
     it.favorite = d.get("favorite") === "on";
     if(d.get("bootleg")) it.bootleg = true; else delete it.bootleg;
     setLetGo(it, d.get("letGo") === "on");
+    setSigned(it, d.get("signed") === "on");
     it.fields = it.fields || {};
     fields.forEach(x => { const v = (d.get("x_" + x.k)||"").trim().replace(/^__other$/, ""); if(v) it.fields[x.k] = v; else delete it.fields[x.k]; });
     it.updated = new Date().toISOString();
@@ -1604,7 +1608,7 @@ function plate(it){
   const shown = iss && !/#/.test(it.title||"") ? it.title + " #" + iss : it.title;
   const sub = [it.maker, it.year].filter(Boolean).join(" · ");
   const meta = c.fields.filter(f => !(priv && f.priv) && (it.fields||{})[f.k]).slice(0,2).map(f => it.fields[f.k]).concat(it.qty > 1 ? ["×" + it.qty] : [], it.condition ? [it.condition] : [], !priv && it.value ? [money(it.value)] : []);
-  return `<a class="card" href="#/i/${it.id}"><button type="button" class="qe" data-qe="${it.id}" title="Quick edit" aria-label="Quick edit ${esc(it.title||"")}">✎</button>${it.letGo ? `<span class="lgb" title="You're considering letting this go">🤔 Letting go?</span>` : ""}<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte">${inner}</div></div>
+  return `<a class="card" href="#/i/${it.id}"><button type="button" class="qe" data-qe="${it.id}" title="Quick edit" aria-label="Quick edit ${esc(it.title||"")}">✎</button>${it.letGo ? `<span class="lgb" title="You're considering letting this go">🤔 Letting go?</span>` : ""}<div class="frame${it.bootleg ? " boot" : ""}"${it.signed ? ' style="position:relative"' : ""}><div class="matte">${inner}</div>${it.signed ? `<span class="sgb" title="${esc(it.signedBy ? "Signed by " + it.signedBy : "Autographed")}">✍ Signed</span>` : ""}</div>
     <div class="plaque"><div class="t">${it.favorite?'<span class="star">★</span> ':""}${esc(shown)}</div><div class="s">${esc(sub)||"&nbsp;"}</div></div><div class="meta">${esc(meta.join(" · "))}</div></a>`;
 }
 
@@ -1635,7 +1639,7 @@ function searchHay(it, where){
       : where === "tags" ? (it.tags||[]) : where === "notes" ? [it.notes, ...(it.extra||[]).map(x => x.v)] : where.startsWith("f:") ? [(it.fields||{})[where.slice(2)]] : [];
     return normWords(one.join(" "));
   }
-  return normWords([it.title, it.maker, it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.credits||[]).map(x => x.n), ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
+  return normWords([it.title, it.maker, it.signedBy, it.signed ? "signed autographed" : "", it.year, it.barcode, it.location, it.notes, it.condition, it.source, c.name, ...(it.credits||[]).map(x => x.n), ...(it.tags||[]), ...(it.extra||[]).map(x=>x.v), ...(it.tracks||[]).map(t=>t.t||""), ...(it.copies||[]).flatMap(x=>[x.condition, x.location, x.note]),
     ...Object.entries(it.fields||{}).filter(([k])=>!priv || !(c.fields.find(f=>f.k===k)||{}).priv).map(([,v])=>v)].join(" "));
 }
 function matches(it, q, fuzzy, where){
@@ -1777,6 +1781,7 @@ function viewHome(params){
   const q = params.get("q") || "";
   document.title = cat.title || "The Museum";
   const counts = {}; cat.items.forEach(i => counts[i.collectionId] = (counts[i.collectionId]||0) + 1);
+  const ac = autoColl(), sgn = ac ? cat.items.filter(i => i.signed && i.collectionId !== ac.id).length : 0; if(sgn) counts[ac.id] = (counts[ac.id]||0) + sgn;
   const total = cat.items.reduce((s,i)=> s + (+i.value||0), 0);
   const halls = cat.arranged ? cat.collections : cat.collections.filter(c => counts[c.id]).concat(cat.collections.filter(c => !counts[c.id]));
   const results = q ? sortItems(searchItems(cat.items, q), "title") : null;
@@ -1786,14 +1791,14 @@ function viewHome(params){
   <section class="hero"><h1>${esc(cat.title || "The Museum")}</h1>
     <p>A private museum of things worth keeping.</p>
     <form class="search" id="sf">${searchBox("Search everything: artist, title, tag, place…", q)}</form>${searchModeBar(q)}
-    <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${Object.keys(counts).length}</b>collections</span>
+    <div class="stats"><span><b>${cat.items.length}</b>pieces</span><span><b>${new Set(cat.items.map(i => i.collectionId)).size}</b>collections</span>
       ${priv ? "" : `<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}${cat.items.length ? `<span class="homebtns"><a class="wallbtn" href="#/ask">💬 Ask</a><a class="wallbtn" href="#/stats">📊 Stats</a>${letGoN ? `<a class="wallbtn" href="#/letgo" title="Pieces you're considering letting go">🤔 Letting go? (${letGoN})</a>` : ""}</span>` : ""}</div>
   </section>
   ${results ? `<div class="section-title"><h2>Results</h2><span>${results.length} found</span></div>
       ${results.length ? `<div class="grid">${results.map(plate).join("")}</div>` : `<div class="empty">Nothing matches “${esc(q)}”.</div>`}` : `
   ${favs.length ? `<div class="section-title"><h2>Highlights</h2><span>Starred pieces</span></div><div class="grid">${favs.map(plate).join("")}</div>` : ""}
   <div class="section-title"><h2>Collections</h2><span style="display:flex;gap:10px;align-items:center">${sizer()}<a href="#" id="arrange">Arrange</a></span></div>
-  <div class="halls" id="halls">${halls.map(c => { const it = sortItems(cat.items.filter(i=>i.collectionId===c.id && cover(i)), "recent").sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0))[0];
+  <div class="halls" id="halls">${halls.map(c => { const it = sortItems(inHall(c.id).filter(cover), "recent").sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0))[0];
     return `<a class="hall" href="#/c/${c.id}" data-id="${c.id}">${it ? `<img alt="" data-path="${esc(cover(it).thumb||cover(it).path)}" loading="lazy">` : `<div class="ph">${c.icon}</div>`}
       <div class="label"><h3>${c.icon} ${esc(c.name)}</h3><span>${counts[c.id]||0} ${counts[c.id]===1?"piece":"pieces"}</span></div></a>`; }).join("")}</div>
   ${recent.length ? `<div class="section-title"><h2>Recently added</h2></div><div class="grid">${recent.map(plate).join("")}</div>` : ""}`}
@@ -1806,24 +1811,24 @@ function viewHome(params){
 function viewHall(id, params){
   const c = coll(id);
   const q = params.get("q") || "", sort = params.get("sort") || (c && c.sort) || LS.get("cm.sort."+id, "title"), tag = params.get("tag") || "";
-  const ins = searchIns(c, cat.items.filter(i => i.collectionId === id)), sinRaw = params.get("in") || LS.get("cm.sin." + id, "all"), sin = ins.some(x => x[0] === sinRaw) ? sinRaw : "all";
-  const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1", lg = params.get("lg") === "1";
+  const ins = searchIns(c, inHall(id)), sinRaw = params.get("in") || LS.get("cm.sin." + id, "all"), sin = ins.some(x => x[0] === sinRaw) ? sinRaw : "all";
+  const fav = params.get("fav") === "1", nophoto = params.get("nophoto") === "1", cond = params.get("cond") || "", unmatched = params.get("unmatched") === "1", lg = params.get("lg") === "1", sg = params.get("sg") === "1";
   const fsel = {}; c.fields.forEach(f => { const v = params.get("f." + f.k); if(v && !(priv && f.priv)) fsel[f.k] = v; });
   document.title = c.name + " · " + (cat.title||"The Museum");
-  const all = cat.items.filter(i => i.collectionId === id);
+  const all = inHall(id);
   const tags = [...new Set(all.flatMap(i => i.tags||[]))].sort();
-  const list = sortItems(searchItems(all, q, sin).filter(i => (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!lg || i.letGo) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
+  const list = sortItems(searchItems(all, q, sin).filter(i => (!tag || (i.tags||[]).includes(tag)) && (!fav || i.favorite) && (!lg || i.letGo) && (!sg || i.signed) && (!nophoto || !cover(i)) && (!unmatched || !isMatched(i))
     && (!cond || (i.condition||"") === cond) && Object.entries(fsel).every(([k,v]) => ((i.fields||{})[k]||"") === v)), sort);
   const total = all.reduce((s,i)=>s+(+i.value||0),0);
   if(sort === "maker" && lookupKind(c) === "music"){ const h0 = location.hash; fillMakerSort(all, () => { if(location.hash === h0 && scrollY < 300 && !pieceOv) route(); }); }
   hallOrder[id] = list.map(i => i.id);
-  const state = {q, in:sin === "all" ? "" : sin, sort, tag, fav:fav?"1":"", lg:lg?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
+  const state = {q, in:sin === "all" ? "" : sin, sort, tag, fav:fav?"1":"", lg:lg?"1":"", sg:sg?"1":"", nophoto:nophoto?"1":"", unmatched:unmatched?"1":"", cond, ...Object.fromEntries(Object.entries(fsel).map(([k,v]) => ["f." + k, v]))};
   const link = (o) => { const p = new URLSearchParams({...state, ...o}); [...p.keys()].forEach(k=>{ if(!p.get(k)) p.delete(k); }); return "#/c/"+id+(p.toString()?"?"+p:""); };
   // Filter choices come from what's actually in this gallery.
   const distinct = get => [...new Set(all.map(get).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true}));
   const conds = distinct(i => i.condition).sort((a,b) => condRank(a) - condRank(b));
   const ffields = c.fields.filter(f => !(priv && f.priv)).map(f => ({f, vals:distinct(i => (i.fields||{})[f.k])})).filter(x => x.vals.length >= 2 && x.vals.length <= 60);
-  const active = [fav && ["★ Highlights", {fav:""}], lg && ["🤔 Considering letting go", {lg:""}], nophoto && ["Missing photos", {nophoto:""}], unmatched && ["Not matched yet", {unmatched:""}], cond && ["Condition: " + cond, {cond:""}],
+  const active = [fav && ["★ Highlights", {fav:""}], lg && ["🤔 Considering letting go", {lg:""}], sg && [isAutoColl(c) ? "✍ From other collections" : "✍ Autographed", {sg:""}], nophoto && ["Missing photos", {nophoto:""}], unmatched && ["Not matched yet", {unmatched:""}], cond && ["Condition: " + cond, {cond:""}],
     ...Object.entries(fsel).map(([k,v]) => [(c.fields.find(f=>f.k===k)||{}).l + ": " + v, {["f." + k]:""}]), tag && ["Tag: " + tag, {tag:""}]].filter(Boolean);
   const showFilters = params.get("filters") === "1";
   // Group headers: letters for names, decades for years, grades for condition.
@@ -1848,6 +1853,7 @@ function viewHall(id, params){
       ${ffields.map(({f,vals}) => `<label>${esc(f.l)}<select data-p="f.${f.k}"><option value="">Any</option>${vals.map(v=>`<option ${v===fsel[f.k]?"selected":""}>${esc(v)}</option>`).join("")}</select></label>`).join("")}
       ${tags.length ? `<label>Tag<select data-p="tag"><option value="">Any</option>${tags.map(v=>`<option ${v===tag?"selected":""}>${esc(v)}</option>`).join("")}</select></label>` : ""}
       <label class="check"><input type="checkbox" data-c="fav" ${fav?"checked":""}> ★ Highlights only</label>
+      ${sg || all.some(i => i.signed) ? `<label class="check"><input type="checkbox" data-c="sg" ${sg?"checked":""}> ✍ ${isAutoColl(c) ? "From other collections" : "Autographed"}</label>` : ""}
       ${lg || all.some(i => i.letGo) ? `<label class="check"><input type="checkbox" data-c="lg" ${lg?"checked":""}> 🤔 Considering letting go</label>` : ""}
       <label class="check"><input type="checkbox" data-c="nophoto" ${nophoto?"checked":""}> Missing photos</label>
       ${lookupKind(c) !== "none" ? `<label class="check"><input type="checkbox" data-c="unmatched" ${unmatched?"checked":""}> Not matched yet</label>` : ""}
@@ -1890,8 +1896,9 @@ function viewWall(id, params){
   document.title = c.name + " · Gallery mode";
   document.body.classList.add("wallmode");
   const byId = new Map(cat.items.map(i => [i.id, i]));
-  let pieces = (hallOrder[id] || []).map(x => byId.get(x)).filter(i => i && i.collectionId === id && cover(i));
-  if(!pieces.length) pieces = sortItems(cat.items.filter(i => i.collectionId === id && cover(i)), (coll(id)||{}).sort || LS.get("cm.sort."+id, "title"));
+  const hallIds = new Set(inHall(id).map(i => i.id));
+  let pieces = (hallOrder[id] || []).map(x => byId.get(x)).filter(i => i && hallIds.has(i.id) && cover(i));
+  if(!pieces.length) pieces = sortItems(inHall(id).filter(cover), (coll(id)||{}).sort || LS.get("cm.sort."+id, "title"));
   // Shuffle: a seeded order kept in the address, so coming back from a piece keeps the same shuffle.
   const shuffle = LS.get("cm.wallShuffle", false);
   let seed = shuffle ? (parseInt(params.get("s"), 10) || Math.floor(Math.random() * 1e9) + 1) : 0;
@@ -2141,12 +2148,13 @@ function viewItem(id, host){
   const yearLate = c.yearAfter && c.fields.some(f => f.k === c.yearAfter);
   add(c.maker || "Maker", it.maker); if(!yearLate) add("Year", it.year);
   c.fields.forEach(f => { add(f.l, (it.fields||{})[f.k], f.priv); if(yearLate && f.k === c.yearAfter) add("Year", it.year); });
+  add("Autographed", it.signed ? (it.signedBy ? "Signed by " + it.signedBy : "Yes") : "");
   add("Release", it.bootleg ? "Bootleg (unofficial)" : ""); if(!hides(c, "condition")) add("Condition", it.condition); if(!hides(c, "qty")) add("Quantity", it.qty > 1 ? it.qty : ""); add("Barcode", it.barcode); add("Location", it.location);
   add("Acquired", [it.acquiredDate, it.source].filter(Boolean).join(" · "));
   if(it.price) facts.push(["Price paid", priv ? hidden : esc(money(it.price))]);
   if(it.value) facts.push(["Estimated value", priv ? hidden : esc(money(it.value))]);
   (it.extra||[]).forEach(x => add(x.l, x.v));
-  const backTo = (navPrev || "").startsWith("#/c/" + c.id) ? navPrev : "#/c/" + c.id;
+  const backTo = (navPrev || "").startsWith("#/c/" + c.id) || (it.signed && autoColl() && (navPrev || "").startsWith("#/c/" + autoColl().id)) ? navPrev : "#/c/" + c.id;
   app.innerHTML = `<a class="backbtn" data-back href="${esc(backTo)}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>${c.icon} ${esc(c.name)}</a>
   <article class="item">
     <div class="viewer">${photos.length ? `<div class="frame${it.bootleg ? " boot" : ""}"><div class="matte" id="hero"><img id="heroImg" alt="${esc(it.title)}" data-path="${esc(photos[0].path)}"></div>${photos.length > 1 ? `<button type="button" class="pnav prev" aria-label="Previous photo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="pnav next" aria-label="Next photo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><span class="pcount" id="pcount">1 / ${photos.length}</span>` : ""}</div>
@@ -2166,6 +2174,7 @@ function viewItem(id, host){
         : hasTrackList(c) && ((it.matched||{}).ref || it.barcode) ? `<div class="actions noprint" style="margin-top:14px"><button class="iconbtn" id="tracksBtn">🎶 Get the track listing</button></div>` : ""}
       ${(it.credits||[]).length ? `<details class="personnel"${it.credits.length <= 8 ? " open" : ""}><summary><h3 style="display:inline;font-size:1.05rem">Personnel</h3> <span style="color:var(--muted);font-size:.85rem">${it.credits.length}</span></summary><ul class="credits">${it.credits.map(x => `<li><a href="#/?q=${encodeURIComponent(x.n)}">${esc(x.n)}</a>${x.r ? ` <span>${esc(x.r)}</span>` : ""}</li>`).join("")}</ul></details>` : ""}
       ${bandColl(c) && it.maker && (it.bandChk||0) < BANDV && !(it.credits||[]).some(x => /band member/i.test(x.r||"")) ? `<div class="actions noprint" style="margin-top:10px"><button class="iconbtn" id="bandBtn">👥 Look up band members${(it.credits||[]).length ? "" : " &amp; personnel"}</button></div>` : ""}
+      ${it.signed && autoColl() && autoColl().id !== c.id ? `<div class="chips" style="margin-top:14px"><a class="chip" href="#/c/${autoColl().id}">Also in ${esc(autoColl().icon + " " + autoColl().name)}</a></div>` : ""}
       ${(it.tags||[]).length ? `<div class="chips" style="margin-top:14px">${it.tags.map(t=>`<a class="chip" href="#/c/${c.id}?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join("")}</div>` : ""}
       ${it.qty > 1 && (it.copies||[]).some(x => x.condition || x.location || x.note) ? `<h3 style="margin-top:20px;font-size:1.05rem">Your ${it.qty} copies</h3><ul class="copylist">${Array.from({length:it.qty}, (_, i) => { const x = it.copies[i] || {};
         return `<li><b>Copy ${i+1}</b>${x.condition ? " · " + esc(x.condition) : ""}${x.location ? " · 📍 " + esc(x.location) : ""}${x.note ? `<div class="cm">${esc(x.note)}</div>` : ""}</li>`; }).join("")}</ul>` : ""}
@@ -2259,6 +2268,17 @@ function viewItem(id, host){
   if(lgn) lgn.onchange = () => lgSave(cur => setLetGo(cur, true, lgn.value), "Note saved");
 }
 
+/* Autographed pieces in any collection (it.signed, it.signedBy) also hang in the Autographs collection, without a second copy */
+const isAutoColl = c => !!c && (c.id === "autographs" || /autograph/i.test(c.name || ""));
+const autoColl = () => cat.collections.find(c => c.id === "autographs") || cat.collections.find(isAutoColl) || null;
+function setSigned(it, on, by){
+  if(!on){ delete it.signed; delete it.signedBy; return; }
+  it.signed = true; const b = by == null ? (it.signedBy || "") : String(by).trim();
+  if(b) it.signedBy = b; else delete it.signedBy;
+}
+// Everything shown in a collection: its own pieces, plus signed pieces from elsewhere when it's the Autographs collection.
+function inHall(id){ const own = cat.items.filter(i => i.collectionId === id), a = autoColl();
+  return a && a.id === id ? own.concat(cat.items.filter(i => i.signed && i.collectionId !== id)) : own; }
 /* "Considering letting go": it.letGo = {at, note} while you're thinking of selling or giving a piece away */
 function setLetGo(it, on, note){
   if(!on){ delete it.letGo; return; }
@@ -3639,7 +3659,7 @@ function viewEdit(id, params, ov){
   if(id && !existing) return notFound();
   const from = params.get("from") ? item(params.get("from")) : null;
   const it = existing ? JSON.parse(JSON.stringify(existing))
-    : from ? {...JSON.parse(JSON.stringify(from)), id:uid(), title:from.title + " (copy)", media:[], favorite:false, letGo:undefined}
+    : from ? {...JSON.parse(JSON.stringify(from)), id:uid(), title:from.title + " (copy)", media:[], favorite:false, letGo:undefined, signed:undefined, signedBy:undefined}
     : {id:uid(), collectionId:params.get("c") || cat.collections[0].id, title:"", fields:{}, tags:[], media:[]};
   const pending = []; // {m, blob, thumbBlob, previewUrl}
   const removed = [];
@@ -3684,6 +3704,8 @@ function viewEdit(id, params, ov){
         <div class="f"><label for="location">Where it lives (shelf, box, wall)</label><input id="location" name="location" value="${esc(it.location||"")}"></div>
         <div class="f full"><label for="tags">Tags (comma separated)</label><input id="tags" name="tags" value="${esc((it.tags||[]).join(", "))}" placeholder="e.g. Disney, signed, wishlist upgrade"></div>
         <label class="check full"><input type="checkbox" name="favorite" ${it.favorite?"checked":""}> ★ Highlight this piece on the front page</label>
+        ${isAutoColl(c) ? "" : `<label class="check full"><input type="checkbox" name="signed" id="signedCb" ${it.signed?"checked":""}> ✍ Autographed / signed${autoColl() ? ` <span style="color:var(--muted)">· also shows in ${esc(autoColl().icon + " " + autoColl().name)}</span>` : ""}</label>
+        <div class="f full" id="signedByBox"${it.signed ? "" : " hidden"}><label for="signedBy">Signed by (optional)</label><input id="signedBy" name="signedBy" autocapitalize="words" value="${esc(it.signedBy||"")}" placeholder="e.g. the whole band, Stan Lee"></div>`}
         <label class="check full"><input type="checkbox" name="letGo" id="letGoCb" ${it.letGo?"checked":""}> 🤔 Considering letting go (selling, giving away…)</label>
         <div class="f full" id="letGoNoteBox"${it.letGo ? "" : " hidden"}><label for="letGoNote">Why, or what you'd do with it (optional)</label><input id="letGoNote" name="letGoNote" value="${esc((it.letGo||{}).note||"")}" placeholder="e.g. sell on Discogs, give to Sam, have a better copy"></div>
       </div></fieldset>
@@ -3752,6 +3774,7 @@ function viewEdit(id, params, ov){
     document.getElementById("barcode").onchange = e => { const v = e.target.value.trim(); if(v && !existing) { collect(); lookupInto(v); } };
     if(document.getElementById("titleLook")) document.getElementById("titleLook").onclick = lookupTitle;
     renderCopies(); if(document.getElementById("qty")) document.getElementById("qty").oninput = renderCopies;
+    if(document.getElementById("signedCb")) document.getElementById("signedCb").onchange = e => { document.getElementById("signedByBox").hidden = !e.target.checked; };
     if(document.getElementById("letGoCb")) document.getElementById("letGoCb").onchange = e => { document.getElementById("letGoNoteBox").hidden = !e.target.checked; };
     document.getElementById("addExtra").onclick = () => { document.getElementById("extras").insertAdjacentHTML("beforeend", extraRow({l:"",v:""})); wireExtras(); document.querySelector("#extras .xrow:last-child [data-xl]").focus(); };
     wireExtras();
@@ -3838,6 +3861,7 @@ function viewEdit(id, params, ov){
     it.tags = (d.get("tags")||"").split(",").map(s=>s.trim()).filter(Boolean);
     it.favorite = d.get("favorite") === "on";
     setLetGo(it, d.get("letGo") === "on", d.get("letGoNote"));
+    if(d.get("signed") !== null || it.signed) setSigned(it, d.get("signed") === "on", d.get("signedBy"));
     const q = d.get("qty") === null ? (+it.qty || 1) : parseInt(d.get("qty"), 10); if(q > 1) it.qty = q; else delete it.qty;
     if(d.get("bootleg")) it.bootleg = true; else delete it.bootleg;
     const cps = readCopies();
@@ -4237,12 +4261,12 @@ function download(blob, name){ const a = document.createElement("a"), u = URL.cr
 function csvBlob(items, g){
   const hide = !!g && priv;
   const fieldCols = []; (g ? [g] : cat.collections).forEach(c => c.fields.forEach(f => { if(!(hide && f.priv) && !fieldCols.some(x=>x.l===f.l)) fieldCols.push(f); }));
-  const head = ["Collection","Title",g ? (g.maker||"Maker") : "Maker","Year","Barcode","Condition","Location","Acquired","Source", ...(hide ? [] : ["Price paid","Estimated value"]),"Tags","Notes","More details","Tracks", ...fieldCols.map(f=>f.l), "Photos","Documents","Considering letting go"];
+  const head = ["Collection","Title",g ? (g.maker||"Maker") : "Maker","Year","Barcode","Condition","Location","Acquired","Source", ...(hide ? [] : ["Price paid","Estimated value"]),"Tags","Notes","More details","Tracks", ...fieldCols.map(f=>f.l), "Photos","Documents","Considering letting go","Autographed"];
   const q = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; };
   const rows = (items || sortItems(cat.items,"title")).map(i => { const c = coll(i.collectionId);
     return [c.name, i.title, i.maker, i.year, i.barcode, i.condition, i.location, i.acquiredDate, i.source, ...(hide ? [] : [i.price, i.value]), (i.tags||[]).join("; "), i.notes, (i.extra||[]).map(x=>x.l + ": " + x.v).join("; "), (i.tracks||[]).filter(t => !t.h).map(t => [t.p, t.t].filter(Boolean).join(" ")).join("; "),
       ...fieldCols.map(fc => { const f = c.fields.find(x=>x.l===fc.l); return f ? (i.fields||{})[f.k] : ""; }),
-      (i.media||[]).filter(m=>m.kind==="photo").length, (i.media||[]).filter(m=>m.kind!=="photo").map(m=>m.label||m.name).join("; "), i.letGo ? "Yes" + (i.letGo.note ? ": " + i.letGo.note : "") : ""]; });
+      (i.media||[]).filter(m=>m.kind==="photo").length, (i.media||[]).filter(m=>m.kind!=="photo").map(m=>m.label||m.name).join("; "), i.letGo ? "Yes" + (i.letGo.note ? ": " + i.letGo.note : "") : "", i.signed ? (i.signedBy ? "Signed by " + i.signedBy : "Yes") : ""]; });
   return new Blob(["\ufeff" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv"});
 }
 const fileSafe = t => String(t||"collection").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "collection";
@@ -4646,7 +4670,7 @@ function askAnswer(raw){
 
   // ---- 0. Tidy the wording: fix small typos in question words, join common phrases ----
   const DICT = [...new Set([...ASK_ITEM, ...ASK_SONG, ...Object.keys(ASK_GROUP), ...ASK_MAKER, ...ASK_MEASURE.flatMap(m => m[1]), ...ASK_LOW, ...ASK_HIGH,
-    "average","percent","percentage","multiple","several","play","plays","played","playing","plays","appear","appears","feature","features","featuring","sings","sang","without","missing","between","before","after","since","different","unique","common","popular","listings","listing","sell","selling","letting","getting","rid","might","giving","considering","reconsider","reconsidering","parting","donate","donating","flagged","fence","letgo",
+    "average","percent","percentage","multiple","several","play","plays","played","playing","plays","appear","appears","feature","features","featuring","sings","sang","without","missing","between","before","after","since","different","unique","common","popular","listings","listing","sell","selling","letting","getting","rid","might","giving","considering","signed","autographed","signature","signatures","reconsider","reconsidering","parting","donate","donating","flagged","fence","letgo",
     ...cat.collections.flatMap(c => nk(c.name).split(" "))])];
   const catWords = new Set(); cat.items.forEach(i => [i.title, i.maker, i.condition, i.location, ...(i.credits||[]).map(c => c.n), ...Object.values(i.fields||{}), ...(i.tags||[])].forEach(v => nk(v).split(" ").forEach(w => w && catWords.add(w))));
   const lev = (a, b) => { const d = Array.from({length:a.length + 1}, (_, i) => [i]); for(let j = 1; j <= b.length; j++) d[0][j] = j;
@@ -4679,7 +4703,8 @@ function askAnswer(raw){
   const galKeys = c => { const n = nk(c.name), id = nk(c.id), last = n.split(" ").pop();
     return [...new Set([n, sing(n), id, sing(id), ...(n.includes(" ") && last.length >= 4 ? [last, sing(last)] : [])])].filter(w => w && w.length >= 3).sort((a, b) => b.length - a.length); };
   const gal = cat.collections.filter(c => galKeys(c).some(k => hasR(k) && (take(k), true)));
-  if(gal.length){ items = items.filter(i => gal.some(c => c.id === i.collectionId)); scope.push(gal.map(c => c.name).join(" & ")); }
+  const acA = autoColl();
+  if(gal.length){ items = items.filter(i => gal.some(c => c.id === i.collectionId || (i.signed && acA && c.id === acA.id))); scope.push(gal.map(c => c.name).join(" & ")); }
   else if(any("album","albums","lp","lps","song","songs","track","tracks","vinyl","vinyls","single","singles","ep","eps","band","bands","musician","musicians","singer","singers","7inch","12inch","10inch","2xlp","listen","play","spin")){
     // Music words mean the music collections (Records). Laserdiscs never count as albums, even music ones with a track listing.
     const mus = cat.collections.filter(c => hasTrackList(c) && c.id !== "laserdiscs"), core = mus.filter(c => lookupKind(c) === "music"), base = core.length ? core : mus;
@@ -4807,6 +4832,10 @@ function askAnswer(raw){
   // Starred / favourites (but "favorite artist" means the one you have most of)
   const favFilter = any("starred","highlights","highlighted","favorites","favourites") || ((has("favorite") || has("favourite")) && !makerNouns.concat(Object.keys(ASK_GROUP)).some(w => /favou?rite (\w+ )?$/.test(q.slice(0, pos(w) + 1))));
   if(favFilter){ items = items.filter(i => i.favorite); scope.push("starred"); }
+  const sgQ = any("signed","autographed","autograph","autographs","signature","signatures") && !(acA && gal.some(c => c.id === acA.id));
+  if(sgQ){
+    ["signed","autographed","autograph","autographs","signature","signatures"].forEach(w => { if(hasR(w)) take(w); });
+    items = items.filter(i => i.signed || (acA && i.collectionId === acA.id)); scope.push("autographed"); }
   if(any("bootleg","bootlegs")){ items = items.filter(i => i.bootleg); scope.push("bootlegs"); }
   const letGoQ = has("letgo");
   if(letGoQ){ take("letgo"); items = items.filter(i => i.letGo); scope.push("considering letting go");
@@ -5028,7 +5057,7 @@ function askAnswer(raw){
       const vals = priv ? 0 : items.reduce((s, i) => s + (+i.value || 0) * qty(i), 0);
       return {text:`You have <b>${n}</b> ${noun(n)}${where}` + (cp !== n ? ` (${cp} counting every copy)` : "") + (any("size","big") && vals ? `, with an estimated value of ${esc(money(vals))}` : "") + ".",
         bars:Object.keys(g).length < 2 ? null : Object.entries(g).map(([id, v]) => ({name:coll(id).icon + " " + coll(id).name, v, href:"#/c/" + id})).sort((a, b) => b.v - a.v),
-        items:scope.length && n <= 60 && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter || letGoQ || groupCond) ? sortItems(items, "title") : null, play};
+        items:scope.length && n <= 60 && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter || letGoQ || sgQ || groupCond) ? sortItems(items, "title") : null, play};
     }
     if(measure === "tracks"){
       const secs = withM.reduce((s, i) => s + (secsOf(i)||0), 0);
@@ -5055,7 +5084,7 @@ function askAnswer(raw){
   if(any("buy","wishlist","want","need","missing") && !scope.length) return {text:"I can only see what's already in the museum, so I can't suggest what to buy. Try “Which artists do I have only one record by?” for gaps."};
 
   // A filtered list: "jazz records", "records from the 70s", "what did I add this month", "records without photos"
-  if(scope.length && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter || letGoQ || gal.length || groupCond)){
+  if(scope.length && (makersHit.length || valHits.length || titled || yLo != null || dLo != null || lacks.length || favFilter || letGoQ || sgQ || gal.length || groupCond)){
     const leftover = rest.trim().split(" ").filter(w => w && w !== "·" && !ASK_STOP.has(w) && !vocab.has(w));
     let l = items; if(leftover.length){ const s = items.filter(i => matches(i, leftover.join(" "))); if(s.length) l = s; }
     const sortBy = dLo != null || measure === "added" ? "recent" : "title";
