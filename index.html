@@ -342,6 +342,16 @@ ol.tracks li.tgap{display:block;padding:0;height:10px;border-bottom:0}
 .pe-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pe-tools .iconbtn{background:#262626;color:#fff;border-color:#444}
 .pe-hint{color:#9a958c;font-size:.8rem}
+.pe-tabs{display:flex;gap:4px;background:#262626;border-radius:10px;padding:3px;align-self:center}
+.pe-tabs button{background:none;border:0;color:#c9c3b8;padding:7px 14px;border-radius:8px;font:inherit;cursor:pointer}
+.pe-tabs button.on{background:#f3ede2;color:#111;font-weight:600}
+.pe-pane{display:flex;flex-direction:column;gap:10px}
+.pe-pane[hidden]{display:none}
+.pe-sls{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px 18px}
+.pe-sl{display:grid;grid-template-columns:6.5em 1fr 2.6em;align-items:center;gap:8px}
+.pe-sl span{text-align:right;color:#c9c3b8;font-variant-numeric:tabular-nums}
+.pe-crop.still{pointer-events:none}
+.pe-crop.still i,.pe-crop.still i.ed{display:none}
 .ccgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
 .ccgrid button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px;text-align:left}
 .ccgrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--mat)}
@@ -874,7 +884,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.14.1";
+const APP_VERSION = "2026.11.14.3";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2317,7 +2327,7 @@ async function shrink(file, max, quality){
   cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
   return await new Promise(r => cv.toBlob(r, "image/jpeg", quality));
 }
-/* ---------- Photo editor: rotate, straighten, crop (with auto-crop) ---------- */
+/* ---------- Photo editor: rotate, straighten, crop (with auto-crop), light & color ---------- */
 async function loadBitmap(blob){
   try{ return await createImageBitmap(blob, {imageOrientation:"from-image"}); }
   catch{ return await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("Couldn't open that photo.")); i.src=URL.createObjectURL(blob); }); }
@@ -2339,18 +2349,85 @@ function rotated(src, quarter, deg){
   const iw = w0*k/W, ih = h0*k/H;
   return {c, inner:{x:(1-iw)/2, y:(1-ih)/2, w:iw, h:ih}};
 }
-// Find the piece against its background. Border pixels teach us what "background" looks like (a few colour
-// clusters, so uneven light and a two-tone table still count), shadows are discounted, outlines are picked up
-// from edges, and the biggest solid shape wins. Also measures how far the piece is tilted.
+// Find a jacket/sleeve/card/frame by its four straight edges (or three, when one runs off the photo).
+// Straight-line votes (Hough) only count pixels whose edge runs the right way; then every pairing of top/bottom
+// and left/right lines is checked along its whole length, and the biggest rectangle whose sides are all really
+// there wins, so the jacket beats any box printed on its art. Returns {x,y,w,h,angle} as fractions, or null.
+function findRect(canvas){
+  const sm = scaledCanvas(canvas, 480), W = sm.width, H = sm.height, N = W*H, d = sm.getContext("2d").getImageData(0,0,W,H).data;
+  // Edges from colour, not just brightness: a teal jacket on a brown table can be equally bright
+  const ch = [0,1,2].map(c => { let v = new Float32Array(N); for(let i=0;i<N;i++) v[i] = d[i*4+c];
+    for(let pass=0; pass<2; pass++){ const o = new Float32Array(N);   // soften fine texture (wood grain, carpet, print dots)
+      for(let y=0;y<H;y++) for(let x=0;x<W;x++){ let s=0,n=0; for(let dy=-1;dy<=1;dy++){ const yy=y+dy; if(yy<0||yy>=H) continue; for(let dx=-1;dx<=1;dx++){ const xx=x+dx; if(xx<0||xx>=W) continue; s+=v[yy*W+xx]; n++; } } o[y*W+x]=s/n; }
+      v = o; }
+    return v; });
+  const gx = new Float32Array(N), gy = new Float32Array(N), mag = new Float32Array(N);
+  for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i=y*W+x;
+    for(const Lu of ch){ const ax = Lu[i-W+1]+2*Lu[i+1]+Lu[i+W+1]-Lu[i-W-1]-2*Lu[i-1]-Lu[i+W-1], ay = Lu[i+W-1]+2*Lu[i+W]+Lu[i+W+1]-Lu[i-W-1]-2*Lu[i-W]-Lu[i-W+1], m = Math.hypot(ax, ay);
+      if(m > mag[i]){ mag[i] = m; gx[i] = ax; gy[i] = ay; } } }
+  const ms = Array.from(mag).sort((a,b)=>a-b), T = Math.max(40, Math.min(ms[Math.floor(N*.85)] * .7, 160));
+  const hor = i => mag[i] > T && Math.abs(gx[i]) <= Math.abs(gy[i]) * .6, ver = i => mag[i] > T && Math.abs(gy[i]) <= Math.abs(gx[i]) * .6;
+  const AMAX = 20, AST = .5, NA = Math.round(2*AMAX/AST) + 1, tans = Array.from({length:NA}, (_,k) => Math.tan((-AMAX + k*AST) * Math.PI/180));
+  // Lines: horizontal-ish y = c + (x - W/2)·t, vertical-ish x = c + (y - H/2)·t
+  const lines = (vert) => { const L = vert ? W : H, acc = new Float32Array(NA * L), ok = vert ? ver : hor;
+    for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i=y*W+x; if(!ok(i)) continue;
+      const u = vert ? x : y, v = vert ? y - H/2 : x - W/2;
+      for(let k=0;k<NA;k++){ const c = Math.round(u - v*tans[k]); if(c >= 0 && c < L) acc[k*L + c]++; } }
+    const out = [], minV = Math.min(W,H) * .15;
+    for(let k=0;k<NA;k++) for(let c=0;c<L;c++){ const v = acc[k*L+c]; if(v < minV) continue; let peak = true;
+      for(let dk=-4; dk<=4 && peak; dk++) for(let dc=-4; dc<=4; dc++){ const kk=k+dk, cc=c+dc; if(kk<0||kk>=NA||cc<0||cc>=L||(!dk&&!dc)) continue; const w = acc[kk*L+cc]; if(w > v || (w === v && (dk < 0 || (!dk && dc < 0)))){ peak = false; break; } }
+      if(peak) out.push({c, t:tans[k], a:-AMAX + k*AST, v}); }
+    return out.sort((p,q) => q.v - p.v).slice(0, 24); };
+  const hs = lines(false), vs = lines(true);
+  // The photo's own edges stand in for a side that runs off the picture
+  hs.push({c:0, t:0, a:0, edge:true}, {c:H-1, t:0, a:0, edge:true}); vs.push({c:0, t:0, a:0, edge:true}, {c:W-1, t:0, a:0, edge:true});
+  const cross = (h, v) => { // y = h.c + (x - W/2) h.t ; x = v.c + (y - H/2) v.t
+    const y = (h.c + (v.c - W/2 - H/2*v.t) * h.t) / (1 - h.t*v.t), x = v.c + (y - H/2) * v.t; return [x, y]; };
+  const memo = new Map();
+  const support = (ln, vert, p, q) => { const key = (vert?"v":"h") + ln.c + ":" + ln.a + ":" + Math.round(p) + ":" + Math.round(q); if(memo.has(key)) return memo.get(key);
+    const a = Math.min(p,q), b = Math.max(p,q), m = (b - a) * .05, ok = vert ? ver : hor; let hit = 0, n = 0;
+    for(let s = a + m; s <= b - m; s++){ n++; const u = vert ? ln.c + (s - H/2)*ln.t : ln.c + (s - W/2)*ln.t;
+      for(let o=-2;o<=2;o++){ const uu = Math.round(u + o), x = vert ? uu : Math.round(s), y = vert ? Math.round(s) : uu;
+        if(x<1||y<1||x>=W-1||y>=H-1) continue; if(ok(y*W+x)){ hit++; break; } } }
+    const r = n ? hit/n : 0; memo.set(key, r); return r; };
+  let best = null;
+  for(const t of hs) for(const b of hs){ if(b.c - t.c < H*.25 || (!t.edge && !b.edge && Math.abs(t.a - b.a) > 2.5)) continue;
+    for(const l of vs) for(const r of vs){ if(r.c - l.c < W*.25 || (!l.edge && !r.edge && Math.abs(l.a - r.a) > 2.5)) continue;
+      const real = [t,b,l,r].filter(s => !s.edge); if(real.length < 3) continue;
+      const ha = [t,b].filter(s => !s.edge).map(s => s.a), va = [l,r].filter(s => !s.edge).map(s => -s.a);
+      const tilt = [...ha, ...va].reduce((s,v) => s+v, 0) / (ha.length + va.length);
+      if([...ha, ...va].some(v => Math.abs(v - tilt) > 3)) continue;   // the sides have to be square to each other
+      const tl = cross(t,l), tr = cross(t,r), bl = cross(b,l), br = cross(b,r);
+      const area = Math.abs((tr[0]-tl[0])*(bl[1]-tl[1]) - (tr[1]-tl[1])*(bl[0]-tl[0]));
+      const all4 = real.length === 4;   // four real sides beat three; then the bigger rectangle wins
+      if(area < N*.12 || (best && (best.all4 && !all4 || best.all4 === all4 && area <= best.area))) continue;
+      const sup = [];
+      if(!t.edge) sup.push(support(t, false, tl[0], tr[0])); if(!b.edge) sup.push(support(b, false, bl[0], br[0]));
+      if(!l.edge) sup.push(support(l, true, tl[1], bl[1])); if(!r.edge) sup.push(support(r, true, tr[1], br[1]));
+      if(Math.min(...sup) < .6 || sup.reduce((s,v)=>s+v,0)/sup.length < .72) continue;
+      best = {area, tilt, pts:[tl,tr,bl,br], all4}; } }
+  if(!best) return null;
+  const xs = best.pts.map(p => p[0]), ys = best.pts.map(p => p[1]), pad = Math.min(W,H) * .004;
+  const x0 = Math.max(0, Math.min(...xs) - pad), x1 = Math.min(W, Math.max(...xs) + 1 + pad), y0 = Math.max(0, Math.min(...ys) - pad), y1 = Math.min(H, Math.max(...ys) + 1 + pad);
+  if((x1-x0)/W > .97 && (y1-y0)/H > .97) return null;
+  return {x:x0/W, y:y0/H, w:(x1-x0)/W, h:(y1-y0)/H, angle: best.all4 && Math.abs(best.tilt) >= .5 ? -best.tilt : 0, rect:true};
+}
+// Auto crop: trim plain background from around a piece, and nothing else.
+// Background is learned from the photo's border and filled inward from the edges, stopping at outlines, so
+// everything the fill can't reach (the whole piece, art and all) is kept. Then it only trims a side when the
+// strip being cut away is plain, and only when the piece has a clean outline (rectangle or disc).
+// Returns a box (fractions of the canvas), or {fail:"busy"|"square"|"shape"|"none"} when it shouldn't guess.
 function autoCropBox(canvas){
   const sm = scaledCanvas(canvas, 320), W = sm.width, H = sm.height, N = W*H, d = sm.getContext("2d").getImageData(0,0,W,H).data;
+  if(Math.abs(W/H - 1) < .025) return {fail:"square"};   // square photos are almost always covers that are already cropped
+  const rect = findRect(canvas); if(rect) return rect;   // straight edges (jackets, sleeves, cards, frames) first
   const R = new Float32Array(N), G = new Float32Array(N), B = new Float32Array(N), Lu = new Float32Array(N);
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){ let r=0,g=0,b=0,n=0;
     for(let dy=-1;dy<=1;dy++){ const yy=y+dy; if(yy<0||yy>=H) continue; for(let dx=-1;dx<=1;dx++){ const xx=x+dx; if(xx<0||xx>=W) continue; const k=(yy*W+xx)*4; r+=d[k]; g+=d[k+1]; b+=d[k+2]; n++; } }
     const i=y*W+x; R[i]=r/n; G[i]=g/n; B[i]=b/n; Lu[i]=(R[i]+G[i]+B[i])/3; }
-  const ring = []; const bw = Math.max(2, Math.round(Math.min(W,H)*.015));
+  const ring = [], bw = Math.max(2, Math.round(Math.min(W,H)*.015));
   for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(x<bw||y<bw||x>=W-bw||y>=H-bw) ring.push(y*W+x);
-  // k-means on border colours
+  // A few colour clusters for the border, so uneven light and a two-tone table still count as background
   const K = 4, srt = ring.slice().sort((a,b)=>Lu[a]-Lu[b]);
   let C = Array.from({length:K}, (_,k) => { const i = srt[Math.floor((k+.5)/K*srt.length)]; return [R[i],G[i],B[i]]; });
   for(let it=0; it<8; it++){ const acc = C.map(()=>[0,0,0,0]);
@@ -2359,101 +2436,179 @@ function autoCropBox(canvas){
   const dist = new Float32Array(N);
   for(let i=0;i<N;i++){ let best=1e9;
     for(const c of C){ const dr=R[i]-c[0], dg=G[i]-c[1], db=B[i]-c[2], l=(dr+dg+db)/3, ch=Math.abs(dr-l)+Math.abs(dg-l)+Math.abs(db-l);
-      const v = (l < 0 ? .25 : .8) * Math.abs(l) + 1.3*ch;   // darker-than-background (shadows) counts for less
+      const v = (l < 0 ? .35 : .8) * Math.abs(l) + 1.3*ch;   // darker than the background (shadows) counts for less
       if(v<best) best=v; }
     dist[i]=best; }
-  // Edges (Sobel on brightness)
   const grad = new Float32Array(N);
   for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i=y*W+x;
     const gx = Lu[i-W+1]+2*Lu[i+1]+Lu[i+W+1]-Lu[i-W-1]-2*Lu[i-1]-Lu[i+W-1], gy = Lu[i+W-1]+2*Lu[i+W]+Lu[i+W+1]-Lu[i-W-1]-2*Lu[i-W]-Lu[i-W+1];
     grad[i] = Math.hypot(gx, gy); }
   const pct = (arr, idx, p) => { const v = idx.map(i=>arr[i]).sort((a,b)=>a-b); return v[Math.min(v.length-1, Math.floor(v.length*p))]; };
   const inner = ring.filter(i => { const x=i%W, y=(i/W)|0; return x>0&&y>0&&x<W-1&&y<H-1; });
-  // Otsu threshold on the colour distance, never below what the border itself varies by
-  const hist = new Array(256).fill(0); for(let i=0;i<N;i++) hist[Math.min(255, dist[i]|0)]++;
-  let sum=0; for(let t=0;t<256;t++) sum+=t*hist[t]; let sB=0, wB=0, best=0, otsu=30;
-  for(let t=0;t<256;t++){ wB+=hist[t]; if(!wB) continue; const wF=N-wB; if(!wF) break; sB+=t*hist[t]; const mB=sB/wB, mF=(sum-sB)/wF, v=wB*wF*(mB-mF)*(mB-mF); if(v>best){best=v; otsu=t;} }
-  const th = Math.max(18, Math.min(otsu, 90), pct(dist, ring, .97) * 1.25), gth = Math.max(90, pct(grad, inner, .97) * 2);
-  let m = new Uint8Array(N), cnt = 0; for(let i=0;i<N;i++){ m[i] = dist[i] > th ? 1 : 0; cnt += m[i]; }
-  // Piece barely differs from the background (white on white): fall back to its outline. Otherwise skip edges, so soft shadows don't count.
-  if(cnt < N*.06) for(let i=0;i<N;i++) if(grad[i] > gth) m[i] = 1;
-  // Close small gaps: dilate then erode
-  const morph = (src, r, dil) => { const t = new Uint8Array(N), o = new Uint8Array(N);
-    for(let y=0;y<H;y++){ for(let x=0;x<W;x++){ let v = dil ? 0 : 1; for(let k=-r;k<=r;k++){ const xx=x+k; const s = xx<0||xx>=W ? (dil?0:1) : src[y*W+xx]; if(dil ? s : !s){ v = dil ? 1 : 0; break; } } t[y*W+x]=v; } }
-    for(let y=0;y<H;y++){ for(let x=0;x<W;x++){ let v = dil ? 0 : 1; for(let k=-r;k<=r;k++){ const yy=y+k; const s = yy<0||yy>=H ? (dil?0:1) : t[yy*W+x]; if(dil ? s : !s){ v = dil ? 1 : 0; break; } } o[y*W+x]=v; } }
-    return o; };
-  const rr = Math.max(2, Math.round(Math.min(W,H)*.012));
-  m = morph(morph(m, rr, true), rr, false);
-  // Largest connected shape
-  const lab = new Int32Array(N); let bestLab = 0, bestN = 0, cur = 0; const st = new Int32Array(N);
-  for(let s0=0;s0<N;s0++){ if(!m[s0] || lab[s0]) continue; cur++; let sp=0, n=0; st[sp++]=s0; lab[s0]=cur;
+  // A busy border (the piece itself, a patterned rug) isn't a background we can trust
+  if(pct(grad, inner, .75) > 70 || pct(dist, ring, .85) > 45) return {fail:"busy"};
+  const th = Math.max(20, pct(dist, ring, .97) * 1.4), gth = Math.max(70, pct(grad, inner, .97) * 1.8);
+  // Fill the background in from the border; it stops at outlines and sudden colour changes
+  const bg = new Uint8Array(N), st = new Int32Array(N); let sp = 0;
+  for(const i of ring) if(dist[i] <= th && grad[i] <= gth){ bg[i] = 1; st[sp++] = i; }
+  while(sp){ const i = st[--sp], x = i%W;
+    // a pixel joins if it looks like the border, or if it carries on smoothly from its neighbour (light falling off across a table)
+    const push = j => { if(!bg[j] && grad[j] <= gth && (dist[j] <= th || Math.abs(R[j]-R[i]) + Math.abs(G[j]-G[i]) + Math.abs(B[j]-B[i]) < 7)){ bg[j] = 1; st[sp++] = j; } };
+    if(x>0) push(i-1); if(x<W-1) push(i+1); if(i>=W) push(i-W); if(i<N-W) push(i+W); }
+  // Pieces = what's left, minus specks
+  const fg = new Uint8Array(N); for(let i=0;i<N;i++) fg[i] = bg[i] ? 0 : 1;
+  const lab = new Int32Array(N), sizes = [0]; let cur = 0;
+  for(let s0=0;s0<N;s0++){ if(!fg[s0] || lab[s0]) continue; cur++; let n=0; sp=0; st[sp++]=s0; lab[s0]=cur;
     while(sp){ const i=st[--sp]; n++; const x=i%W;
-      if(x>0 && m[i-1] && !lab[i-1]){ lab[i-1]=cur; st[sp++]=i-1; } if(x<W-1 && m[i+1] && !lab[i+1]){ lab[i+1]=cur; st[sp++]=i+1; }
-      if(i>=W && m[i-W] && !lab[i-W]){ lab[i-W]=cur; st[sp++]=i-W; } if(i<N-W && m[i+W] && !lab[i+W]){ lab[i+W]=cur; st[sp++]=i+W; } }
-    if(n>bestN){ bestN=n; bestLab=cur; } }
-  if(bestN < N*.02) return null;
-  // Tilt: the angle whose bounding box hugs the outline tightest
-  const pts = []; for(let i=0;i<N;i++) if(lab[i]===bestLab){ const x=i%W; if(x===0||x===W-1||lab[i-1]!==bestLab||lab[i+1]!==bestLab||lab[i-W]!==bestLab||lab[i+W]!==bestLab) pts.push(x, (i/W)|0); }
-  const area = a => { const c=Math.cos(a), s=Math.sin(a); let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
-    for(let k=0;k<pts.length;k+=2){ const X=pts[k]*c-pts[k+1]*s, Y=pts[k]*s+pts[k+1]*c; if(X<x0)x0=X; if(X>x1)x1=X; if(Y<y0)y0=Y; if(Y>y1)y1=Y; } return (x1-x0)*(y1-y0); };
+      if(x>0 && fg[i-1] && !lab[i-1]){ lab[i-1]=cur; st[sp++]=i-1; } if(x<W-1 && fg[i+1] && !lab[i+1]){ lab[i+1]=cur; st[sp++]=i+1; }
+      if(i>=W && fg[i-W] && !lab[i-W]){ lab[i-W]=cur; st[sp++]=i-W; } if(i<N-W && fg[i+W] && !lab[i+W]){ lab[i+W]=cur; st[sp++]=i+W; } }
+    sizes.push(n); }
+  const keep = sizes.map(n => n >= N*.004);
+  let x0=W, x1=-1, y0=H, y1=-1, kept=0, big=0;
+  for(let i=0;i<N;i++){ const l = lab[i]; if(!l || !keep[l]) continue; const x=i%W, y=(i/W)|0; kept++;
+    if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  sizes.forEach((n,l) => { if(l && keep[l] && n > big) big = n; });
+  if(kept < N*.02) return {fail:"none"};
+  // Is it a clean shape (sleeve, card, frame, disc)? Then it can be trimmed close; otherwise leave room.
+  const pts = []; for(let i=0;i<N;i++){ const l = lab[i]; if(!l || !keep[l]) continue; const x=i%W;
+    if(x===0||x===W-1||i<W||i>=N-W||lab[i-1]!==l||lab[i+1]!==l||lab[i-W]!==l||lab[i+W]!==l) pts.push(x, (i/W)|0); }
+  const area = a => { const c=Math.cos(a), s=Math.sin(a); let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(let k=0;k<pts.length;k+=2){ const X=pts[k]*c-pts[k+1]*s, Y=pts[k]*s+pts[k+1]*c; if(X<a0)a0=X; if(X>a1)a1=X; if(Y<b0)b0=Y; if(Y>b1)b1=Y; } return (a1-a0+1)*(b1-b0+1); };
   let ba = 0, bA = area(0); for(let deg=-15; deg<=15; deg+=.25){ const A = area(deg*Math.PI/180); if(A < bA - 1e-6){ bA = A; ba = deg; } }
-  const angle = bA > 0 && bestN / bA > .82 && Math.abs(ba) >= .5 ? ba : 0;   // only for squarish things (sleeves, cards, frames)
-  // Straight bounding box, ignoring thin stray bits
-  const cols = new Array(W).fill(0), rows = new Array(H).fill(0);
-  for(let i=0;i<N;i++) if(lab[i]===bestLab){ cols[i%W]++; rows[(i/W)|0]++; }
-  const edge = (arr) => { const lim = Math.max(...arr) * .05; let a = 0, b = arr.length-1; while(a < b && arr[a] <= lim) a++; while(b > a && arr[b] <= lim) b--; return [a, b]; };
-  const [x0,x1] = edge(cols), [y0,y1] = edge(rows);
-  const pad = .01, box = {x:x0/W - pad, y:y0/H - pad, w:(x1-x0+1)/W + 2*pad, h:(y1-y0+1)/H + 2*pad, angle};
-  box.x = Math.max(0, box.x); box.y = Math.max(0, box.y); box.w = Math.min(1-box.x, box.w); box.h = Math.min(1-box.y, box.h);
-  if((box.w > .97 && box.h > .97) || box.w < .1 || box.h < .1) return null;
-  return box;
+  // Only a clean shape (sleeve, card, cel, frame, book, disc) counts. A ragged one is usually the art printed on the
+  // piece rather than the piece itself, and cutting to it is exactly how a photo loses part of the piece, so leave those alone.
+  const fill = kept / bA;
+  if(big < kept*.9 || fill < .74) return {fail:"shape"};
+  const pad = Math.round(Math.min(W,H) * .015);
+  let l = x0 - pad, t = y0 - pad, r = x1 + 1 + pad, b = y1 + 1 + pad;
+  // Only cut a side away when what's being cut is plain background
+  const plain = (ax, ay, bx, by) => { let n=0, busy=0; ax=Math.max(0,ax); ay=Math.max(0,ay); bx=Math.min(W,bx); by=Math.min(H,by);
+    for(let y=ay;y<by;y++) for(let x=ax;x<bx;x++){ const i=y*W+x; n++; if(!bg[i] || grad[i] > gth) busy++; }
+    return !n || busy/n < .03; };
+  const minCut = Math.min(W,H) * .02;
+  if(l < minCut || !plain(0, 0, l, H)) l = 0;
+  if(t < minCut || !plain(0, 0, W, t)) t = 0;
+  if(W - r < minCut || !plain(r, 0, W, H)) r = W;
+  if(H - b < minCut || !plain(0, b, W, H)) b = H;
+  if(!l && !t && r === W && b === H) return {fail:"none"};
+  const all4 = l > 0 && t > 0 && r < W && b < H;
+  const angle = all4 && Math.abs(ba) >= .5 && area(0) > bA * 1.02 ? ba : 0;   // straighten only a fully visible piece that's clearly tilted
+  return {x:l/W, y:t/H, w:(r-l)/W, h:(b-t)/H, angle};
+}
+/* Light & color: brightness, contrast, shadows, highlights, warmth, saturation, plus an auto levels stretch. All on the device. */
+const ADJ_KEYS = [["b","Brightness"],["c","Contrast"],["sh","Shadows"],["hl","Highlights"],["w","Warmth"],["s","Saturation"]];
+const adjIsSet = a => a && (a.lo > 0 || a.hi < 1 || ADJ_KEYS.some(([k]) => a[k]));
+function adjustPixels(img, a){
+  if(!adjIsSet(a)) return img;
+  const lo = a.lo || 0, hi = a.hi == null ? 1 : a.hi, bb = (a.b||0)/100, cc = (a.c||0)/100, sh = (a.sh||0)/100, hl = (a.hl||0)/100, ww = (a.w||0)/100, ss = (a.s||0)/100;
+  const gam = Math.pow(2, -bb), con = cc >= 0 ? 1 + cc*1.2 : 1 + cc*.8;
+  const tone = v => { let t = Math.min(1, Math.max(0, (v/255 - lo) / Math.max(.05, hi - lo)));
+    t = Math.pow(t, gam);
+    t += sh * .3 * 6.75 * t * (1-t) * (1-t) + hl * .3 * 6.75 * t * t * (1-t);
+    t = (t - .5) * con + .5;
+    return Math.round(Math.min(1, Math.max(0, t)) * 255); };
+  const lr = new Uint8ClampedArray(256), lg = new Uint8ClampedArray(256), lb = new Uint8ClampedArray(256);
+  for(let v=0; v<256; v++){ lr[v] = tone(Math.min(255, v*(1 + ww*.14))); lg[v] = tone(Math.min(255, v*(1 + ww*.03))); lb[v] = tone(Math.min(255, v*(1 - ww*.14))); }
+  const s = 1 + ss, src = img.data, out = new ImageData(img.width, img.height), o = out.data;
+  for(let i=0; i<src.length; i+=4){ let r = lr[src[i]], g = lg[src[i+1]], b = lb[src[i+2]];
+    if(ss){ const L = .299*r + .587*g + .114*b; r = L + (r-L)*s; g = L + (g-L)*s; b = L + (b-L)*s; }
+    o[i] = r; o[i+1] = g; o[i+2] = b; o[i+3] = src[i+3]; }
+  return out;
+}
+function autoLevels(canvas){
+  const sm = scaledCanvas(canvas, 400), d = sm.getContext("2d").getImageData(0, 0, sm.width, sm.height).data, h = new Array(256).fill(0);
+  for(let i=0; i<d.length; i+=4) h[Math.round(.299*d[i] + .587*d[i+1] + .114*d[i+2])]++;
+  const n = d.length/4, at = p => { let acc = 0; for(let v=0; v<256; v++){ acc += h[v]; if(acc >= n*p) return v; } return 255; };
+  let lo = at(.005)/255, hi = at(.995)/255;
+  lo = Math.min(lo, .2); hi = Math.max(hi, .8);   // never a harsh stretch
+  return {lo, hi};
 }
 function photoEditor(blob){
   return new Promise(async resolve => {
     let full; try{ full = await loadBitmap(blob); }catch(e){ alert(e.message); return resolve(null); }
     const prev = scaledCanvas(full, 1100);
-    let quarter = 0, deg = 0, R, crop;
+    let quarter = 0, deg = 0, R, crop, want = null, base = null, adj = {}, tab = "crop", comparing = false, raf = 0;
     const L = document.getElementById("layer");
+    const sliders = ADJ_KEYS.map(([k, label]) => `<label class="pe-sl">${label}<input type="range" data-adj="${k}" min="-100" max="100" step="1" value="0"><span data-adjv="${k}">0</span></label>`).join("");
     L.innerHTML = `<div class="pedit" id="pe">
-      <div class="pe-top"><button type="button" class="iconbtn" id="peX">Cancel</button><b>Adjust photo</b><button type="button" class="iconbtn primary" id="peOk">Done</button></div>
+      <div class="pe-top"><button type="button" class="iconbtn" id="peX">Cancel</button><b>Edit photo</b><button type="button" class="iconbtn primary" id="peOk">Done</button></div>
       <div class="pe-stage" id="peStage"><div class="pe-wrap" id="peWrap"><canvas id="peC"></canvas><div class="pe-crop" id="peCrop"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i><i class="ed" data-h="n"></i><i class="ed" data-h="s"></i><i class="ed" data-h="w"></i><i class="ed" data-h="e"></i></div></div></div>
       <div class="pe-tools">
-        <div class="pe-row"><button type="button" class="iconbtn" id="peL" title="Rotate left">⟲ Left</button><button type="button" class="iconbtn" id="peR" title="Rotate right">⟳ Right</button><button type="button" class="iconbtn" id="peAuto">✨ Auto crop</button><button type="button" class="iconbtn" id="peReset">Reset</button></div>
-        <label class="pe-row" style="gap:10px">Straighten<input type="range" id="peDeg" min="-15" max="15" step="0.5" value="0" style="flex:1"><span id="peDegV" style="width:3.2em;text-align:right">0°</span></label>
-        <div class="pe-hint">Drag a corner, or the bar on any side, to crop. Drag inside the box to move it.</div>
+        <div class="pe-tabs" role="tablist"><button type="button" role="tab" data-tab="crop" class="on">Crop &amp; rotate</button><button type="button" role="tab" data-tab="adj">Light &amp; color</button></div>
+        <div class="pe-pane" data-pane="crop">
+          <div class="pe-row"><button type="button" class="iconbtn" id="peL" title="Rotate left">⟲ Left</button><button type="button" class="iconbtn" id="peR" title="Rotate right">⟳ Right</button><button type="button" class="iconbtn" id="peAuto">✨ Auto crop</button><button type="button" class="iconbtn" id="peFull">Whole photo</button></div>
+          <label class="pe-row" style="gap:10px">Straighten<input type="range" id="peDeg" min="-15" max="15" step="0.5" value="0" style="flex:1"><span id="peDegV" style="width:3.2em;text-align:right">0°</span></label>
+          <div class="pe-hint">Drag a corner, or the bar on any side, to crop. Drag inside the box to move it. Auto crop only trims plain background around the piece.</div>
+        </div>
+        <div class="pe-pane" data-pane="adj" hidden>
+          <div class="pe-row"><button type="button" class="iconbtn" id="peAutoL">✨ Auto light</button><button type="button" class="iconbtn" id="peCmp">Hold to compare</button><button type="button" class="iconbtn" id="peAdjReset">Reset</button></div>
+          <div class="pe-sls">${sliders}</div>
+          <div class="pe-hint">Double-tap a slider to set it back to 0.</div>
+        </div>
       </div></div>`;
-    const cv = document.getElementById("peC"), box = document.getElementById("peCrop"), stage = document.getElementById("peStage"), wrap = document.getElementById("peWrap");
+    const $ = id => document.getElementById(id);
+    const pe = $("pe"), cv = $("peC"), box = $("peCrop"), stage = $("peStage"), wrap = $("peWrap");
+    const paint = () => { raf = 0; if(!base) return; const x = cv.getContext("2d");
+      x.putImageData(comparing ? base : adjustPixels(base, adj), 0, 0); };
+    const repaint = () => { if(!raf) raf = requestAnimationFrame(paint); };
     const draw = () => {
       const sw = stage.clientWidth - 24, sh = stage.clientHeight - 24, s = Math.min(sw / R.c.width, sh / R.c.height);
-      cv.width = R.c.width; cv.height = R.c.height; cv.getContext("2d").drawImage(R.c, 0, 0);
+      if(cv.width !== R.c.width || cv.height !== R.c.height || !base){ cv.width = R.c.width; cv.height = R.c.height; }
       wrap.style.width = Math.round(R.c.width*s) + "px"; wrap.style.height = Math.round(R.c.height*s) + "px";
       Object.assign(box.style, {left:crop.x*100+"%", top:crop.y*100+"%", width:crop.w*100+"%", height:crop.h*100+"%"});
     };
-    const rebuild = keepCrop => { R = rotated(prev, quarter, deg); const inn = R.inner;
-      if(!keepCrop || !crop) crop = {...inn};
-      else { crop.x = Math.max(inn.x, crop.x); crop.y = Math.max(inn.y, crop.y); crop.w = Math.min(crop.w, inn.x+inn.w-crop.x); crop.h = Math.min(crop.h, inn.y+inn.h-crop.y);
-        if(crop.w < .05 || crop.h < .05) crop = {...inn}; }
-      draw(); };
+    // The crop you chose is remembered in photo pixels around the centre ("want"), so turning or straightening the photo
+    // keeps it: it turns with the photo and only shrinks (same shape) if the blank corners from straightening would show.
+    const toWant = c => { const W = R.c.width, H = R.c.height; return {cx:(c.x + c.w/2 - .5)*W, cy:(c.y + c.h/2 - .5)*H, w:c.w*W, h:c.h*H}; };
+    const fromWant = () => { const inn = R.inner; if(!want) return {...inn};
+      const W = R.c.width, H = R.c.height, iw = inn.w*W, ih = inn.h*H, k = Math.min(1, iw/want.w, ih/want.h), w = want.w*k, h = want.h*k;
+      const cx = Math.max(-(iw-w)/2, Math.min((iw-w)/2, want.cx)), cy = Math.max(-(ih-h)/2, Math.min((ih-h)/2, want.cy));
+      return {x:(cx - w/2)/W + .5, y:(cy - h/2)/H + .5, w:w/W, h:h/H}; };
+    const rebuild = keepCrop => { R = rotated(prev, quarter, deg);
+      base = R.c.getContext("2d").getImageData(0, 0, R.c.width, R.c.height);
+      if(!keepCrop) want = null; crop = fromWant();
+      draw(); paint(); };
     rebuild();
     const ro = new ResizeObserver(() => draw()); ro.observe(stage);
-    document.getElementById("peL").onclick = () => { quarter--; rebuild(); };
-    document.getElementById("peR").onclick = () => { quarter++; rebuild(); };
-    document.getElementById("peReset").onclick = () => { quarter = 0; deg = 0; document.getElementById("peDeg").value = 0; document.getElementById("peDegV").textContent = "0°"; rebuild(); };
-    document.getElementById("peDeg").oninput = e => { deg = +e.target.value; document.getElementById("peDegV").textContent = deg + "°"; rebuild(false); };
-    document.getElementById("peAuto").onclick = () => {
+    const setDeg = v => { deg = v; $("peDeg").value = v; $("peDegV").textContent = v + "°"; };
+    pe.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab;
+      pe.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+      pe.querySelectorAll("[data-pane]").forEach(p => p.hidden = p.dataset.pane !== tab);
+      box.classList.toggle("still", tab !== "crop"); });
+    $("peL").onclick = () => { quarter--; if(want) want = {cx:want.cy, cy:-want.cx, w:want.h, h:want.w}; rebuild(true); };
+    $("peR").onclick = () => { quarter++; if(want) want = {cx:-want.cy, cy:want.cx, w:want.h, h:want.w}; rebuild(true); };
+    $("peFull").onclick = () => { quarter = 0; setDeg(0); rebuild(); };
+    $("peDeg").oninput = e => { setDeg(+e.target.value); rebuild(true); };
+    const clean = () => { const inn = R.inner, ic = document.createElement("canvas"), W = R.c.width, H = R.c.height;
+      ic.width = Math.round(inn.w*W); ic.height = Math.round(inn.h*H); ic.getContext("2d").drawImage(R.c, inn.x*W, inn.y*H, ic.width, ic.height, 0, 0, ic.width, ic.height); return ic; };
+    $("peAuto").onclick = () => {
       // Look only inside the clean area (no blank corners from straightening), then map back.
-      const inn = R.inner, ic = document.createElement("canvas"), W = R.c.width, H = R.c.height;
-      ic.width = Math.round(inn.w*W); ic.height = Math.round(inn.h*H); ic.getContext("2d").drawImage(R.c, inn.x*W, inn.y*H, ic.width, ic.height, 0, 0, ic.width, ic.height);
-      let b = autoCropBox(ic); if(!b) return toast("Couldn't find clear edges. Drag the corners instead.");
-      // Tilted piece: straighten it first, then find the edges again on the straightened photo.
-      if(b.angle && Math.abs(deg + b.angle) <= 15){ deg = Math.round((deg + b.angle) * 2) / 2; document.getElementById("peDeg").value = deg; document.getElementById("peDegV").textContent = deg + "°"; rebuild(false);
-        const inn2 = R.inner, W2 = R.c.width, H2 = R.c.height; ic.width = Math.round(inn2.w*W2); ic.height = Math.round(inn2.h*H2); ic.getContext("2d").drawImage(R.c, inn2.x*W2, inn2.y*H2, ic.width, ic.height, 0, 0, ic.width, ic.height);
-        b = autoCropBox(ic) || {x:0, y:0, w:1, h:1};
-        crop = {x:inn2.x + b.x*inn2.w, y:inn2.y + b.y*inn2.h, w:b.w*inn2.w, h:b.h*inn2.h}; return draw(); }
-      crop = {x:inn.x + b.x*inn.w, y:inn.y + b.y*inn.h, w:b.w*inn.w, h:b.h*inn.h}; draw(); };
+      let b = autoCropBox(clean());
+      if(b.fail) return toast(b.fail === "square" ? "This photo already looks cropped, so I left it alone. Drag the corners to trim it yourself."
+        : b.fail === "busy" ? "The edges of this photo aren't plain background, so I left it alone. Drag the corners to trim it yourself."
+        : b.fail === "shape" ? "Couldn't find a clean edge around the piece, so I left the photo whole. Drag the corners to trim it yourself."
+        : "Couldn't find plain background to trim, so I left the photo whole. Drag the corners to trim it yourself.", 4200);
+      // Tilted piece: straighten it first, then find the edges again on the straightened photo (and keep the first box if that fails).
+      const deg0 = deg, inn0 = R.inner;
+      if(b.angle && Math.abs(deg + b.angle) <= 15){ setDeg(Math.round((deg + b.angle) * 2) / 2); rebuild(false);
+        const b2 = autoCropBox(clean()); if(b2.fail){ setDeg(deg0); rebuild(false); } else b = b2; }
+      const inn = deg === deg0 ? inn0 : R.inner;
+      crop = {x:inn.x + b.x*inn.w, y:inn.y + b.y*inn.h, w:b.w*inn.w, h:b.h*inn.h}; want = toWant(crop); draw();
+      toast("Trimmed the background. Drag the corners if it needs a nudge, or tap Whole photo to undo.", 3200); };
+    // Light & color
+    const syncSliders = () => ADJ_KEYS.forEach(([k]) => { pe.querySelector(`[data-adj="${k}"]`).value = adj[k] || 0; pe.querySelector(`[data-adjv="${k}"]`).textContent = adj[k] || 0; });
+    pe.querySelectorAll("[data-adj]").forEach(s => { s.oninput = () => { adj[s.dataset.adj] = +s.value; pe.querySelector(`[data-adjv="${s.dataset.adj}"]`).textContent = s.value; repaint(); };
+      s.ondblclick = () => { adj[s.dataset.adj] = 0; syncSliders(); repaint(); }; });
+    $("peAutoL").onclick = () => { const on = !(adj.lo > 0 || adj.hi < 1);
+      if(on){ const lv = autoLevels(R.c); if(lv.lo <= .01 && lv.hi >= .99) return toast("The light already looks balanced."); Object.assign(adj, lv); } else { delete adj.lo; delete adj.hi; }
+      $("peAutoL").classList.toggle("primary", on); repaint(); };
+    $("peAdjReset").onclick = () => { adj = {}; $("peAutoL").classList.remove("primary"); syncSliders(); repaint(); };
+    const cmp = $("peCmp"), cmpOff = () => { if(comparing){ comparing = false; repaint(); } };
+    cmp.addEventListener("pointerdown", e => { e.preventDefault(); comparing = true; repaint(); });
+    ["pointerup","pointerleave","pointercancel"].forEach(ev => cmp.addEventListener(ev, cmpOff));
     // Dragging the crop box and its corners.
     let drag = null;
-    box.addEventListener("pointerdown", e => { e.preventDefault(); box.setPointerCapture(e.pointerId);
+    box.addEventListener("pointerdown", e => { if(tab !== "crop") return; e.preventDefault(); box.setPointerCapture(e.pointerId);
       drag = {h:e.target.dataset.h || "move", sx:e.clientX, sy:e.clientY, c:{...crop}, W:wrap.clientWidth, H:wrap.clientHeight}; });
     box.addEventListener("pointermove", e => { if(!drag) return;
       const dx = (e.clientX - drag.sx) / drag.W, dy = (e.clientY - drag.sy) / drag.H, c = {...drag.c}, inn = R.inner, min = .06;
@@ -2465,17 +2620,19 @@ function photoEditor(blob){
         if(drag.h.includes("n")) t = Math.min(Math.max(T0, t + dy), b - min); if(drag.h.includes("s")) b = Math.max(Math.min(B0, b + dy), t + min);
         Object.assign(c, {x:l, y:t, w:r-l, h:b-t});
       }
-      crop = c; draw(); });
+      crop = c; want = toWant(crop); draw(); });
     const endDrag = () => drag = null; box.addEventListener("pointerup", endDrag); box.addEventListener("pointercancel", endDrag);
-    const close = v => { ro.disconnect(); L.innerHTML = ""; resolve(v); };
-    document.getElementById("peX").onclick = () => close(null);
-    document.getElementById("peOk").onclick = async () => {
+    const close = v => { ro.disconnect(); if(raf) cancelAnimationFrame(raf); L.innerHTML = ""; resolve(v); };
+    $("peX").onclick = () => close(null);
+    $("peOk").onclick = async () => {
       const done = busy("Saving the photo…");
+      await new Promise(r => setTimeout(r, 30));   // let the "Saving" note show before the heavy work
       try{
         const src = Math.max(full.width, full.height) > 3000 ? scaledCanvas(full, 3000) : full;
         const F = rotated(src, quarter, deg).c, out = document.createElement("canvas");
         const sx = Math.round(crop.x*F.width), sy = Math.round(crop.y*F.height), w = Math.round(crop.w*F.width), h = Math.round(crop.h*F.height);
-        out.width = w; out.height = h; out.getContext("2d").drawImage(F, sx, sy, w, h, 0, 0, w, h);
+        out.width = w; out.height = h; const ox = out.getContext("2d"); ox.drawImage(F, sx, sy, w, h, 0, 0, w, h);
+        if(adjIsSet(adj)) ox.putImageData(adjustPixels(ox.getImageData(0, 0, w, h), adj), 0, 0);
         const b = await new Promise(r => out.toBlob(r, "image/jpeg", .92));
         done(); close(b);
       }catch(e){ done(); alert("Couldn't save the photo: " + e.message); }
@@ -3656,7 +3813,7 @@ function viewEdit(id, params, ov){
       const im = m.kind === "photo" ? (p ? `<img src="${p.previewUrl}" alt="">` : `<img alt="" data-path="${esc(m.thumb||m.path)}">`) : m.kind === "video" ? "🎥" : (/pdf$/i.test(m.name||"") ? "📄" : "📜");
       const isCover = m === cover(it), frame = m.role === "frame";
       return `<div class="mtile"><div class="im">${im}${isCover ? `<span class="tag">Cover</span>` : frame ? `<span class="tag">🎬 Screen grab</span>` : ""}</div><div class="row">
-        ${m.kind === "photo" ? `${isCover || frame ? "" : `<button type="button" data-cover="${m.id}" title="Make cover" aria-label="Make cover">⤒</button>`}<button type="button" data-edit="${m.id}" title="Crop &amp; rotate" aria-label="Crop and rotate">✎</button>`
+        ${m.kind === "photo" ? `${isCover || frame ? "" : `<button type="button" data-cover="${m.id}" title="Make cover" aria-label="Make cover">⤒</button>`}<button type="button" data-edit="${m.id}" title="Edit photo" aria-label="Edit photo: crop, rotate, light and color">✎</button>`
           : `<input data-label="${m.id}" value="${esc(m.label||"")}" placeholder="${m.kind === "video" ? "Scene clip" : "COA, receipt…"}">`}
         <button type="button" data-rm="${m.id}" title="Remove" aria-label="Remove">✕</button></div></div>`;
     }).join("");
