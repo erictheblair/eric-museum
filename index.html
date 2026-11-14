@@ -234,6 +234,10 @@ legend{font-family:var(--serif);font-weight:600;padding:0 6px}
 .scanner .bar form{display:flex;gap:8px}
 .scanner .bar input{flex:1;min-width:0;height:42px;border-radius:10px;border:1px solid #444;background:#222;color:#fff;padding:0 12px}
 .scanner .msg{font-size:.92rem;color:#ddd}
+.scanner .btns{display:flex;gap:8px}
+.scanner .btns [hidden]{display:none}
+.scanner .btns .iconbtn{flex:1;justify-content:center;background:#222;color:#fff;border-color:#444}
+.scanner .btns .iconbtn.on{background:#f5d76e;color:#111;border-color:#f5d76e}
 .found{border:1px solid var(--accent);background:var(--surface);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;margin-bottom:16px}
 .found img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--mat)}
 .found .grow{flex:1;min-width:0}
@@ -870,7 +874,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.12.21";
+const APP_VERSION = "2026.11.14.1";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -2490,7 +2494,12 @@ function loadZXing(){
    paused rather than released, and reused if the next scan comes within a few minutes. */
 let camStream = null, camTimer = null;
 function releaseCam(){ clearTimeout(camTimer); if(camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; }
-function parkCam(){ if(!camStream) return; camStream.getTracks().forEach(t => t.enabled = false); clearTimeout(camTimer); camTimer = setTimeout(releaseCam, 3 * 60 * 1000); }
+/* Flashlight: only offered when the camera says it has one (many iPhones in Safari don't let web pages use it). */
+const camTrack = () => camStream && camStream.getVideoTracks()[0];
+function hasTorch(){ try{ const t = camTrack(); return !!(t && t.getCapabilities && t.getCapabilities().torch); }catch{ return false; } }
+async function setTorch(on){ const t = camTrack(); if(!t || t.readyState !== "live") return false;
+  try{ await t.applyConstraints({advanced:[{torch:!!on}]}); return true; }catch{ return false; } }
+function parkCam(){ if(!camStream) return; if(hasTorch()) setTorch(false); camStream.getTracks().forEach(t => t.enabled = false); clearTimeout(camTimer); camTimer = setTimeout(releaseCam, 3 * 60 * 1000); }
 async function getCam(){
   clearTimeout(camTimer);
   if(camStream && camStream.getTracks().some(t => t.readyState === "live")){ camStream.getTracks().forEach(t => t.enabled = true); return camStream; }
@@ -2503,12 +2512,18 @@ function scanBarcode(onCode){
   L.innerHTML = `<div class="scanner" id="sc"><video playsinline muted autoplay></video><div class="aim"></div>
     <div class="bar"><div class="msg" id="scMsg">Starting camera…</div>
     <form id="scForm"><input name="code" inputmode="numeric" placeholder="Or type the number under the barcode"><button class="iconbtn primary" type="submit">Look up</button></form>
-    <button class="iconbtn" id="scClose" type="button" style="background:#222;color:#fff;border-color:#444">Cancel</button></div></div>`;
+    <div class="btns"><button class="iconbtn" id="scTorch" type="button" hidden aria-pressed="false">🔦 Flashlight</button><button class="iconbtn" id="scClose" type="button">Cancel</button></div></div></div>`;
   const video = L.querySelector("video"), msg = document.getElementById("scMsg");
   let finished = false;
   const stop = () => { finished = true; video.srcObject = null; parkCam(); L.innerHTML = ""; };
   const finish = code => { if(finished) return; stop(); onCode(code); };
   document.getElementById("scClose").onclick = stop;
+  const torchBtn = document.getElementById("scTorch"); let torchOn = false;
+  torchBtn.onclick = async () => {
+    const want = !torchOn;
+    if(await setTorch(want)){ torchOn = want; torchBtn.classList.toggle("on", torchOn); torchBtn.setAttribute("aria-pressed", torchOn); torchBtn.textContent = torchOn ? "🔦 Flashlight on" : "🔦 Flashlight"; }
+    else { torchBtn.hidden = true; msg.textContent = "This camera won't let the page turn on its light. You can type the number below."; }
+  };
   document.getElementById("scForm").onsubmit = e => { e.preventDefault(); const v = new FormData(e.target).get("code").trim(); if(v) finish(v); };
   (async () => {
     try{
@@ -2518,6 +2533,9 @@ function scanBarcode(onCode){
       const stream = await getCam();
       if(finished){ parkCam(); return; }
       video.srcObject = stream; await video.play().catch(()=>{});
+      // Some phones only report the light once the picture is running, so check again a moment later.
+      const showTorch = () => { if(!finished && hasTorch()) torchBtn.hidden = false; };
+      showTorch(); setTimeout(showTorch, 600);
       const F = ZXing.BarcodeFormat, hints = new Map();
       hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39]);
       hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
