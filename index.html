@@ -895,13 +895,14 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.14.6";
+const APP_VERSION = "2026.11.15.1";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
 const CONDITIONS = ["Mint","Near Mint","Excellent","Very Good","Good","Fair","Poor"];
 const PRESETS = [
   {id:"records", name:"Records", icon:"🎵", maker:"Artist", fields:[
+    {k:"category",l:"Category",dd:1},
     {k:"format",l:"Format",opts:["LP","2×LP","EP","7\"","10\"","12\" single","78","Box set","Picture disc","Flexi disc"]},
     {k:"color",l:"Vinyl color",opts:["Black","Clear","White","Red","Orange","Yellow","Green","Blue","Purple","Pink","Gold","Silver","Smoke","Splatter","Marble","Swirl","Half & half","Glow in the dark"]},{k:"label",l:"Label"},{k:"catno",l:"Catalog #"},
     {k:"pressing",l:"Pressing / country"},{k:"matrix",l:"Matrix / runout"},{k:"mediaGrade",l:"Media grade"},{k:"sleeveGrade",l:"Sleeve grade"},
@@ -1514,7 +1515,7 @@ function quickEdit(id, keep){
       <div class="f"><label for="q_ms">Sort ${esc((c.maker||"maker").toLowerCase())} as</label><div class="inrow"><input id="q_ms" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker) || msGet(cat.makerSort, it.maker) || it.maker || "")}"><button type="button" class="iconbtn" id="q_flip" title="Last name first (or back again)">⇄ <span>Flip</span></button></div></div>
       <div class="f"><label for="q_year">Year</label><input id="q_year" name="year" value="${esc(it.year||"")}" inputmode="numeric"></div>
       <div class="f"><label for="q_cond">Condition</label>${choiceSelect("q_cond", "condition", it.condition || "", conditionList())}</div>
-      ${fields.map(f => `<div class="f"><label for="q_${f.k}">${esc(f.l)}${f.priv ? " 🔒" : ""}</label>${f.opts && f.opts.length ? choiceSelect("q_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts) : `<input id="q_${f.k}" name="x_${f.k}" value="${fv(f.k)}">`}</div>`).join("")}
+      ${fields.map(f => `<div class="f"><label for="q_${f.k}">${esc(f.l)}${f.priv ? " 🔒" : ""}</label>${isDD(f) ? choiceSelect("q_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts||[]) : `<input id="q_${f.k}" name="x_${f.k}" value="${fv(f.k)}">`}</div>`).join("")}
       <div class="f"><label for="q_loc">Where it lives</label><input id="q_loc" name="location" value="${esc(it.location||"")}"></div>
       ${priv ? "" : `<div class="f"><label for="q_val">Estimated value ($)</label><input id="q_val" name="value" value="${esc(it.value ?? "")}" inputmode="decimal"></div>`}
       <div class="f full"><label for="q_tags">Tags (comma separated)</label><input id="q_tags" name="tags" value="${esc((it.tags||[]).join(", "))}"></div>
@@ -1702,6 +1703,10 @@ async function fillMakerSort(items, done){
   if(changed){ persist().catch(()=>{}); if(done) done(); }
 }
 function sortItems(list, how){
+  if(/^f:/.test(how || "")){   // by a dropdown field (e.g. Category): in the list's own order, blanks last, then by title
+    const k = how.slice(2), rank = i => { const v = (i.fields||{})[k]; if(!v) return 1e9; const n = ((coll(i.collectionId).fields.find(f => f.k === k)||{}).opts||[]).indexOf(v); return n < 0 ? 1e8 : n; };
+    return [...list].sort((a, b) => rank(a) - rank(b) || String((a.fields||{})[k]||"").localeCompare(String((b.fields||{})[k]||""), undefined, {numeric:true, sensitivity:"base"}) || sortKey(a.title).localeCompare(sortKey(b.title), undefined, {numeric:true, sensitivity:"base"}));
+  }
   const by = {
     recent:(a,b)=> (b.created||"").localeCompare(a.created||""),
     title:(a,b)=> sortKey(a.title).localeCompare(sortKey(b.title), undefined, {numeric:true, sensitivity:"base"}),
@@ -1837,11 +1842,12 @@ function viewHall(id, params){
     if(sort === "maker"){ if(!it.maker) return "Unknown"; const ch = makerKey(it.maker).charAt(0).toUpperCase(); return /[A-Z]/.test(ch) ? ch : "#"; }
     if(sort === "year" || sort === "yeard"){ const y = parseInt(it.year); return y ? Math.floor(y/10)*10 + "s" : "Unknown year"; }
     if(sort === "condition") return it.condition || "No condition";
+    if(/^f:/.test(sort)){ const f = c.fields.find(x => x.k === sort.slice(2)); return (it.fields||{})[sort.slice(2)] || "No " + (f ? f.l.toLowerCase() : "value"); }
     return null;
   };
   const groups = []; list.forEach(it => { const g = groupOf(it); const last = groups[groups.length-1]; if(last && last.g === g) last.items.push(it); else groups.push({g, items:[it]}); });
   const grouped = groups.length > 1 && list.length >= 12 && groups[0].g !== null;
-  const sorts = [["title","Title (A–Z)"],["maker",c.maker||"Maker"],["year","Year (oldest)"],["yeard","Year (newest)"],["recent","Recently added"],["updated","Recently edited"],["condition","Condition"]].concat(priv?[]:[["value","Value (highest)"]]);
+  const sorts = [["title","Title (A–Z)"],["maker",c.maker||"Maker"],["year","Year (oldest)"],["yeard","Year (newest)"],["recent","Recently added"],["updated","Recently edited"],["condition","Condition"]].concat(c.fields.filter(f => isDD(f) && !(priv && f.priv)).map(f => ["f:" + f.k, f.l.split(/ [(\/]/)[0]]), priv?[]:[["value","Value (highest)"]]);
   paint(`<div class="crumbs" style="display:flex;justify-content:space-between;gap:8px"><span><a href="#/">Museum</a> › ${esc(c.name)}</span><span style="display:flex;gap:16px"><a href="#" id="exportG">⤓ Export</a><a href="#/gallery/${c.id}">✎ Edit collection</a></span></div>
   <section class="hero" style="padding-top:4px;padding-bottom:10px"><h1>${c.icon} ${esc(c.name)}</h1>
     <div class="stats" style="align-items:center"><span><b>${list.length === all.length ? all.length : list.length + " of " + all.length}</b>${all.length===1?"piece":"pieces"}</span>${priv?"":`<span><b>${esc(money(total)||"$0")}</b>estimated value</span>`}<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${list.length > 1 ? `<button type="button" class="wallbtn" id="pickBtn" title="Let the museum choose one for you${active.length ? " (from what's filtered)" : ""}">🎲 Pick for me</button>` : ""}${all.some(cover) ? `<a class="wallbtn" href="#/wall/${id}" title="See these pieces framed on a museum wall">🖼 Gallery mode</a>` : ""}${sizer()}</span></div>
@@ -3634,18 +3640,22 @@ function extraRow(x){ return `<div class="xrow" style="display:grid;grid-templat
   <input data-xv value="${esc(x.v)}" placeholder="Value" aria-label="Detail value" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0">
   <button type="button" class="iconbtn" data-xrm title="Remove" style="height:auto">✕</button></div>`; }
 
-/* Dropdown with the gallery's choices plus "Other…" to add a new one. */
+/* Dropdown with the gallery's choices plus "+ Add new…" to add one. A field is a dropdown when it has choices, or is marked dd
+   (a dropdown that starts empty and fills up as you add choices, like Records › Category). */
+const isDD = f => !!(f && (f.dd || (f.opts && f.opts.length)));
 function choiceSelect(id, name, value, opts){
   const list = [...opts]; if(value && !list.includes(value)) list.push(value);
-  return `<select id="${id}" name="${name}" data-choice>${[""].concat(list).map(o => `<option value="${esc(o)}" ${o===(value||"")?"selected":""}>${o ? esc(o) : "—"}</option>`).join("")}<option value="__other">Other… (add a choice)</option></select>`;
+  return `<select id="${id}" name="${name}" data-choice>${[""].concat(list).map(o => `<option value="${esc(o)}" ${o===(value||"")?"selected":""}>${o ? esc(o) : "—"}</option>`).join("")}<option value="__other">＋ Add new…</option></select>`;
 }
 function wireChoices(root, onAdd){
   root.querySelectorAll("select[data-choice]").forEach(sel => {
     let prev = sel.value;
     sel.onchange = () => {
       if(sel.value !== "__other"){ prev = sel.value; return; }
-      const v = (prompt("Add a new choice:") || "").trim();
+      let v = (prompt("Add a new choice:") || "").trim();
       if(!v){ sel.value = prev; return; }
+      const same = [...sel.options].find(o => o.value && o.value !== "__other" && o.value.toLowerCase() === v.toLowerCase());
+      if(same){ sel.value = same.value; prev = same.value; return; }   // "jazz" when Jazz is already there picks Jazz
       if(![...sel.options].some(o => o.value === v)){ const o = new Option(v, v); sel.insertBefore(o, sel.querySelector('option[value="__other"]')); }
       sel.value = v; prev = v; onAdd(sel.name, v);
     };
@@ -3695,8 +3705,8 @@ function viewEdit(id, params, ov){
         <div class="f"><label for="makerSort">Sort ${esc((c.maker||"maker").toLowerCase())} as <span style="font-weight:400;color:var(--muted)">(optional)</span></label><div class="inrow"><input id="makerSort" name="makerSort" value="${esc(msGet(cat.makerSortManual, it.maker) || msGet(cat.makerSort, it.maker) || it.maker || "")}" placeholder="e.g. Bowie, David" autocapitalize="words"><button type="button" class="iconbtn" id="msFlip" title="Last name first (or back again)">⇄ <span>Flip</span></button></div></div>
         ${c.yearAfter && c.fields.some(f => f.k === c.yearAfter) ? "" : yearBox}
         <div class="f"><label for="barcode">Barcode / UPC / ISBN</label><div class="inrow"><input id="barcode" name="barcode" value="${esc(it.barcode||"")}" inputmode="numeric"><button type="button" class="iconbtn" id="scanBtn" title="Scan with camera" aria-label="Scan with camera">▦ <span>Scan</span></button></div></div>
-        ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${f.opts && f.opts.length
-          ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts)
+        ${c.fields.map(f=>`<div class="f"><label for="x_${f.k}">${esc(f.l)}${f.priv?" 🔒":""}</label>${isDD(f)
+          ? choiceSelect("x_" + f.k, "x_" + f.k, (it.fields||{})[f.k] || "", f.opts||[])
           : `<input id="x_${f.k}" name="x_${f.k}" value="${fv(f.k)}"${/catno|isbn|upc|barcode|serial|grade|year|season|episode/i.test(f.k) ? "" : ` autocapitalize="words" data-tc`}${/season|episode/i.test(f.k) ? ` inputmode="numeric"` : ""}>`}</div>${f.k === c.yearAfter ? yearBox : ""}`).join("")}
         ${hides(c, "condition") ? "" : `<div class="f"><label for="condition">Condition</label>${choiceSelect("condition", "condition", it.condition || "", conditionList())}</div>`}
         <div class="f full"><label class="boottog"><input type="checkbox" name="bootleg" ${it.bootleg ? "checked" : ""}><span><b>Bootleg</b> <span style="color:var(--muted)">· unofficial release; adds a banner to the artwork</span></span></label></div>
@@ -4601,6 +4611,11 @@ function viewStats(){
   const cond = {}; items.forEach(i => { if(i.condition) cond[i.condition] = (cond[i.condition]||0) + 1; });
   const conds = Object.entries(cond).sort((a, b) => condRank(a[0]) - condRank(b[0])), cmax = Math.max(1, ...conds.map(c => c[1]));
   const recent = sortItems(items.filter(i => i.created), "recent").slice(0, 12);
+  // Dropdown fields (e.g. Records › Category): how many pieces under each choice, in the list's own order.
+  const lists = cat.collections.flatMap(c => c.fields.filter(f => isDD(f) && !(priv && f.priv)).map(f => {
+    const ct = {}; items.forEach(i => { const v = i.collectionId === c.id && (i.fields||{})[f.k]; if(v) ct[v] = (ct[v]||0) + 1; });
+    const o = f.opts || [], rows = Object.entries(ct).sort((a, b) => ((o.indexOf(a[0]) + 1) || 1e9) - ((o.indexOf(b[0]) + 1) || 1e9) || a[0].localeCompare(b[0]));
+    return {c, f, rows, max:Math.max(1, ...rows.map(r => r[1]))}; })).filter(x => x.rows.length && !/^(format|color|speed|binding|rating|grade|grader|jacket|retired|country|coin)$/.test(x.f.k));
   const tile = (v, l) => `<div class="st-tile"><b>${v}</b><span>${l}</span></div>`;
   app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › Stats</div>
   <section class="hero" style="padding-bottom:10px"><h1>Collection stats</h1><p>What's in the museum, and what's new.</p></section>
@@ -4619,6 +4634,7 @@ function viewStats(){
     ${decs.length ? `<div class="panel"><h3>By decade</h3><div class="st-bars">${decs.map(([d, v]) => bar("", d + "s", v, dmax)).join("")}</div></div>` : ""}
     ${makers.length ? `<div class="panel"><h3>Most collected makers</h3><div class="st-bars">${makers.map(m => bar("#/?q=" + encodeURIComponent(m.name), esc(m.name), m.v, kmax)).join("")}</div></div>` : ""}
     ${conds.length ? `<div class="panel"><h3>By condition</h3><div class="st-bars">${conds.map(([k, v]) => bar("", esc(k), v, cmax)).join("")}</div></div>` : ""}
+    ${lists.map(x => `<div class="panel"><h3>${x.c.icon} ${esc(x.c.name)} by ${esc(x.f.l.split(/ [(\/]/)[0].toLowerCase())}</h3><div class="st-bars">${x.rows.map(([k, v]) => bar("#/c/" + esc(x.c.id) + "?" + esc(new URLSearchParams({["f." + x.f.k]:k, filters:"1"}).toString()), esc(k), v, x.max)).join("")}</div></div>`).join("")}
   </div>
   ${recent.length ? `<div class="section-title"><h2>Recently added</h2></div><div class="grid">${recent.map(plate).join("")}</div>` : ""}`
   : `<div class="empty">No pieces yet. <a href="#/new">Add your first piece</a> and the stats will fill in.</div>`}`;
@@ -4712,7 +4728,13 @@ function askAnswer(raw){
     if(l.length){ items = l; scope.push(base.filter(c => l.some(i => i.collectionId === c.id)).map(c => c.name).join(" & ")); } }
   const galItems = items.slice();
   const galsInScope = gal.length ? gal : cat.collections;
-  const makerNouns = [...new Set([...ASK_MAKER, ...galsInScope.map(c => nk(c.maker).split(" ")[0]).filter(w => w && w.length > 3 && !ASK_GROUP[w]).flatMap(w => [w, w + "s"])])];
+  // Words for groups. A field of your own wins over the built-in meaning: with a Category field, "records per category" means that field, not collections.
+  // Its list's own words count too ("section" for Category, as in "which section has the most").
+  const AG = {...ASK_GROUP};
+  galsInScope.forEach(c => c.fields.forEach(f => { const w = nk(f.l).split(" ")[0]; if(w.length < 3 || /^(year|decade)$/.test(w)) return;
+    if(AG[w] !== "gallery" || !cat.items.some(i => i.collectionId === c.id && (i.fields||{})[f.k])) return; [w, w + "s", w.replace(/y$/, "ies")].forEach(x => { if(AG[x] === "gallery") AG[x] = "f:" + f.k; });
+    if(w === "category") ["section","sections"].forEach(x => { if(!AG[x]) AG[x] = "f:" + f.k; }); }));
+  const makerNouns = [...new Set([...ASK_MAKER, ...galsInScope.map(c => nk(c.maker).split(" ")[0]).filter(w => w && w.length > 3 && !AG[w]).flatMap(w => [w, w + "s"])])];
   const vocab = new Set([...DICT, ...makerNouns, "time","times","play","listen"]);
   const okAlias = a => a && a.length >= 3 && !ASK_STOP.has(a) && !vocab.has(a);
   const groupKey = k => k === "maker" ? (i => /^various/i.test(i.maker||"") ? "" : i.maker) : k === "decade" ? (i => yearOf(i) ? Math.floor(yearOf(i) / 10) * 10 + "s" : "")
@@ -4727,7 +4749,7 @@ function askAnswer(raw){
   // "What percent of artists…" or "which artists do I have more than one album by" are about the artists themselves, so they're left alone here.
   let groupCond = null;
   { const NUMW = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, "a single":1};
-    const gNouns = [...new Set([...makerNouns, ...Object.keys(ASK_GROUP)])].filter(w => !/^(galler|categor|year|place)/.test(w)).sort((a, b) => b.length - a.length);
+    const gNouns = [...new Set([...makerNouns, ...Object.keys(AG)])].filter(w => !/^(galler|categor|year|place)/.test(w)).sort((a, b) => b.length - a.length);
     const iWords = [...new Set([...ASK_ITEM, ...galsInScope.flatMap(galKeys)])].sort((a, b) => b.length - a.length);
     const re = new RegExp(" (from|by|of|in|on|with|under|for) (?:an? |the |any |those |these |some |all |one of the |one of my )?(" + gNouns.join("|") + ")((?: (?:that|who|which|where|whose|i|ive|you|we|do|did|have|has|own|got|having|with|there|are|is|collect|collected|bought|still|only|just))*) " +
       "((?:more than|over|above|at least|at most|no more than|fewer than|less than|under|exactly|only|just) )?(\\d+|one|two|three|four|five|six|seven|eight|nine|ten|a single)(?: (" + iWords.join("|") + "|ones?|pieces?|things?|items?))?(?: (of them|from|by|of|in|on|for|under))?(?= )");
@@ -4735,7 +4757,7 @@ function askAnswer(raw){
     if(m){ const before = q.slice(0, m.index).trim(), after = q.slice(m.index + m[0].length).trim();
       const aboutGroups = /(percent|percentage|proportion|fraction|share|many|number|count|which|what|list|show me the|top|most|all)$/.test(before) && m[1] === "of";
       if(!aboutGroups && (m[6] || m[7] || !after)){   // "bands with more than 10 tracks" is about tracks, so it needs an album word, a closing "of / by…", or the end
-        const key = ASK_GROUP[m[2]] || "maker", n = NUMW[m[5]] || +m[5], cmp = (m[4] || "").trim();
+        const key = AG[m[2]] || "maker", n = NUMW[m[5]] || +m[5], cmp = (m[4] || "").trim();
         const ok = /more than|over|above/.test(cmp) ? v => v > n : /at least/.test(cmp) ? v => v >= n : /at most|no more than/.test(cmp) ? v => v <= n : /fewer than|less than|under/.test(cmp) ? v => v < n : v => v === n;
         const keyFn = groupKey(key), keysOf = i => [].concat(keyFn(i) || []).map(x => String(x).trim().toLowerCase()).filter(Boolean), cnt = {};
         items.forEach(i => keysOf(i).forEach(k => cnt[k] = (cnt[k]||0) + 1));
@@ -4830,7 +4852,7 @@ function askAnswer(raw){
   if(any("unmatched")){ items = items.filter(i => !isMatched(i)); scope.push("not matched"); }
 
   // Starred / favourites (but "favorite artist" means the one you have most of)
-  const favFilter = any("starred","highlights","highlighted","favorites","favourites") || ((has("favorite") || has("favourite")) && !makerNouns.concat(Object.keys(ASK_GROUP)).some(w => /favou?rite (\w+ )?$/.test(q.slice(0, pos(w) + 1))));
+  const favFilter = any("starred","highlights","highlighted","favorites","favourites") || ((has("favorite") || has("favourite")) && !makerNouns.concat(Object.keys(AG)).some(w => /favou?rite (\w+ )?$/.test(q.slice(0, pos(w) + 1))));
   if(favFilter){ items = items.filter(i => i.favorite); scope.push("starred"); }
   const sgQ = any("signed","autographed","autograph","autographs","signature","signatures") && !(acA && gal.some(c => c.id === acA.id));
   if(sgQ){
@@ -4865,7 +4887,7 @@ function askAnswer(raw){
   const cands = [];
   const cand = (w, s) => { const p = pos(w); if(p >= 0) cands.push({p, s, sel:SELECT.test(q.slice(0, p + 1))}); };
   makerNouns.forEach(w => cand(w, {type:"group", key:"maker"}));
-  Object.entries(ASK_GROUP).forEach(([w, key]) => cand(w, {type:"group", key}));
+  Object.entries(AG).forEach(([w, key]) => cand(w, {type:"group", key}));
   facets.forEach(fc => { if(!fc.key.startsWith("f:")) return; const w = nk(fc.label).split(" ")[0]; if(w.length > 2 && !vocab.has(w) && !ASK_STOP.has(w)) cand(w, {type:"group", key:fc.key}); });
   if(/ (which|what|each|per|every|by) collection /.test(q)) cand("collection", {type:"group", key:"gallery"});
   ASK_ITEM.forEach(w => cand(w, {type:"item"}));
@@ -5141,11 +5163,12 @@ function viewGallery(id){
   document.title = "Edit " + g.name + " · " + (cat.title||"The Museum");
   const inp = 'style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0;width:100%"';
   const grip = `<button type="button" class="grip" data-drag title="Drag to reorder (or use the ↑ ↓ keys)" aria-label="Drag to reorder">⠿</button>`;
-  const fieldRow = f => `<div class="frow" data-k="${esc(f.k||"")}" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">
+  const fieldRow = f => `<div class="frow" data-k="${esc(f.k||"")}" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">
     ${grip}<input data-fl value="${esc(f.l)}" placeholder="Field name" aria-label="Field name" ${inp}>
+    <label class="check" title="Dropdown: pick from a list of choices, and add new ones right from the piece form"><input type="checkbox" data-fdd ${isDD(f)?"checked":""}> ▾ List</label>
     <label class="check" title="Private: hidden when values are hidden"><input type="checkbox" data-fp ${f.priv?"checked":""}> 🔒</label>
     <button type="button" class="iconbtn" data-frm title="Remove field" style="height:auto">✕</button>
-    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="Dropdown choices, comma separated (blank = free text)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}>
+    <input data-fo value="${esc((f.opts||[]).join(", "))}" placeholder="List choices, comma separated (tick ▾ List; you can add more from any piece)" aria-label="Dropdown choices" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}>
     <input data-fd value="${esc(f.def||"")}" placeholder="Starts as (optional), e.g. USA" aria-label="Value new pieces start with" ${inp.replace('padding:9px 10px','padding:7px 10px;font-size:.85rem;grid-column:2/-1')}></div>`;
   // Year is built in (not a field), but it can be dragged into place among the fields too.
   const yearRow = `<div class="frow" data-core="year" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 8px;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--line)">${grip}<div style="padding:9px 10px;color:var(--muted)">Year <small>(built in, always there)</small></div></div>`;
@@ -5160,7 +5183,7 @@ function viewGallery(id){
       <div class="f"><label for="glook">Look up info from</label><select id="glook">${Object.entries(LOOKUPS).map(([k,l]) => `<option value="${k}" ${k===lookupKind(g)?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
     </div></fieldset>
     <fieldset><legend>Fields</legend>
-      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece. “Starts as” fills that field in for each new piece (you can still change it).</p>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Rename fields freely; your entries stay attached. ▾ List makes a field a dropdown you pick from; add new choices with “＋ Add new…” right on a piece. 🔒 hides a field when values are hidden. Removing a field moves anything you'd entered into that piece's “More details”, so nothing is lost. Drag ⠿ to change the order fields appear in when you add or view a piece. “Starts as” fills that field in for each new piece (you can still change it).</p>
       <div id="frows" style="display:grid;gap:8px">${rowsHTML}</div>
       <div class="actions" style="margin-top:10px"><button type="button" class="iconbtn" id="addF">＋ Add a field</button></div>
     </fieldset>
@@ -5217,6 +5240,8 @@ function viewGallery(id){
       catch(e){ hit.forEach(i => setV(i, k, from)); alert(e.message); }
     };
   }
+  // Typing choices makes the field a dropdown.
+  document.getElementById("frows").addEventListener("input", e => { if(e.target.matches("[data-fo]") && e.target.value.trim()){ const b = e.target.closest(".frow").querySelector("[data-fdd]"); if(b) b.checked = true; } });
   document.getElementById("addF").onclick = () => { document.getElementById("frows").insertAdjacentHTML("beforeend", fieldRow({l:""})); wire(); document.querySelector("#frows .frow:last-child [data-fl]").focus(); };
   if(document.getElementById("delG")) document.getElementById("delG").onclick = async () => {
     const typed = prompt(`Delete the “${g.name}” collection for good? Its fields and settings go with it.\n\nType the collection's name to confirm:`);
@@ -5228,9 +5253,13 @@ function viewGallery(id){
   };
   document.getElementById("gf").onsubmit = async e => {
     e.preventDefault();
-    const fields = [...app.querySelectorAll("#frows .frow:not([data-core])")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked,
+    const fields = [...app.querySelectorAll("#frows .frow:not([data-core])")].map(r => ({k:r.dataset.k || "f_" + uid().slice(-6), l:r.querySelector("[data-fl]").value.trim(), priv:r.querySelector("[data-fp]").checked, dd:r.querySelector("[data-fdd]").checked,
         opts:[...new Set(r.querySelector("[data-fo]").value.split(",").map(x=>x.trim()).filter(Boolean))], def:r.querySelector("[data-fd]").value.trim()}))
-      .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined}; if(!out.opts.length) delete out.opts; if(!out.def) delete out.def; return out; });
+      .filter(f => f.l).map(f => { const o = orig.fields.find(x => x.k === f.k); const out = {...(o||{}), ...f, priv:f.priv || undefined};
+        // A list with no choices typed starts with whatever is already filled in on the pieces; unticking ▾ List makes it free text again (values stay).
+        if(out.dd && !out.opts.length) out.opts = [...new Set(cat.items.filter(i => i.collectionId === id).map(i => String((i.fields||{})[f.k]||"").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"}));
+        if(!out.dd){ delete out.opts; delete out.dd; } else out.dd = 1;
+        if(!(out.opts||[]).length) delete out.opts; if(!out.def) delete out.def; return out; });
     // Year goes after whichever field is just above its row (none: before the fields, as usual)
     const yr = app.querySelector('#frows [data-core="year"]'), rowsAll = [...app.querySelectorAll("#frows .frow")], above = rowsAll.slice(0, rowsAll.indexOf(yr)).filter(r => !r.dataset.core && r.querySelector("[data-fl]").value.trim());
     const yearAfter = above.length ? fields[[...app.querySelectorAll("#frows .frow:not([data-core])")].filter(r => r.querySelector("[data-fl]").value.trim()).indexOf(above[above.length - 1])].k : "";
@@ -5387,7 +5416,7 @@ async function boot(){
     if(!c.maker || c.maker === "Maker") c.maker = "Publisher"; });
   // One-time: records formats moved to LP / 7" / 10" style choices.
   if(!cat.migFormats){ cat.migFormats = 1; const rc = cat.collections.find(c => c.id === "records"); const ff = rc && rc.fields.find(f => f.k === "format");
-    if(ff){ const pf = PRESETS[0].fields[0].opts; ff.opts = [...new Set([...pf, ...(ff.opts||[]).filter(o => o !== '7" single')])];
+    if(ff){ const pf = PRESETS[0].fields.find(f => f.k === "format").opts; ff.opts = [...new Set([...pf, ...(ff.opts||[]).filter(o => o !== '7" single')])];
       cat.items.forEach(i => { if(i.collectionId === "records" && i.fields && i.fields.format === '7" single') i.fields.format = '7"'; }); } }
   // Add preset fields introduced in newer versions, but never re-add ones the user removed.
   PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; c.seen = c.seen || c.fields.map(f=>f.k);
@@ -5395,13 +5424,22 @@ async function boot(){
       if(!c.fields.some(x => x.k === f.k || nlab(x.l) === nlab(f.l) || (nlab(f.l).length >= 5 && nlab(x.l).startsWith(nlab(f.l))))){   // a field you made yourself with the same name counts as having it
       // Slot it in after the field that comes before it in the preset (e.g. Vinyl color right after Format).
       const after = n ? c.fields.findIndex(x => x.k === p.fields[n-1].k) : -1;
-      c.fields.splice(after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f)));
+      c.fields.splice(!n ? 0 : after >= 0 ? after + 1 : c.fields.length, 0, JSON.parse(JSON.stringify(f)));
       // A "More details" line with the same label (e.g. Genre) moves into the new field.
       const nl = x => String(x).toLowerCase().replace(/[^a-z0-9]/g,""), key = nl(f.l.split(/ [(\/]/)[0]);
       cat.items.forEach(i => { if(i.collectionId !== c.id || !(i.extra||[]).length || (i.fields||{})[f.k]) return;
         const x = i.extra.find(e => nl(e.l) === key || nl(e.l) === nl(f.l)); if(x && x.v){ i.fields = i.fields || {}; i.fields[f.k] = x.v; i.extra = i.extra.filter(e => e !== x); } }); } } }); });
   // The museum's old default name becomes the new one (a name typed in Settings stays).
   if(!cat.title || cat.title === "The Collection") cat.title = "The Museum";
+  // Add-as-you-go dropdowns (e.g. Records › Category) list every value already typed into them, so nothing has to be retyped.
+  cat.collections.forEach(c => (c.fields||[]).forEach(f => { if(!f.dd) return;
+    // "novelty" typed once and "Novelty" elsewhere are the same choice: the piece takes the list's spelling.
+    const canon = new Map((f.opts||[]).map(o => [o.toLowerCase(), o])); cat.items.forEach(i => { const v = i.collectionId === c.id && String((i.fields||{})[f.k]||"").trim(); if(!v) return;
+      const k = v.toLowerCase(); if(!canon.has(k)) canon.set(k, v); if(i.fields[f.k] !== canon.get(k)) i.fields[f.k] = canon.get(k); });
+    const have = new Set((f.opts||[]).map(o => o.toLowerCase()));
+    const add = [...new Set(cat.items.filter(i => i.collectionId === c.id).map(i => String((i.fields||{})[f.k]||"").trim()).filter(Boolean))].filter(v => !have.has(v.toLowerCase()) && (have.add(v.toLowerCase()), true))
+      .sort((a, b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"}));
+    if(add.length) f.opts = [...(f.opts||[]), ...add]; }));
   // One-time (2026-11-12): Animation Cels get Eric's layout. Type, Production, Season #, Episode #, Year, Characters lead; Edition # and
   // Matted / framed go (anything typed there moves to "More details"); Condition and quantity are hidden; screen grabs and scene clips are on.
   { const c = cat.collections.find(x => x.id === "cels"), pc = PRESETS.find(x => x.id === "cels");
