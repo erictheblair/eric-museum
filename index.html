@@ -895,7 +895,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.15.1";
+const APP_VERSION = "2026.11.15.2";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -903,7 +903,8 @@ const CONDITIONS = ["Mint","Near Mint","Excellent","Very Good","Good","Fair","Po
 const PRESETS = [
   {id:"records", name:"Records", icon:"🎵", maker:"Artist", fields:[
     {k:"category",l:"Category",dd:1},
-    {k:"format",l:"Format",opts:["LP","2×LP","EP","7\"","10\"","12\" single","78","Box set","Picture disc","Flexi disc"]},
+    {k:"size",l:"Size",opts:["7\"","10\"","12\""]},
+    {k:"format",l:"Format",opts:["LP","2×LP","3×LP","EP","Single","Box set","78","Picture disc","Flexi disc"]},
     {k:"color",l:"Vinyl color",opts:["Black","Clear","White","Red","Orange","Yellow","Green","Blue","Purple","Pink","Gold","Silver","Smoke","Splatter","Marble","Swirl","Half & half","Glow in the dark"]},{k:"label",l:"Label"},{k:"catno",l:"Catalog #"},
     {k:"pressing",l:"Pressing / country"},{k:"matrix",l:"Matrix / runout"},{k:"mediaGrade",l:"Media grade"},{k:"sleeveGrade",l:"Sleeve grade"},
     {k:"genre",l:"Genre"},{k:"speed",l:"Speed",opts:["33⅓ RPM","45 RPM","78 RPM"]},{k:"inserts",l:"Inserts / extras (poster, lyric sheet…)"}]},
@@ -3002,11 +3003,11 @@ async function discogsSearch(q, maker, tok){
   let j = await getJSON(u);
   if(!(j.results||[]).length && maker) j = await getJSON("https://api.discogs.com/database/search?type=release&per_page=25&q=" + encodeURIComponent(q + " " + maker) + "&token=" + encodeURIComponent(tok));
   return (j.results||[]).map(r => {
-    const [artist, ...rest] = (r.title||"").split(" - "), fm = formatFrom(r.format||[]), label = (r.label||[])[0] || "", catno = r.catno && r.catno !== "none" ? r.catno : "";
+    const [artist, ...rest] = (r.title||"").split(" - "), fm = formatFrom(dgFormats(r)), label = (r.label||[])[0] || "", catno = r.catno && r.catno !== "none" ? r.catno : "";
     const code = (r.barcode||[]).map(b => String(b).replace(/\s/g,"")).find(b => /^\d{8,14}$/.test(b)) || "";
     const img = r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "";
     const res = {source:"Discogs", collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "", year:r.year ? String(r.year) : "",
-      cover:img, barcode:code, ref:{discogs:r.id}, fields:{label, catno, format:fm.format||"", pressing:r.country||"", color:vinylColor(r)}, named:{"Label":label, "Catalog #":catno, "Country":r.country, "Discogs":r.uri ? "https://www.discogs.com" + r.uri : ""}};
+      cover:img, barcode:code, ref:{discogs:r.id}, fields:{label, catno, format:fm.format||"", size:fm.size||"", speed:fm.speed||"", pressing:r.country||"", color:vinylColor(r)}, named:{"Label":label, "Catalog #":catno, "Country":r.country, "Discogs":r.uri ? "https://www.discogs.com" + r.uri : ""}};
     return {...res, thumb:r.thumb || img, sub:["Discogs", (r.format||[]).join(", "), r.country, label, catno].filter(Boolean).join(" · "), get:async()=>res};
   });
 }
@@ -3018,9 +3019,9 @@ async function musicBrainzSearch(q, maker){
       return "(" + ['"' + ws.join(" ") + '"^3', "(" + fuzzy + ")", ...joins.map(j => "(" + j + ")")].join(" OR ") + ")"; };
     const query = "release:" + fz(q) + (maker && fz(maker) ? " AND artist:" + fz(maker) : "");
     const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=12&query=" + encodeURIComponent(query));
-    return (j.releases||[]).map(r => { const li = (r["label-info"]||[])[0] || {}, fmts = (r.media||[]).map(m=>m.format||""), fm = formatFrom(fmts);
+    return (j.releases||[]).map(r => { const li = (r["label-info"]||[])[0] || {}, fmts = (r.media||[]).map(m=>m.format||""), fm = formatFrom(fmts, mbKind(r));
       const res = {source:"MusicBrainz", ref:{mb:r.id}, title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""), year:(r.date||"").slice(0,4),
-        cover:"https://coverartarchive.org/release/" + r.id + "/front-500", barcode:r.barcode||"", fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""},
+        cover:"https://coverartarchive.org/release/" + r.id + "/front-500", barcode:r.barcode||"", fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", size:fm.size||"", speed:fm.speed||"", pressing:r.country||""},
         named:{"Label":(li.label||{}).name, "Catalog #":li["catalog-number"], "Country":r.country}};
       return {...res, thumb:"https://coverartarchive.org/release/" + r.id + "/front-250", sub:["MusicBrainz", fmts.join(" + "), r.country, (li.label||{}).name, li["catalog-number"]].filter(Boolean).join(" · "), get:async()=>res}; });
   }
@@ -3575,9 +3576,9 @@ async function lookupByTitle(collectionId, title, maker){
     const q = 'release:"' + title.replace(/"/g,"") + '"' + (maker ? ' AND artist:"' + maker.replace(/"/g,"") + '"' : "") + " AND format:vinyl";
     const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=5&query=" + encodeURIComponent(q));
     const r = (j.releases||[])[0]; if(!r) return null;
-    const li = (r["label-info"]||[])[0] || {}, fm = formatFrom((r.media||[]).map(m=>m.format||""));
+    const li = (r["label-info"]||[])[0] || {}, fm = formatFrom((r.media||[]).map(m=>m.format||""), mbKind(r));
     return {source:"MusicBrainz", title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""), year:(r.date||"").slice(0,4),
-      cover:"https://coverartarchive.org/release/" + r.id + "/front-500", fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""}};
+      cover:"https://coverartarchive.org/release/" + r.id + "/front-500", fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", size:fm.size||"", speed:fm.speed||"", pressing:r.country||""}};
   }
   return null;
 }
@@ -3601,21 +3602,54 @@ async function lookupOpenLibrary(code){
     year:((b.publish_date||"").match(/\d{4}/)||[""])[0], cover:b.cover && (b.cover.large || b.cover.medium),
     fields:{publisher:(b.publishers||[]).map(p=>p.name).join(", "), isbn:code, pages:b.number_of_pages ? String(b.number_of_pages) : ""}};
 }
-function formatFrom(fmts){
-  const f = fmts.join(" ").toLowerCase();
-  if(/laser ?disc/.test(f)) return {collectionId:"laserdiscs"};
-  if(/vinyl|lp|7"|12"|10"|45 rpm|78 rpm/.test(f)) return {collectionId:"records", format:/7"|45 rpm/.test(f) ? '7"' : /10"/.test(f) ? '10"' : /78 rpm/.test(f) ? "78" : /\bep\b/.test(f) ? "EP" : /box/.test(f) ? "Box set" : "LP"};
-  return {};
+/* Size (7" / 10" / 12"), format (LP, EP, Single…) and speed of a record, from what Discogs or MusicBrainz say about it.
+   Each entry is one part of the release (Discogs: "Vinyl, LP, Album"; MusicBrainz: '12" Vinyl'). Size and format are separate:
+   a 12" single and a 12" EP are both 12". Things that used to turn LPs into 7-inch records: a 45 RPM LP (audiophile reissues)
+   and an LP that comes with a bonus 7", so the record's own size wins over a bonus disc and RPM never decides the size. */
+const sizeIn = t => { t = String(t||"").toLowerCase();
+  const m = [...t.matchAll(/(?:^|[^\d.])(\d{1,2})\s?(?:"|″|”|''|-?\s?inch(?:es)?\b|-?in\b)/g)].map(x => +x[1]).filter(n => n >= 5 && n <= 16);
+  const lp = /\blp\b|\blps\b/.test(t), big = m.length ? Math.max(...m) : 0;
+  return lp && big < 10 ? 12 : big; };   // an LP is 12" unless it says 10"
+function formatFrom(list, hint){
+  const ents = (list||[]).map(e => typeof e === "string" ? {t:e, q:1} : {t:e.t || "", q:+e.q || 1}).filter(e => e.t);
+  const all = (ents.map(e => e.t).join(" | ") + " | " + (hint||"")).toLowerCase();
+  if(/laser ?disc/.test(all)) return {collectionId:"laserdiscs"};
+  if(!/vinyl|shellac|flexi|lathe|acetate|\blp\b|\d{1,2}"|\brpm\b/.test(all)) return {};
+  const recs = ents.filter(e => /vinyl|shellac|flexi|lathe|acetate|\blp\b|\d{1,2}"/i.test(e.t)), use = recs.length ? recs : ents;
+  let size = Math.max(0, ...use.map(e => sizeIn(e.t)));
+  const main = use.filter(e => { const z = sizeIn(e.t); return !z || z === size; }), n = main.reduce((t, e) => t + e.q, 0);
+  const mt = (main.map(e => e.t).join(" | ") + " | " + (hint||"")).toLowerCase(), lps = n >= 2 ? n + "×LP" : "LP";
+  const format = /box ?set/.test(all) ? "Box set" : /\blps?\b/.test(mt) ? lps : /\bep\b|mini-album/.test(mt) ? "EP" : /single/.test(mt) ? "Single"
+    : /\balbum\b/.test(mt) && size !== 7 ? lps : /flexi/.test(mt) ? "Flexi disc" : /shellac|78 rpm/.test(mt) ? "78" : /picture disc/.test(mt) ? "Picture disc" : size === 7 ? "Single" : "";
+  if(!size && /LP$/.test(format)) size = 12;
+  const sp = [...new Set([...mt.matchAll(/\b(33|45|78)\b[^|,]{0,4}rpm/g)].map(m => m[1]))], speed = sp.length === 1 ? (sp[0] === "33" ? "33⅓ RPM" : sp[0] + " RPM") : /shellac/.test(mt) && !sp.length ? "78 RPM" : "";
+  return {collectionId:"records", format, size:size ? size + '"' : "", speed};
 }
+// Discogs lists each part of a release separately (2 × Vinyl LP, plus a bonus 7"); the search results' flat list is the fallback.
+const dgFormats = r => (r.formats||[]).length ? r.formats.map(x => ({t:[x.name, ...(x.descriptions||[])].filter(Boolean).join(", "), q:x.qty})) : [(r.format||[]).join(", ")];
+// MusicBrainz says whether a release is an Album, EP or Single on its release group.
+/* An old Format value that mixed size and format ('7"', '12" single', "LP") split into the two fields. LPs are 12". */
+function splitFormat(v){
+  const t = String(v||"").trim(), m = t.match(/(?:^|[^\d.])(\d{1,2})\s?(?:"|″|”|''|-?\s?inch(?:es)?\b|-?in\b)/), z = m ? +m[1] : 0;
+  const rest = (m ? t.replace(m[0], " ") : t).replace(/^[\s,\/·|+\-–]+|[\s,\/·|+\-–]+$/g, "").trim(), k = rest.toLowerCase().replace(/[^a-z0-9×]/g, "");
+  const x = k.match(/^(\d)(?:x|×)?lps?$/);
+  const format = !k ? (z === 7 ? "Single" : "") : /^(singles?|maxisingle)$/.test(k) ? "Single" : /^(lps?|album)$/.test(k) ? "LP" : /^eps?$/.test(k) ? "EP"
+    : x ? (+x[1] >= 2 ? x[1] + "×LP" : "LP") : /^doublelps?$/.test(k) ? "2×LP" : rest;
+  return {size:z >= 5 && z <= 16 ? z + '"' : /^(\d×)?LP$/.test(format) ? '12"' : "", format};
+}
+const mbKind = r => { const g = r["release-group"] || {}; return [g["primary-type"], ...(g["secondary-types"]||[])].filter(Boolean).join(" "); };
 async function lookupDiscogs(code, tok){
   const j = await getJSON("https://api.discogs.com/database/search?type=release&per_page=10&barcode=" + encodeURIComponent(code) + "&token=" + encodeURIComponent(tok));
   const list = j.results || []; if(!list.length) return null;
-  const r = list.find(x => /vinyl|laserdisc/i.test((x.format||[]).join(" "))) || list[0];
+  // Discogs' barcode search also returns near matches (other pressings, singles from the album), so the release whose barcode
+  // really is this one comes first; only then any vinyl or laserdisc.
+  const exact = x => (x.barcode||[]).some(b => sameCode(b, code)), vinyl = x => /vinyl|laserdisc/i.test((x.format||[]).join(" "));
+  const r = list.find(x => exact(x) && vinyl(x)) || list.find(exact) || list.find(vinyl) || list[0];
   const [artist, ...rest] = (r.title||"").split(" - ");
-  const fm = formatFrom(r.format||[]);
+  const fm = formatFrom(dgFormats(r));
   return {source:"Discogs", ref:{discogs:r.id}, collectionId:fm.collectionId, title:rest.length ? rest.join(" - ") : r.title, maker:rest.length ? artist.replace(/\s*\(\d+\)$/,"") : "",
     year:r.year||"", cover:r.cover_image && !/spacer\.gif/.test(r.cover_image) ? r.cover_image : "",
-    fields:{label:(r.label||[])[0]||"", catno:r.catno && r.catno!=="none" ? r.catno : "", format:fm.format||"", pressing:r.country||"", color:vinylColor(r)}};
+    fields:{label:(r.label||[])[0]||"", catno:r.catno && r.catno!=="none" ? r.catno : "", format:fm.format||"", size:fm.size||"", speed:fm.speed||"", pressing:r.country||"", color:vinylColor(r)}};
 }
 async function lookupMusicBrainz(code){
   const alt = code.length === 13 && code[0] === "0" ? code.slice(1) : code.length === 12 ? "0" + code : null;
@@ -3623,11 +3657,12 @@ async function lookupMusicBrainz(code){
   const j = await getJSON("https://musicbrainz.org/ws/2/release/?fmt=json&limit=10&query=" + encodeURIComponent(q));
   const list = j.releases || []; if(!list.length) return null;
   const fmts = r => (r.media||[]).map(m=>m.format||"");
-  const r = list.find(x => /vinyl|laserdisc/i.test(fmts(x).join(" "))) || list[0];
-  const fm = formatFrom(fmts(r)), li = (r["label-info"]||[])[0] || {};
+  const exact = x => sameCode(x.barcode||"", code) || (alt && sameCode(x.barcode||"", alt)), vinyl = x => /vinyl|laserdisc/i.test(fmts(x).join(" "));
+  const r = list.find(x => exact(x) && vinyl(x)) || list.find(exact) || list.find(vinyl) || list[0];
+  const fm = formatFrom(fmts(r), mbKind(r)), li = (r["label-info"]||[])[0] || {};
   return {source:"MusicBrainz", ref:{mb:r.id}, collectionId:fm.collectionId, title:r.title, maker:(r["artist-credit"]||[]).map(a=>(a.name||"") + (a.joinphrase||"")).join(""),
     year:(r.date||"").slice(0,4), cover:"https://coverartarchive.org/release/" + r.id + "/front-500",
-    fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", pressing:r.country||""}};
+    fields:{label:(li.label||{}).name||"", catno:li["catalog-number"]||"", format:fm.format||"", size:fm.size||"", speed:fm.speed||"", pressing:r.country||""}};
 }
 async function lookupUPCItemDB(code){
   const j = await getJSON("https://api.upcitemdb.com/prod/trial/lookup?upc=" + encodeURIComponent(code));
@@ -3838,7 +3873,11 @@ function viewEdit(id, params, ov){
 
   async function applyResult(r, overwrite){
       if(r.collectionId && !existing && overwrite && cat.collections.some(c=>c.id===r.collectionId)) it.collectionId = r.collectionId;
+      // A piece you already have keeps the size, format, speed and color you gave it: those describe your copy, and a lookup can land on
+      // another pressing of the same album (that's how 12" LPs were turning into 7-inch records).
+      const mine = existing ? Object.entries(it.fields||{}).filter(([k, v]) => v && /^(size|format|speed|color)$/.test(k)) : [];
       mergeResult(it, r, overwrite);
+      mine.forEach(([k, v]) => { it.fields[k] = v; });
       if(r.cover && !it.media.some(m=>m.kind==="photo")){
         try{
           const blob = await (await fetchT(r.cover, {}, 15000)).blob();
@@ -4615,7 +4654,7 @@ function viewStats(){
   const lists = cat.collections.flatMap(c => c.fields.filter(f => isDD(f) && !(priv && f.priv)).map(f => {
     const ct = {}; items.forEach(i => { const v = i.collectionId === c.id && (i.fields||{})[f.k]; if(v) ct[v] = (ct[v]||0) + 1; });
     const o = f.opts || [], rows = Object.entries(ct).sort((a, b) => ((o.indexOf(a[0]) + 1) || 1e9) - ((o.indexOf(b[0]) + 1) || 1e9) || a[0].localeCompare(b[0]));
-    return {c, f, rows, max:Math.max(1, ...rows.map(r => r[1]))}; })).filter(x => x.rows.length && !/^(format|color|speed|binding|rating|grade|grader|jacket|retired|country|coin)$/.test(x.f.k));
+    return {c, f, rows, max:Math.max(1, ...rows.map(r => r[1]))}; })).filter(x => x.rows.length && (x.c.id === "records" && /^(size|format)$/.test(x.f.k) || !/^(format|size|color|speed|binding|rating|grade|grader|jacket|retired|country|coin)$/.test(x.f.k)));
   const tile = (v, l) => `<div class="st-tile"><b>${v}</b><span>${l}</span></div>`;
   app.innerHTML = `<div class="crumbs noprint"><a href="#/">Museum</a> › Stats</div>
   <section class="hero" style="padding-bottom:10px"><h1>Collection stats</h1><p>What's in the museum, and what's new.</p></section>
@@ -4656,7 +4695,7 @@ const ASK_STOP = new Set(("a an the i my me do does did have has had is are was 
 const ASK_ITEM = ["album","albums","record","records","lp","lps","piece","pieces","item","items","title","titles","release","releases","disc","discs","cd","cds",
   "book","books","movie","movies","film","films","thing","things","laserdisc","laserdiscs","vinyl","vinyls","single","singles","ep","eps"];
 const ASK_SONG = ["song","songs","track","tracks","tune","tunes"];
-const ASK_GROUP = {genre:"genre", genres:"genre", style:"style", styles:"style", label:"label", labels:"label", format:"format", formats:"format", color:"color", colors:"color",
+const ASK_GROUP = {genre:"genre", genres:"genre", style:"style", styles:"style", label:"label", labels:"label", format:"format", formats:"format", size:"size", sizes:"size", color:"color", colors:"color",
   decade:"decade", decades:"decade", era:"decade", eras:"decade", year:"year", years:"year", condition:"condition", conditions:"condition", grade:"condition", grades:"condition", tag:"tag", tags:"tag",
   location:"location", locations:"location", shelf:"location", shelves:"location", room:"location", rooms:"location", box:"location", boxes:"location", crate:"location", crates:"location", bin:"location", bins:"location", drawer:"location", drawers:"location", cabinet:"location", place:"f:place", places:"f:place", attraction:"f:place", attractions:"f:place", gallery:"gallery", galleries:"gallery", collections:"gallery", category:"gallery", categories:"gallery",
   source:"source", sources:"source", store:"source", stores:"source", shop:"source", shops:"source", seller:"source", country:"pressing", countries:"pressing", pressing:"pressing", publisher:"publisher", publishers:"publisher"};
@@ -4813,12 +4852,15 @@ function askAnswer(raw){
   const facets = [];
   galsInScope.forEach(c => c.fields.forEach(f => { if((priv && f.priv) || facets.some(x => x.key === "f:" + f.k)) return; facets.push({key:"f:" + f.k, label:f.l.split(/ [(\/]/)[0], get:i => (i.fields||{})[f.k]}); }));
   facets.push({key:"condition", label:"Condition", get:i => i.condition}, {key:"location", label:"Location", get:i => i.location}, {key:"tag", label:"Tag", get:i => i.tags}, {key:"source", label:"From", get:i => i.source});
-  const special = v => { const k = nk(v); return k === "7" ? ["7inch","45","45s","single","singles"] : k === "lp" ? ["lp","lps"] : k === "10" ? ["10inch"] : k === "12 single" ? ["12inch"] : k === "2×lp" || k === "2 lp" ? ["2xlp"] : []; };
+  // Record sizes and formats are separate fields: '7"' answers "7-inch" and "45s", '12"' answers "12-inch", Format "Single" answers "singles".
+  const special = v => { const k = nk(v); return k === "7" ? ["7inch","45s"] : k === "lp" ? ["lp","lps"] : k === "10" ? ["10inch"] : k === "12" ? ["12inch"] : k === "single" ? ["single","singles"] : k === "ep" ? ["ep","eps"]
+    : k === "12 single" ? ["12inch"] : /^[2-9]×lp$|^2 lp$/.test(k) ? ["2xlp","lp","lps"] : []; };
   const vAliases = [];
   items.forEach(i => facets.forEach(fc => [].concat(fc.get(i) || []).forEach(v => { const k = nk(v); if(!k) return;
-    [k, ...special(v)].forEach(a => { if((okAlias(a) || special(v).includes(a)) && !/^\d+$/.test(a) && !vAliases.some(x => x.a === a && x.key === fc.key)) vAliases.push({a, key:fc.key, k, v:String(v), fc}); }); })));
+    [k, ...special(v)].forEach(a => { if((okAlias(a) || special(v).includes(a)) && !/^\d+$/.test(a) && !vAliases.some(x => x.a === a && x.key === fc.key && x.k === k)) vAliases.push({a, key:fc.key, k, v:String(v), fc}); }); })));
   vAliases.sort((a, b) => b.a.length - a.a.length);
-  const valHits = []; vAliases.forEach(x => { if(hasR(x.a)){ take(x.a); if(!valHits.some(h => h.key === x.key && h.k === x.k)) valHits.push(x); } });
+  // One word can name several values ("LPs" = LP and 2×LP): every value it names counts.
+  const valHits = [], took = new Set(); vAliases.forEach(x => { if(took.has(x.a) || hasR(x.a)){ if(!took.has(x.a)){ take(x.a); took.add(x.a); } if(!valHits.some(h => h.key === x.key && h.k === x.k)) valHits.push(x); } });
 
   // Years and decades ("from the 70s", "in 1973", "before 1970", "between 1965 and 1975") and when added ("this month", "added in 2025")
   const addCtx = any("added","add","bought","acquired","got","purchased","buy");
@@ -4867,7 +4909,9 @@ function askAnswer(raw){
   const valByKey = {}; valHits.forEach(h => (valByKey[h.key] = valByKey[h.key] || []).push(h));
   const compareSides = compareQ && makersHit.length >= 2 ? makersHit.map(k => ({name:mkMap.get(k), f:byPerson([k])}))
     : compareQ && titlesHit.length >= 2 ? titlesHit.map(k => ({name:items.find(i => nk(i.title) === k).title, f:i => nk(i.title) === k}))
-    : compareQ ? (Object.values(valByKey).find(l => l.length >= 2) || []).map(h => ({name:h.v, f:i => [].concat(h.fc.get(i) || []).some(v => nk(v) === h.k)})) : [];
+    : compareQ ? (() => { const l = Object.values(valByKey).find(l => new Set(l.map(h => h.a)).size >= 2) || [], by = new Map();   // one side per word asked about ("LPs" = LP + 2×LP)
+        l.forEach(h => { if(!by.has(h.a)) by.set(h.a, []); by.get(h.a).push(h); });
+        return [...by.values()].map(hs => ({name:hs[0].v, f:i => hs.some(h => [].concat(h.fc.get(i) || []).some(v => nk(v) === h.k))})); })() : [];
   const preFilter = items.slice();
   if(makersHit.length && !(compareSides.length && compareSides[0].name === mkMap.get(makersHit[0]))){ items = items.filter(byPerson(makersHit)); scope.push((makersHit.some(k => credMap.has(k) || items.some(i => nk(i.maker) !== k)) ? "with " : "by ") + makersHit.map(k => mkMap.get(k)).join(" or ")); }
   let titled = null;
@@ -4877,7 +4921,7 @@ function askAnswer(raw){
   if(yLo != null) items = items.filter(i => { const y = yearOf(i); return y && y >= yLo && y <= yHi; });
   if(dLo != null) items = items.filter(i => { const t = Date.parse(i.created || 0); return t >= dLo && t < dHi; });
   const where = scope.length ? " (" + scope.join(" · ") + ")" : "";
-  const noun = n => { const one = gal.length === 1; const base = one ? nk(gal[0].name) : any("album","albums") ? "albums" : any("lp","lps") ? "LPs" : any("single","singles","7inch") ? "singles" : "pieces";
+  const noun = n => { const one = gal.length === 1; const base = one ? nk(gal[0].name) : any("album","albums") ? "albums" : compareQ && valHits.length >= 2 ? "records" : any("lp","lps") ? "LPs" : any("single","singles","7inch") ? "singles" : "pieces";
     return n === 1 ? (base === "LPs" ? "LP" : sing(base)) : base; };
   if(!items.length) return {text:`You don't have any ${noun(2)}${where}.`};
 
@@ -5418,6 +5462,20 @@ async function boot(){
   if(!cat.migFormats){ cat.migFormats = 1; const rc = cat.collections.find(c => c.id === "records"); const ff = rc && rc.fields.find(f => f.k === "format");
     if(ff){ const pf = PRESETS[0].fields.find(f => f.k === "format").opts; ff.opts = [...new Set([...pf, ...(ff.opts||[]).filter(o => o !== '7" single')])];
       cat.items.forEach(i => { if(i.collectionId === "records" && i.fields && i.fields.format === '7" single') i.fields.format = '7"'; }); } }
+  // One-time: a record's size (7" / 10" / 12") moves out of Format into its own Size field, just before Format, so a 12" single,
+  // a 12" EP and an LP can be told apart. Every LP becomes a 12" LP; a 7" becomes a 7" single.
+  if(!cat.migSize){ cat.migSize = 1; const rc = cat.collections.find(c => c.id === "records");
+    if(rc){ const pz = PRESETS[0].fields.find(f => f.k === "size"), ff = rc.fields.find(f => f.k === "format");
+      let sf = rc.fields.find(f => f.k === "size" || /^size$/i.test(String(f.l||"").trim()));
+      if(!sf){ sf = JSON.parse(JSON.stringify(pz)); rc.fields.splice(ff ? rc.fields.indexOf(ff) : rc.fields.length, 0, sf); }
+      if(rc.seen && !rc.seen.includes("size")) rc.seen.push("size");
+      cat.items.forEach(i => { if(i.collectionId !== "records" || !i.fields || !i.fields.format) return;
+        const sp = splitFormat(i.fields.format); if(sp.size && !i.fields[sf.k]) i.fields[sf.k] = sp.size;
+        if(sp.format) i.fields.format = sp.format; else delete i.fields.format; });
+      const num = o => parseFloat(o) || 99;
+      sf.opts = [...new Set([...pz.opts, ...(sf.opts||[]), ...cat.items.filter(i => i.collectionId === "records").map(i => (i.fields||{})[sf.k]).filter(Boolean)])].sort((a, b) => num(a) - num(b));
+      if(ff){ const pf = PRESETS[0].fields.find(f => f.k === "format").opts;
+        ff.opts = [...new Set([...pf, ...(ff.opts||[]).map(o => splitFormat(o).format).filter(Boolean)])]; } } }
   // Add preset fields introduced in newer versions, but never re-add ones the user removed.
   PRESETS.forEach(p => { const c = cat.collections.find(x=>x.id===p.id); if(!c) return; c.seen = c.seen || c.fields.map(f=>f.k);
     p.fields.forEach((f, n) => { if(!c.seen.includes(f.k)){ c.seen.push(f.k); const nlab = x => String(x).toLowerCase().split(/ [(\/]/)[0].replace(/[^a-z0-9]/g,"");
