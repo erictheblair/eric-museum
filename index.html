@@ -91,7 +91,7 @@ main{padding:20px 0 calc(120px + env(safe-area-inset-bottom))}
 #qe .qbar a{margin-right:auto;font-size:.88rem}
 .frame{background:var(--frame);padding:7px;border-radius:4px;box-shadow:var(--shadow)}
 .matte{background:var(--mat);padding:8px;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.matte img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.matte img{width:100%;height:100%;object-fit:contain;display:block}   /* fills the mat even when the picture is small (book covers from Google are) */
 .placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);gap:6px;padding:8px}
 .placeholder .em{font-size:2.4rem;opacity:.7}
 .placeholder .t{font-family:var(--serif);font-size:.85rem;line-height:1.2;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -250,7 +250,7 @@ legend{font-family:var(--serif);font-weight:600;padding:0 6px}
 .scanner .torch svg{width:28px;height:28px}
 .scanner .torch.on{background:#f5d76e;color:#111;border-color:#f5d76e;box-shadow:0 0 18px rgba(245,215,110,.8)}
 .found{border:1px solid var(--accent);background:var(--surface);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;margin-bottom:16px}
-.found img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--mat)}
+.found img{width:72px;height:auto;max-height:108px;object-fit:contain;border-radius:6px;background:var(--mat)}
 .found .grow{flex:1;min-width:0}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:.9rem;z-index:60;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
 .busy{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center}
@@ -895,7 +895,7 @@ a.st-bar:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
 
 <script>
 "use strict";
-const APP_VERSION = "2026.11.27.2";
+const APP_VERSION = "2026.11.27.3";
 /* ============================================================
    Collection presets and data model
    ============================================================ */
@@ -3546,6 +3546,9 @@ function chooseCover(it, opts){
     if(opts.onPick){ close(); opts.onPick(b.dataset.u, b.dataset.t, rep); } else useCover(it, b.dataset.u, b.dataset.t, rep, opts.after); });
   if(ref) releaseImages(ref).then(imgs => { const el = document.getElementById("ccThis"); if(!el || !imgs.length) return;
     el.innerHTML = `<h3 style="font-size:1rem;margin:12px 0 6px">From the release you matched</h3>` + grid(imgs); wire(el); }).catch(()=>{});
+  const isbn = kind === "book" && !ref && bookCode((it.fields||{}).isbn || it.barcode);
+  if(isbn) lookupBook(isbn).then(r => { const el = document.getElementById("ccThis"); if(!el || !r || !r.cover) return;   // the cover of your exact edition, full size
+    el.innerHTML = `<h3 style="font-size:1rem;margin:12px 0 6px">Your edition (ISBN ${esc(isbn)})</h3>` + grid([{url:r.cover, thumb:r.cover, label:r.source}]); wire(el); }).catch(()=>{});
   const isf = issueField(c), iss = isf && (it.fields||{})[isf.k];
   searchCandidates(kind, kind === "comic" && iss && !/#/.test(it.title) ? it.title + " #" + iss : it.title, it.maker).then(list => {
     const el = document.getElementById("ccOther"); if(!el) return;
@@ -3670,18 +3673,20 @@ async function gbJSON(url){
   if(!r.ok) throw new Error("Google Books error " + r.status);
   return r.json();
 }
+// Google hands out a 128-pixel thumbnail; the same address with fife=w800 gives a full-size cover.
+const gbCover = u => !u ? "" : u.replace(/^http:/, "https:").replace(/&edge=curl/, "").replace(/&fife=[^&]*/, "") + (/books\.google|googleusercontent/.test(u) ? "&fife=w800-h1200" : "");
 async function gbBook(q){
   const j = await gbJSON("https://www.googleapis.com/books/v1/volumes?maxResults=1&printType=books&q=" + encodeURIComponent(q));
   const v = ((j.items||[])[0]||{}).volumeInfo; if(!v) return null;
   const img = v.imageLinks || {}, pic = img.extraLarge || img.large || img.medium || img.thumbnail || img.smallThumbnail || "";
   return {title:[v.title, v.subtitle].filter(Boolean).join(": "), authors:v.authors || [], year:((v.publishedDate||"").match(/\d{4}/)||[""])[0], publisher:v.publisher || "",
-    pages:v.pageCount || "", cover:pic.replace(/^http:/, "https:").replace(/&edge=curl/, ""), binding:"", edition:"", genre:(v.categories||[]).slice(0, 2).join(", "), illustrator:""};
+    pages:v.pageCount || "", cover:gbCover(pic), binding:"", edition:"", genre:(v.categories||[]).slice(0, 2).join(", "), illustrator:""};
 }
 async function googleBookCandidates(q, maker){
   const j = await gbJSON("https://www.googleapis.com/books/v1/volumes?maxResults=12&printType=books&q=" + encodeURIComponent(q + (maker ? " inauthor:" + maker : "")));
   return (j.items||[]).map(x => { const v = x.volumeInfo || {}, img = v.imageLinks || {}, isbn = ((v.industryIdentifiers||[]).find(i => i.type === "ISBN_13")||{}).identifier || "";
     const res = {source:"Google Books", title:[v.title, v.subtitle].filter(Boolean).join(": "), maker:(v.authors||[]).join(", "), year:((v.publishedDate||"").match(/\d{4}/)||[""])[0],
-      cover:(img.thumbnail || img.smallThumbnail || "").replace(/^http:/, "https:").replace(/&edge=curl/, ""),
+      cover:gbCover(img.thumbnail || img.smallThumbnail || ""),
       fields:{publisher:v.publisher || "", pages:v.pageCount ? String(v.pageCount) : "", genre:(v.categories||[]).slice(0, 2).join(", ")}, named:{"Publisher":v.publisher, "ISBN":isbn, "Pages":v.pageCount ? String(v.pageCount) : "", "Genre":(v.categories||[]).join(", ")}};
     return {...res, thumb:(img.smallThumbnail || img.thumbnail || "").replace(/^http:/, "https:"), sub:[v.publisher, v.pageCount ? v.pageCount + " pages" : ""].filter(Boolean).join(" · "), get:async() => isbn ? (await lookupBook(isbn).catch(() => null)) || res : res}; });
 }
