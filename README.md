@@ -29,8 +29,13 @@ You can also try it without Dropbox: it saves on that device only until you conn
 
 ## Barcode scanning & lookups
 Tap **▦ Scan** to scan a UPC/EAN/ISBN with your phone camera (or type the number).
-Lookups use free public sources: Open Library (books), MusicBrainz + Cover Art Archive (records),
-Wikidata (movie/laserdisc director, year, runtime, cast), and UPCitemdb (general products, limited free daily lookups).
+Lookups use free public sources, and each collection asks the ones that fit it:
+- **Books:** ISBN barcodes (978/979, with or without the price add-on, or a typed ISBN-10) go to Open Library and Google Books together. Never the record databases.
+- **Records:** Discogs (optional token) + MusicBrainz + Cover Art Archive.
+- **Laserdiscs / movies:** Discogs + MusicBrainz (laserdisc barcodes), UPCitemdb (DVD/Blu-ray), then Wikidata for director, year, runtime, cast.
+- **Comics:** Metron by UPC (through the lookup helper), Open Library/Google Books for graphic novel ISBNs, then UPCitemdb.
+- **Board games:** UPCitemdb names the box, then BoardGameGeek (through the lookup helper) fills in the game.
+UPCitemdb has limited free daily lookups.
 Optional: add a free Discogs token in Settings for better record and laserdisc matches.
 For older items without barcodes, type the title and press **🔎 Look up**.
 Use **More details** on any piece for your own label/value pairs (edition number, variant, signed by…).
